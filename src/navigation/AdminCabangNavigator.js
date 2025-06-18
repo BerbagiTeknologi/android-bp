@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AdminCabangDashboardScreen from '../features/adminCabang/screen/AdminCabangDashboardScreen';
 import AdminCabangProfileScreen from '../features/adminCabang/screen/AdminCabangProfileScreen';
 import SurveyStatusFilterScreen from '../features/adminCabang/screen/SurveyStatusFilterScreen';
-import ProcessedSurveyListScreen from '../features/adminCabang/screen/ProcessedSurveyListScreen';
 import SurveyApprovalDetailScreen from '../features/adminCabang/screen/SurveyApprovalDetailScreen';
 
 const Tab = createBottomTabNavigator();
@@ -20,12 +19,7 @@ const HomeStackNavigator = () => {
       <HomeStack.Screen 
         name="Dashboard" 
         component={AdminCabangDashboardScreen} 
-        options={{ headerTitle: 'Admin Cabang Dashboard' }}
-      />
-      <HomeStack.Screen 
-        name="ProcessedSurveys" 
-        component={ProcessedSurveyListScreen} 
-        options={{ headerTitle: 'Processed Surveys' }}
+        options={{ headerTitle: 'Dashboard Admin Cabang' }}
       />
       <HomeStack.Screen 
         name="SurveyDetail" 
@@ -42,12 +36,12 @@ const ManagementStackNavigator = () => {
       <ManagementStack.Screen 
         name="SurveyStatusFilter" 
         component={SurveyStatusFilterScreen} 
-        options={{ headerTitle: 'Survey Management' }}
+        options={{ headerTitle: 'Manajemen Survei' }}
       />
       <ManagementStack.Screen 
         name="SurveyApprovalDetail" 
         component={SurveyApprovalDetailScreen} 
-        options={{ headerTitle: 'Survey Detail' }}
+        options={{ headerTitle: 'Detail Survei' }}
       />
     </ManagementStack.Navigator>
   );
@@ -59,7 +53,7 @@ const ProfileStackNavigator = () => {
       <ProfileStack.Screen 
         name="Profile" 
         component={AdminCabangProfileScreen} 
-        options={{ headerTitle: 'My Profile' }}
+        options={{ headerTitle: 'Profil Saya' }}
       />
     </ProfileStack.Navigator>
   );
@@ -95,12 +89,12 @@ const AdminCabangNavigator = () => {
       <Tab.Screen 
         name="Management" 
         component={ManagementStackNavigator} 
-        options={{ tabBarLabel: 'Survey Management' }}
+        options={{ tabBarLabel: 'Manajemen Survei' }}
       />
       <Tab.Screen 
         name="ProfileTab" 
         component={ProfileStackNavigator} 
-        options={{ tabBarLabel: 'Profile' }}
+        options={{ tabBarLabel: 'Profil' }}
       />
     </Tab.Navigator>
   );
