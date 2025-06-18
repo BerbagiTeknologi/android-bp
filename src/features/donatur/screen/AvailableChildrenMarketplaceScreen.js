@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../common/components/ErrorMessage';
 import { donaturMarketplaceApi } from '../api/donaturMarketplaceApi';
@@ -45,7 +44,7 @@ const AvailableChildrenMarketplaceScreen = () => {
       setFeaturedChildren(featuredData);
     } catch (err) {
       console.error('Error fetching marketplace data:', err);
-      setError('Failed to load available children. Please try again.');
+      setError('Gagal Memuat Data Anak. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,7 +124,7 @@ const AvailableChildrenMarketplaceScreen = () => {
   );
 
   if (loading && !refreshing) {
-    return <LoadingSpinner fullScreen message="Loading available children..." />;
+    return <LoadingSpinner fullScreen message="Memuat..." />;
   }
 
   return (

@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  TextInput, Alert, Modal
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
@@ -29,15 +26,13 @@ const SurveyApprovalDetailScreen = () => {
       const response = await adminCabangSurveyApi.getSurveyDetail(surveyId);
       setSurvey(response.data.data);
     } catch (err) {
-      setError('Failed to load survey details');
+      setError('Gagal memuat detail survei');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchSurveyDetail();
-  }, [surveyId]);
+  useEffect(() => { fetchSurveyDetail(); }, [surveyId]);
 
   const showApprovalModal = (type) => {
     setActionType(type);
@@ -48,7 +43,7 @@ const SurveyApprovalDetailScreen = () => {
 
   const handleApproval = async () => {
     if (actionType === 'reject' && !rejectionReason.trim()) {
-      Alert.alert('Error', 'Rejection reason is required');
+      Alert.alert('Kesalahan', 'Alasan penolakan wajib diisi');
       return;
     }
 
@@ -58,18 +53,17 @@ const SurveyApprovalDetailScreen = () => {
       if (actionType === 'reject') data.rejection_reason = rejectionReason;
 
       await adminCabangSurveyApi[actionType === 'approve' ? 'approveSurvey' : 'rejectSurvey'](surveyId, data);
-      
-      Alert.alert('Success', `Survey ${actionType === 'approve' ? 'approved' : 'rejected'} successfully`);
+      Alert.alert('Berhasil', `Survei berhasil ${actionType === 'approve' ? 'disetujui' : 'ditolak'}`);
       setModalVisible(false);
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Error', 'Failed to process survey');
+      Alert.alert('Kesalahan', 'Gagal memproses survei');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const renderInfoSection = (title, data) => (
+  const InfoSection = ({ title, data }) => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.sectionContent}>
@@ -83,83 +77,86 @@ const SurveyApprovalDetailScreen = () => {
     </View>
   );
 
-  if (loading) return <LoadingSpinner fullScreen message="Loading survey details..." />;
-
-  if (error) {
+  const ActionButton = ({ type, onPress }) => {
+    const isApprove = type === 'approve';
     return (
-      <View style={styles.container}>
-        <ErrorMessage message={error} onRetry={fetchSurveyDetail} />
-      </View>
+      <TouchableOpacity style={[styles.actionButton, isApprove ? styles.approveButton : styles.rejectButton]} onPress={onPress}>
+        <Ionicons name={isApprove ? 'checkmark-circle' : 'close-circle'} size={24} color="#fff" />
+        <Text style={styles.actionButtonText}>{isApprove ? 'Setujui' : 'Tolak'}</Text>
+      </TouchableOpacity>
     );
-  }
+  };
+
+  const InputField = ({ label, value, onChangeText, placeholder, required, multiline = true }) => (
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>{label} {required && '*'}</Text>
+      <TextInput
+        style={styles.textArea}
+        placeholder={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        multiline={multiline}
+        numberOfLines={3}
+      />
+    </View>
+  );
+
+  if (loading) return <LoadingSpinner fullScreen message="Memuat detail survei..." />;
+  if (error) return <View style={styles.container}><ErrorMessage message={error} onRetry={fetchSurveyDetail} /></View>;
 
   const { keluarga } = survey;
   const anak = keluarga?.anak?.[0];
 
+  const sections = [
+    ['Informasi Keluarga', {
+      'Kepala Keluarga': keluarga?.kepala_keluarga,
+      'Nomor KK': keluarga?.no_kk,
+      'Telepon': keluarga?.no_telp,
+      'Shelter': keluarga?.shelter?.nama_shelter,
+      'Wilbin': keluarga?.shelter?.wilbin?.nama_wilbin
+    }],
+    ...(anak ? [['Informasi Anak', {
+      'Nama Lengkap': anak.full_name,
+      'Nama Panggilan': anak.nick_name,
+      'Tanggal Lahir': new Date(anak.tanggal_lahir).toLocaleDateString(),
+      'Status Saat Ini': anak.status_cpb
+    }]] : []),
+    ...(keluarga?.ayah ? [['Informasi Ayah', {
+      'Nama': keluarga.ayah.nama_ayah,
+      'NIK': keluarga.ayah.nik_ayah,
+      'Tempat Lahir': keluarga.ayah.tempat_lahir,
+      'Penghasilan': keluarga.ayah.penghasilan
+    }]] : []),
+    ...(keluarga?.ibu ? [['Informasi Ibu', {
+      'Nama': keluarga.ibu.nama_ibu,
+      'NIK': keluarga.ibu.nik_ibu,
+      'Tempat Lahir': keluarga.ibu.tempat_lahir,
+      'Penghasilan': keluarga.ibu.penghasilan
+    }]] : []),
+    ['Informasi Survei', {
+      'Pekerjaan Kepala Keluarga': survey.pekerjaan_kepala_keluarga,
+      'Penghasilan': survey.penghasilan,
+      'Pendidikan': survey.pendidikan_kepala_keluarga,
+      'Jumlah Tanggungan': survey.jumlah_tanggungan,
+      'Kepemilikan Rumah': survey.kepemilikan_rumah,
+      'Kondisi Dinding': survey.kondisi_rumah_dinding,
+      'Kondisi Lantai': survey.kondisi_rumah_lantai,
+      'Sumber Air Bersih': survey.sumber_air_bersih,
+      'Tanggal Survei': new Date(survey.tanggal_survey).toLocaleDateString(),
+      'Petugas Survei': survey.petugas_survey
+    }]
+  ];
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        {renderInfoSection('Family Information', {
-          'Family Head': keluarga?.kepala_keluarga,
-          'KK Number': keluarga?.no_kk,
-          'Phone': keluarga?.no_telp,
-          'Shelter': keluarga?.shelter?.nama_shelter,
-          'Wilbin': keluarga?.shelter?.wilbin?.nama_wilbin
-        })}
-
-        {anak && renderInfoSection('Child Information', {
-          'Full Name': anak.full_name,
-          'Nickname': anak.nick_name,
-          'Birth Date': new Date(anak.tanggal_lahir).toLocaleDateString(),
-          'Current Status': anak.status_cpb
-        })}
-
-        {keluarga?.ayah && renderInfoSection('Father Information', {
-          'Name': keluarga.ayah.nama_ayah,
-          'NIK': keluarga.ayah.nik_ayah,
-          'Birth Place': keluarga.ayah.tempat_lahir,
-          'Income': keluarga.ayah.penghasilan
-        })}
-
-        {keluarga?.ibu && renderInfoSection('Mother Information', {
-          'Name': keluarga.ibu.nama_ibu,
-          'NIK': keluarga.ibu.nik_ibu,
-          'Birth Place': keluarga.ibu.tempat_lahir,
-          'Income': keluarga.ibu.penghasilan
-        })}
-
-        {renderInfoSection('Survey Information', {
-          'Family Head Job': survey.pekerjaan_kepala_keluarga,
-          'Income': survey.penghasilan,
-          'Education': survey.pendidikan_kepala_keluarga,
-          'Dependents': survey.jumlah_tanggungan,
-          'House Ownership': survey.kepemilikan_rumah,
-          'Wall Condition': survey.kondisi_rumah_dinding,
-          'Floor Condition': survey.kondisi_rumah_lantai,
-          'Water Source': survey.sumber_air_bersih,
-          'Survey Date': new Date(survey.tanggal_survey).toLocaleDateString(),
-          'Surveyor': survey.petugas_survey
-        })}
+        {sections.map(([title, data], index) => <InfoSection key={index} title={title} data={data} />)}
       </ScrollView>
 
       {survey?.hasil_survey === 'pending' && (
         <View style={styles.actionContainer}>
-          {['reject', 'approve'].map((action) => (
-            <TouchableOpacity 
-              key={action}
-              style={[styles.actionButton, styles[`${action}Button`]]}
-              onPress={() => showApprovalModal(action)}
-            >
-              <Ionicons 
-                name={action === 'approve' ? 'checkmark-circle' : 'close-circle'} 
-                size={24} 
-                color="#fff" 
-              />
-              <Text style={styles.actionButtonText}>
-                {action === 'approve' ? 'Approve' : 'Reject'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <ActionButton type="reject" onPress={() => showApprovalModal('reject')} />
+          <ActionButton type="approve" onPress={() => showApprovalModal('approve')} />
         </View>
       )}
 
@@ -167,38 +164,29 @@ const SurveyApprovalDetailScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {actionType === 'approve' ? 'Approve Survey' : 'Reject Survey'}
+              {actionType === 'approve' ? 'Setujui Survei' : 'Tolak Survei'}
             </Text>
             
             {actionType === 'reject' && (
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Rejection Reason *</Text>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="Enter rejection reason..."
-                  value={rejectionReason}
-                  onChangeText={setRejectionReason}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
+              <InputField
+                label="Alasan Penolakan"
+                value={rejectionReason}
+                onChangeText={setRejectionReason}
+                placeholder="Masukkan alasan penolakan..."
+                required
+              />
             )}
             
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Notes (Optional)</Text>
-              <TextInput
-                style={styles.textArea}
-                placeholder="Enter additional notes..."
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+            <InputField
+              label="Catatan"
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Masukkan catatan tambahan..."
+            />
             
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Batal</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -210,7 +198,7 @@ const SurveyApprovalDetailScreen = () => {
                   <LoadingSpinner size="small" color="#fff" />
                 ) : (
                   <Text style={styles.actionButtonText}>
-                    {actionType === 'approve' ? 'Approve' : 'Reject'}
+                    {actionType === 'approve' ? 'Setujui' : 'Tolak'}
                   </Text>
                 )}
               </TouchableOpacity>

@@ -24,9 +24,9 @@ const SurveyStatusFilterScreen = () => {
   ];
 
   const statusConfig = {
-    pending: { label: 'MENUNGGU', color: '#f39c12' },
-    layak: { label: 'DISETUJUI', color: '#27ae60' },
-    'tidak layak': { label: 'DITOLAK', color: '#e74c3c' }
+    pending: { label: 'MENUNGGU', color: '#f39c12', bgColor: '#fef5e7' },
+    layak: { label: 'DISETUJUI', color: '#27ae60', bgColor: '#d5f4e6', icon: 'checkmark-circle' },
+    'tidak layak': { label: 'DITOLAK', color: '#e74c3c', bgColor: '#fdeaea', icon: 'close-circle' }
   };
 
   const fetchSurveys = async (params = {}) => {
@@ -36,11 +36,7 @@ const SurveyStatusFilterScreen = () => {
         status: activeTab, search: searchText, ...params
       });
       setSurveys(response.data.data.data);
-      setPagination({
-        currentPage: response.data.data.current_page,
-        lastPage: response.data.data.last_page,
-        total: response.data.data.total
-      });
+      setPagination({ currentPage: response.data.data.current_page, lastPage: response.data.data.last_page, total: response.data.data.total });
     } catch (err) {
       setError('Gagal memuat survei');
     } finally {
@@ -61,73 +57,77 @@ const SurveyStatusFilterScreen = () => {
   useEffect(() => { fetchStats(); }, []);
   useEffect(() => { setLoading(true); fetchSurveys(); }, [activeTab]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchSurveys();
-    fetchStats();
-  };
-
+  const handleRefresh = () => { setRefreshing(true); fetchSurveys(); fetchStats(); };
   const handleSearch = () => { setLoading(true); fetchSurveys(); };
-  
-  const handleTabChange = (tabKey) => {
-    setActiveTab(tabKey);
-    setSearchText('');
-  };
+  const handleTabChange = (tabKey) => { setActiveTab(tabKey); setSearchText(''); };
+  const navigateToDetail = (survey) => navigation.navigate('SurveyApprovalDetail', { surveyId: survey.id_survey });
 
-  const navigateToDetail = (survey) => 
-    navigation.navigate('SurveyApprovalDetail', { surveyId: survey.id_survey });
-
-  const getStatusBadge = (status) => {
+  const StatusBadge = ({ status }) => {
     const config = statusConfig[status] || statusConfig.pending;
     return (
-      <View style={[styles.statusBadge, { backgroundColor: config.color }]}>
-        <Text style={styles.statusText}>{config.label}</Text>
+      <View style={[styles.statusBadge, { backgroundColor: config.bgColor }]}>
+        {config.icon && <Ionicons name={config.icon} size={16} color={config.color} style={{ marginRight: 4 }} />}
+        <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
       </View>
     );
   };
 
-  const InfoRow = ({ icon, text }) => (
-    <View style={styles.infoRow}>
+  const InfoRow = ({ icon, text, style }) => (
+    <View style={[styles.infoRow, style]}>
       <Ionicons name={icon} size={16} color="#666" />
       <Text style={styles.infoText}>{text}</Text>
     </View>
   );
 
   const renderSurveyItem = ({ item }) => (
-    <TouchableOpacity style={styles.surveyCard} onPress={() => navigateToDetail(item)}>
-      <View style={styles.surveyHeader}>
-        <Text style={styles.familyName}>{item.keluarga?.kepala_keluarga}</Text>
-        {getStatusBadge(item.hasil_survey)}
+    <TouchableOpacity style={styles.card} onPress={() => navigateToDetail(item)}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.familyName}>{item.keluarga?.kepala_keluarga}</Text>
+          <Text style={styles.shelterName}>{item.keluarga?.shelter?.nama_shelter}</Text>
+        </View>
+        <StatusBadge status={item.hasil_survey} />
       </View>
       
-      <View style={styles.surveyInfo}>
-        <InfoRow icon="home-outline" text={item.keluarga?.shelter?.nama_shelter} />
+      <View style={styles.info}>
         <InfoRow icon="people-outline" text={`${item.keluarga?.anak?.length || 0} Anak`} />
-        <InfoRow icon="calendar-outline" text={new Date(item.created_at).toLocaleDateString()} />
+        <InfoRow icon="calendar-outline" text={`Dibuat: ${new Date(item.created_at).toLocaleDateString()}`} />
         {item.approved_at && (
           <InfoRow icon="checkmark-outline" text={`Diproses: ${new Date(item.approved_at).toLocaleDateString()}`} />
         )}
+        {item.approvedBy && (
+          <InfoRow icon="person-outline" text={`Oleh: ${item.approvedBy.nama_lengkap}`} />
+        )}
       </View>
 
-      {item.keluarga?.anak?.length > 0 && (
-        <View style={styles.childrenInfo}>
-          <Text style={styles.childrenLabel}>Anak:</Text>
-          {item.keluarga.anak.slice(0, 2).map((anak, index) => (
-            <Text key={index} style={styles.childName}>
-              {anak.full_name} ({anak.status_cpb})
-            </Text>
-          ))}
-          {item.keluarga.anak.length > 2 && (
-            <Text style={styles.moreChildren}>+{item.keluarga.anak.length - 2} lagi</Text>
-          )}
+      {item.approval_notes && (
+        <View style={[styles.notesContainer, { backgroundColor: '#f8f8f8' }]}>
+          <Text style={styles.notesLabel}>Catatan:</Text>
+          <Text style={styles.notesText}>{item.approval_notes}</Text>
         </View>
       )}
 
-      {activeTab !== 'pending' && item.approvedBy && (
-        <View style={styles.processedInfo}>
-          <Text style={styles.processedLabel}>
-            Diproses oleh: {item.approvedBy.nama_lengkap || 'Admin'}
-          </Text>
+      {item.rejection_reason && (
+        <View style={[styles.notesContainer, { backgroundColor: '#fdeaea', borderLeftWidth: 4, borderLeftColor: '#e74c3c' }]}>
+          <Text style={[styles.notesLabel, { color: '#e74c3c' }]}>Alasan Penolakan:</Text>
+          <Text style={[styles.notesText, { color: '#c0392b' }]}>{item.rejection_reason}</Text>
+        </View>
+      )}
+
+      {item.keluarga?.anak?.length > 0 && (
+        <View style={styles.children}>
+          <Text style={styles.childrenLabel}>Anak:</Text>
+          <View style={styles.childrenList}>
+            {item.keluarga.anak.slice(0, 3).map((anak, index) => (
+              <View key={index} style={styles.childItem}>
+                <Text style={styles.childName}>{anak.full_name}</Text>
+                <Text style={styles.childStatus}>({anak.status_cpb})</Text>
+              </View>
+            ))}
+            {item.keluarga.anak.length > 3 && (
+              <Text style={styles.moreChildren}>+{item.keluarga.anak.length - 3} lagi</Text>
+            )}
+          </View>
         </View>
       )}
     </TouchableOpacity>
@@ -145,9 +145,7 @@ const SurveyStatusFilterScreen = () => {
             onPress={() => handleTabChange(tab.key)}
           >
             <Ionicons name={tab.icon} size={20} color={activeTab === tab.key ? tab.color : '#999'} />
-            <Text style={[styles.tabText, activeTab === tab.key && { color: tab.color }]}>
-              {tab.label}
-            </Text>
+            <Text style={[styles.tabText, activeTab === tab.key && { color: tab.color }]}>{tab.label}</Text>
             {stats[tab.key] !== undefined && (
               <View style={[styles.tabBadge, { backgroundColor: tab.color }]}>
                 <Text style={styles.tabBadgeText}>{stats[tab.key]}</Text>
@@ -160,13 +158,7 @@ const SurveyStatusFilterScreen = () => {
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
           <Ionicons name="search" size={20} color="#999" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari keluarga, nama anak, atau nomor KK..."
-            value={searchText}
-            onChangeText={setSearchText}
-            onSubmitEditing={handleSearch}
-          />
+          <TextInput style={styles.searchInput} placeholder="Cari keluarga, nama anak, atau nomor KK..." value={searchText} onChangeText={setSearchText} onSubmitEditing={handleSearch} />
         </View>
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           <Ionicons name="search" size={20} color="#fff" />
@@ -176,19 +168,17 @@ const SurveyStatusFilterScreen = () => {
       {error && <ErrorMessage message={error} onRetry={fetchSurveys} />}
 
       <View style={styles.statsContainer}>
-        <Text style={styles.statsText}>
-          {pagination.total || 0} {tabs.find(t => t.key === activeTab)?.label} Survei
-        </Text>
+        <Text style={styles.statsText}>{pagination.total || 0} {tabs.find(t => t.key === activeTab)?.label} Survei</Text>
       </View>
 
       <FlatList
         data={surveys}
         renderItem={renderSurveyItem}
         keyExtractor={(item) => item.id_survey.toString()}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={styles.empty}>
             <Ionicons name="document-text-outline" size={64} color="#ccc" />
             <Text style={styles.emptyText}>Tidak ada survei {activeTab} ditemukan</Text>
           </View>
@@ -212,22 +202,28 @@ const styles = StyleSheet.create({
   searchButton: { backgroundColor: '#2ecc71', padding: 12, borderRadius: 8 },
   statsContainer: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
   statsText: { fontSize: 16, fontWeight: '600', color: '#333' },
-  listContainer: { padding: 16 },
-  surveyCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2 },
-  surveyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  familyName: { fontSize: 18, fontWeight: 'bold', color: '#333', flex: 1 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-  statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  surveyInfo: { marginBottom: 12 },
+  list: { padding: 16 },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  headerLeft: { flex: 1, marginRight: 12 },
+  familyName: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  shelterName: { fontSize: 14, color: '#666' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  info: { marginBottom: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   infoText: { marginLeft: 8, fontSize: 14, color: '#666' },
-  childrenInfo: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8, marginBottom: 8 },
-  childrenLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 4 },
-  childName: { fontSize: 14, color: '#666', marginBottom: 2 },
+  notesContainer: { padding: 12, borderRadius: 8, marginBottom: 12 },
+  notesLabel: { fontSize: 12, fontWeight: '600', color: '#333', marginBottom: 4 },
+  notesText: { fontSize: 14, color: '#666', lineHeight: 20 },
+  children: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 12 },
+  childrenLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
+  childrenList: { flexDirection: 'row', flexWrap: 'wrap' },
+  childItem: { flexDirection: 'row', alignItems: 'center', marginRight: 12, marginBottom: 4 },
+  childName: { fontSize: 14, color: '#333', marginRight: 4 },
+  childStatus: { fontSize: 12, color: '#666' },
   moreChildren: { fontSize: 12, color: '#999', fontStyle: 'italic' },
-  processedInfo: { borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8 },
-  processedLabel: { fontSize: 12, color: '#999', fontStyle: 'italic' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 64 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 64 },
   emptyText: { fontSize: 16, color: '#999', marginTop: 16 }
 });
 

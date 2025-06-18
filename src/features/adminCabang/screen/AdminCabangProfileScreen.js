@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Alert,
+  View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +10,6 @@ import Button from '../../../common/components/Button';
 import TextInput from '../../../common/components/TextInput';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../common/components/ErrorMessage';
-
 import { useAuth } from '../../../common/hooks/useAuth';
 import { adminCabangApi } from '../api/adminCabangApi';
 
@@ -25,11 +18,7 @@ const AdminCabangProfileScreen = () => {
   const { user, profile, refreshUser, logout } = useAuth();
   
   const [profileData, setProfileData] = useState({
-    nama_lengkap: '',
-    alamat: '',
-    no_hp: '',
-    email: '',
-    kacab: null,
+    nama_lengkap: '', alamat: '', no_hp: '', email: '',
   });
   const [profileImage, setProfileImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -43,7 +32,6 @@ const AdminCabangProfileScreen = () => {
         alamat: profile.alamat || '',
         no_hp: profile.no_hp || '',
         email: user?.email || '',
-        kacab: profile.kacab || null,
       });
 
       if (profile.foto) {
@@ -55,7 +43,6 @@ const AdminCabangProfileScreen = () => {
   const handleSelectImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
       if (status !== 'granted') {
         Alert.alert('Izin Ditolak', 'Izin untuk mengakses galeri foto diperlukan');
         return;
@@ -63,9 +50,7 @@ const AdminCabangProfileScreen = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
+        allowsEditing: true, aspect: [1, 1], quality: 0.7,
       });
 
       if (!result.canceled && result.assets?.[0]) {
@@ -82,26 +67,19 @@ const AdminCabangProfileScreen = () => {
       setError(null);
 
       const formData = new FormData();
-      
-      formData.append('nama_lengkap', profileData.nama_lengkap);
-      formData.append('alamat', profileData.alamat);
-      formData.append('no_hp', profileData.no_hp);
+      Object.keys(profileData).forEach(key => {
+        if (key !== 'email') formData.append(key, profileData[key]);
+      });
 
       if (profileImage && !profileImage.startsWith('http')) {
         const filename = profileImage.split('/').pop();
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-        formData.append('foto', {
-          uri: profileImage,
-          name: filename,
-          type,
-        });
+        formData.append('foto', { uri: profileImage, name: filename, type });
       }
 
       await adminCabangApi.updateProfile(formData);
       await refreshUser();
-      
       setIsEditing(false);
       Alert.alert('Berhasil', 'Profil berhasil diperbarui');
     } catch (err) {
@@ -116,15 +94,10 @@ const AdminCabangProfileScreen = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Keluar',
-      'Apakah Anda yakin ingin keluar?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Keluar', style: 'destructive', onPress: logout },
-      ],
-      { cancelable: true }
-    );
+    Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Keluar', style: 'destructive', onPress: logout },
+    ], { cancelable: true });
   };
 
   const renderField = (label, field, placeholder, props = {}) => (
@@ -138,21 +111,14 @@ const AdminCabangProfileScreen = () => {
           {...props}
         />
       ) : (
-        <Text style={styles.fieldValue}>
-          {profileData[field] || '-'}
-        </Text>
+        <Text style={styles.fieldValue}>{profileData[field] || '-'}</Text>
       )}
     </View>
   );
 
   return (
     <ScrollView style={styles.container}>
-      {error && (
-        <ErrorMessage
-          message={error}
-          onRetry={() => setError(null)}
-        />
-      )}
+      {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
       <View style={styles.profileHeader}>
         <View style={styles.profileImageContainer}>
@@ -171,12 +137,10 @@ const AdminCabangProfileScreen = () => {
           )}
         </View>
         
-        <Text style={styles.profileName}>
-          {profileData.nama_lengkap || 'Admin Cabang'}
-        </Text>
+        <Text style={styles.profileName}>{profileData.nama_lengkap || 'Admin Cabang'}</Text>
         <Text style={styles.profileRole}>Admin Cabang</Text>
-        {profileData.kacab && (
-          <Text style={styles.cabangName}>{profileData.kacab.nama_cabang}</Text>
+        {profile?.kacab && (
+          <Text style={styles.cabangName}>{profile.kacab.nama_cabang}</Text>
         )}
       </View>
 
@@ -191,20 +155,8 @@ const AdminCabangProfileScreen = () => {
             />
           ) : (
             <View style={styles.editButtonsRow}>
-              <Button
-                title="Batal"
-                onPress={() => setIsEditing(false)}
-                type="outline"
-                style={styles.cancelButton}
-              />
-              <Button
-                title="Simpan"
-                onPress={handleUpdateProfile}
-                loading={loading}
-                disabled={loading}
-                type="primary"
-                style={styles.saveButton}
-              />
+              <Button title="Batal" onPress={() => setIsEditing(false)} type="outline" style={styles.cancelButton} />
+              <Button title="Simpan" onPress={handleUpdateProfile} loading={loading} disabled={loading} type="primary" style={styles.saveButton} />
             </View>
           )}
         </View>
@@ -222,20 +174,19 @@ const AdminCabangProfileScreen = () => {
           })}
 
           {renderField('Alamat', 'alamat', 'Masukkan alamat Anda', {
-            multiline: true,
-            inputProps: { numberOfLines: 3 }
+            multiline: true, inputProps: { numberOfLines: 3 }
           })}
         </View>
 
-        {profileData.kacab && (
+        {profile?.kacab && (
           <View style={styles.cabangInfoContainer}>
             <Text style={styles.sectionTitle}>Informasi Cabang</Text>
             <View style={styles.cabangInfoCard}>
               {[
-                ['Nama Cabang:', profileData.kacab.nama_cabang],
-                ['Alamat:', profileData.kacab.alamat],
-                ['Telepon:', profileData.kacab.no_telp],
-                ...(profileData.kacab.email ? [['Email:', profileData.kacab.email]] : [])
+                ['Nama Cabang:', profile.kacab.nama_cabang],
+                ['Alamat:', profile.kacab.alamat],
+                ['Telepon:', profile.kacab.no_telp],
+                ...(profile.kacab.email ? [['Email:', profile.kacab.email]] : [])
               ].map(([label, value], index) => (
                 <View key={index} style={styles.cabangInfoRow}>
                   <Text style={styles.cabangInfoLabel}>{label}</Text>
@@ -248,18 +199,8 @@ const AdminCabangProfileScreen = () => {
 
         <View style={styles.settingsContainer}>
           {[
-            {
-              icon: 'settings-outline',
-              text: 'Pengaturan',
-              color: '#2ecc71',
-              onPress: () => navigation.navigate('Settings')
-            },
-            {
-              icon: 'log-out-outline',
-              text: 'Keluar',
-              color: '#e74c3c',
-              onPress: handleLogout
-            }
+            { icon: 'settings-outline', text: 'Pengaturan', color: '#2ecc71', onPress: () => navigation.navigate('Settings') },
+            { icon: 'log-out-outline', text: 'Keluar', color: '#e74c3c', onPress: handleLogout }
           ].map((item, index) => (
             <TouchableOpacity key={index} style={styles.settingsItem} onPress={item.onPress}>
               <Ionicons name={item.icon} size={24} color={item.color} />
@@ -280,163 +221,34 @@ const AdminCabangProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  profileHeader: {
-    backgroundColor: '#2ecc71',
-    padding: 20,
-    alignItems: 'center',
-    paddingBottom: 80,
-  },
-  profileImageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 16,
-    position: 'relative',
-    borderWidth: 4,
-    borderColor: '#fff',
-    overflow: 'hidden',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  profileImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#27ae60',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#27ae60',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  profileRole: {
-    fontSize: 16,
-    color: '#fff',
-    opacity: 0.8,
-  },
-  cabangName: {
-    fontSize: 16,
-    color: '#fff',
-    marginTop: 4,
-    opacity: 0.9,
-    fontWeight: '500',
-  },
-  profileContent: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -50,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  editButtonContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 20,
-  },
-  editButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  cancelButton: {
-    marginRight: 10,
-  },
-  saveButton: {
-    minWidth: 100,
-  },
-  profileFields: {
-    marginBottom: 20,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 4,
-  },
-  fieldValue: {
-    fontSize: 16,
-    color: '#333',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  cabangInfoContainer: {
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  cabangInfoCard: {
-    backgroundColor: '#f9f9f9',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  cabangInfoRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  cabangInfoLabel: {
-    width: 100,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  cabangInfoValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  settingsContainer: {
-    marginTop: 20,
-  },
-  settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  settingsText: {
-    flex: 1,
-    marginLeft: 15,
-    fontSize: 16,
-    color: '#333',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  profileHeader: { backgroundColor: '#2ecc71', padding: 20, alignItems: 'center', paddingBottom: 80 },
+  profileImageContainer: { width: 120, height: 120, borderRadius: 60, marginBottom: 16, position: 'relative', borderWidth: 4, borderColor: '#fff', overflow: 'hidden' },
+  profileImage: { width: '100%', height: '100%' },
+  profileImagePlaceholder: { width: '100%', height: '100%', backgroundColor: '#27ae60', justifyContent: 'center', alignItems: 'center' },
+  editImageButton: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#27ae60', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  profileName: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  profileRole: { fontSize: 16, color: '#fff', opacity: 0.8 },
+  cabangName: { fontSize: 16, color: '#fff', marginTop: 4, opacity: 0.9, fontWeight: '500' },
+  profileContent: { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, marginTop: -50, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 40 },
+  editButtonContainer: { alignItems: 'flex-end', marginBottom: 20 },
+  editButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  cancelButton: { marginRight: 10 },
+  saveButton: { minWidth: 100 },
+  profileFields: { marginBottom: 20 },
+  fieldContainer: { marginBottom: 16 },
+  fieldLabel: { fontSize: 14, fontWeight: '500', color: '#666', marginBottom: 4 },
+  fieldValue: { fontSize: 16, color: '#333', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  cabangInfoContainer: { marginTop: 10, marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 16 },
+  cabangInfoCard: { backgroundColor: '#f9f9f9', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#eee' },
+  cabangInfoRow: { flexDirection: 'row', marginBottom: 8 },
+  cabangInfoLabel: { width: 100, fontSize: 14, fontWeight: '500', color: '#666' },
+  cabangInfoValue: { flex: 1, fontSize: 14, color: '#333' },
+  settingsContainer: { marginTop: 20 },
+  settingsItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  settingsText: { flex: 1, marginLeft: 15, fontSize: 16, color: '#333' },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 2 },
 });
 
 export default AdminCabangProfileScreen;
