@@ -15,7 +15,7 @@ import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 const LoadingSpinner = ({ 
   size = 'large', 
   color = '#3498db', 
-  message = 'Loading...', 
+  message = 'Memuat...', 
   fullScreen = false,
   style
 }) => {

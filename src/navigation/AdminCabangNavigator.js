@@ -7,10 +7,14 @@ import AdminCabangDashboardScreen from '../features/adminCabang/screen/AdminCaba
 import AdminCabangProfileScreen from '../features/adminCabang/screen/AdminCabangProfileScreen';
 import SurveyStatusFilterScreen from '../features/adminCabang/screen/SurveyStatusFilterScreen';
 import SurveyApprovalDetailScreen from '../features/adminCabang/screen/SurveyApprovalDetailScreen';
+import AdminCabangPengajuanDonaturScreen from '../features/adminCabang/screen/AdminCabangPengajuanDonaturScreen';
+import DonaturSelectionScreen from '../features/adminCabang/screen/DonaturSelectionScreen';
+import ChildDetailScreen from '../features/adminCabang/screen/ChildDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
 const ManagementStack = createStackNavigator();
+const PengajuanDonaturStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 const HomeStackNavigator = () => {
@@ -47,6 +51,28 @@ const ManagementStackNavigator = () => {
   );
 };
 
+const PengajuanDonaturStackNavigator = () => {
+  return (
+    <PengajuanDonaturStack.Navigator>
+      <PengajuanDonaturStack.Screen 
+        name="PengajuanDonaturList" 
+        component={AdminCabangPengajuanDonaturScreen} 
+        options={{ headerTitle: 'Pengajuan Donatur' }}
+      />
+      <PengajuanDonaturStack.Screen 
+        name="DonaturSelection" 
+        component={DonaturSelectionScreen} 
+        options={{ headerTitle: 'Pilih Donatur' }}
+      />
+      <PengajuanDonaturStack.Screen 
+        name="ChildDetail" 
+        component={ChildDetailScreen} 
+        options={{ headerTitle: 'Detail Anak' }}
+      />
+    </PengajuanDonaturStack.Navigator>
+  );
+};
+
 const ProfileStackNavigator = () => {
   return (
     <ProfileStack.Navigator>
@@ -70,6 +96,8 @@ const AdminCabangNavigator = () => {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Management') {
             iconName = focused ? 'document-text' : 'document-text-outline';
+          } else if (route.name === 'PengajuanDonatur') {
+            iconName = focused ? 'person-add' : 'person-add-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -90,6 +118,11 @@ const AdminCabangNavigator = () => {
         name="Management" 
         component={ManagementStackNavigator} 
         options={{ tabBarLabel: 'Manajemen Survei' }}
+      />
+      <Tab.Screen 
+        name="PengajuanDonatur" 
+        component={PengajuanDonaturStackNavigator} 
+        options={{ tabBarLabel: 'Pengajuan Donatur' }}
       />
       <Tab.Screen 
         name="ProfileTab" 
