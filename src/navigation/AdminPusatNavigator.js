@@ -25,6 +25,8 @@ import KeluargaFormScreen from '../features/adminPusat/screens/KeluargaFormScree
 // Import Anak Management Screens
 import AnakManagementScreen from '../features/adminPusat/screens/AnakManagementScreen';
 import AnakDetailScreen from '../features/adminPusat/screens/AnakDetailScreen';
+import TutorHonorSettingsScreen from '../features/adminPusat/screens/TutorHonorSettingsScreen';
+import TutorHonorSettingsFormScreen from '../features/adminPusat/screens/TutorHonorSettingsFormScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -115,6 +117,20 @@ const ManagementStackNavigator = () => {
         name="AnakDetail" 
         component={AnakDetailScreen} 
         options={{ headerTitle: 'Detail Anak' }}
+      />
+      
+      {/* Tutor Honor Settings */}
+      <Stack.Screen 
+        name="TutorHonorSettings" 
+        component={TutorHonorSettingsScreen} 
+        options={{ headerTitle: 'Setting Honor Tutor' }}
+      />
+      <Stack.Screen 
+        name="TutorHonorSettingsForm" 
+        component={TutorHonorSettingsFormScreen} 
+        options={({ route }) => ({ 
+          headerTitle: route.params?.isEdit ? 'Edit Setting Honor' : 'Buat Setting Honor'
+        })}
       />
     </Stack.Navigator>
   );

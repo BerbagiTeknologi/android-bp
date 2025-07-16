@@ -22,11 +22,14 @@ import AvailableChildrenMarketplaceScreen from '../features/donatur/screen/Avail
 import ChildMarketplaceDetailScreen from '../features/donatur/screen/ChildMarketplaceDetailScreen';
 import SponsorshipConfirmationScreen from '../features/donatur/screen/SponsorshipConfirmationScreen';
 import SponsorshipSuccessScreen from '../features/donatur/screen/SponsorshipSuccessScreen';
+import ChildBillingScreen from '../features/donatur/screen/ChildBillingScreen';
+import BillingHistoryScreen from '../features/donatur/screen/BillingHistoryScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
 const ChildrenStack = createStackNavigator();
 const MarketplaceStack = createStackNavigator();
+const BillingStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 const HomeStackNavigator = () => {
@@ -111,6 +114,13 @@ const ChildrenStackNavigator = () => {
         component={ChildAktivitasDetailScreen} 
         options={{ headerTitle: 'Activity Detail' }}
       />
+      <ChildrenStack.Screen 
+        name="ChildBilling" 
+        component={ChildBillingScreen} 
+        options={({ route }) => ({ 
+          headerTitle: `Tagihan ${route.params?.childName || 'Anak'}` 
+        })}
+      />
     </ChildrenStack.Navigator>
   );
 };
@@ -144,6 +154,25 @@ const MarketplaceStackNavigator = () => {
   );
 };
 
+const BillingStackNavigator = () => {
+  return (
+    <BillingStack.Navigator>
+      <BillingStack.Screen 
+        name="BillingHistory" 
+        component={BillingHistoryScreen} 
+        options={{ headerTitle: 'Riwayat Tagihan' }}
+      />
+      <BillingStack.Screen 
+        name="ChildBilling" 
+        component={ChildBillingScreen} 
+        options={({ route }) => ({ 
+          headerTitle: `Tagihan ${route.params?.childName || 'Anak'}` 
+        })}
+      />
+    </BillingStack.Navigator>
+  );
+};
+
 const ProfileStackNavigator = () => {
   return (
     <ProfileStack.Navigator>
@@ -169,6 +198,8 @@ const DonaturNavigator = () => {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Marketplace') {
             iconName = focused ? 'heart' : 'heart-outline';
+          } else if (route.name === 'Billing') {
+            iconName = focused ? 'wallet' : 'wallet-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -194,6 +225,11 @@ const DonaturNavigator = () => {
         name="Marketplace" 
         component={MarketplaceStackNavigator} 
         options={{ tabBarLabel: 'Cari Anak Asuh' }}
+      />
+      <Tab.Screen 
+        name="Billing" 
+        component={BillingStackNavigator} 
+        options={{ tabBarLabel: 'Tagihan' }}
       />
       <Tab.Screen 
         name="ProfileTab" 

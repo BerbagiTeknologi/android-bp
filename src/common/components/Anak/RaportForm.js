@@ -79,7 +79,7 @@ const RaportForm = ({
     if (isEdit && initialValues.foto_raport && initialValues.foto_raport.length > 0) {
       const initialPhotos = initialValues.foto_raport.map(photo => ({
         id: photo.id_foto,
-        uri: photo.foto_url,
+        // uri: photo.foto_url,
         isExisting: true
       }));
       setPhotos(initialPhotos);
