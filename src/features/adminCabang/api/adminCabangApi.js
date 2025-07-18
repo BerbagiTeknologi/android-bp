@@ -1,14 +1,24 @@
 import api from '../../../api/axiosConfig';
 import { ADMIN_CABANG_ENDPOINTS, MANAGEMENT_ENDPOINTS } from '../../../constants/endpoints';
 
+// Import Master Data APIs
+import { jenjangApi } from './masterData/jenjangApi';
+import { mataPelajaranApi } from './masterData/mataPelajaranApi';
+import { kelasApi } from './masterData/kelasApi';
+import { materiApi } from './masterData/materiApi';
+
+// Import Akademik APIs
+import { kurikulumApi } from './akademik/kurikulumApi';
+
 /**
- * Admin Cabang API service
- * Contains methods for admin cabang specific API requests
+ * Admin Cabang API service - Main entry point
+ * Organized by sections: Core, Master Data, Akademik
  */
 export const adminCabangApi = {
+  // ==================== CORE ADMIN CABANG ====================
+  
   /**
    * Get admin cabang dashboard data
-   * @returns {Promise} - API response with dashboard data
    */
   getDashboard: async () => {
     return await api.get(ADMIN_CABANG_ENDPOINTS.DASHBOARD);
@@ -16,7 +26,6 @@ export const adminCabangApi = {
 
   /**
    * Get admin cabang profile
-   * @returns {Promise} - API response with profile data
    */
   getProfile: async () => {
     return await api.get(ADMIN_CABANG_ENDPOINTS.PROFILE);
@@ -24,21 +33,15 @@ export const adminCabangApi = {
 
   /**
    * Update admin cabang profile
-   * @param {Object} profileData - Profile data to update
-   * @returns {Promise} - API response
    */
   updateProfile: async (profileData) => {
     return await api.post(ADMIN_CABANG_ENDPOINTS.PROFILE, profileData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
 
   /**
    * Get list of wilbin (wilayah binaan)
-   * @param {Object} params - Query parameters
-   * @returns {Promise} - API response with wilbin data
    */
   getWilbin: async (params = {}) => {
     return await api.get(MANAGEMENT_ENDPOINTS.WILBIN, { params });
@@ -46,8 +49,6 @@ export const adminCabangApi = {
 
   /**
    * Get wilbin details
-   * @param {number|string} wilbinId - Wilbin ID
-   * @returns {Promise} - API response with wilbin details
    */
   getWilbinDetail: async (wilbinId) => {
     return await api.get(MANAGEMENT_ENDPOINTS.WILBIN_DETAIL(wilbinId));
@@ -55,8 +56,6 @@ export const adminCabangApi = {
 
   /**
    * Create new wilbin
-   * @param {Object} wilbinData - Wilbin data
-   * @returns {Promise} - API response
    */
   createWilbin: async (wilbinData) => {
     return await api.post(MANAGEMENT_ENDPOINTS.WILBIN, wilbinData);
@@ -64,9 +63,6 @@ export const adminCabangApi = {
 
   /**
    * Update wilbin
-   * @param {number|string} wilbinId - Wilbin ID
-   * @param {Object} wilbinData - Wilbin data
-   * @returns {Promise} - API response
    */
   updateWilbin: async (wilbinId, wilbinData) => {
     return await api.put(MANAGEMENT_ENDPOINTS.WILBIN_DETAIL(wilbinId), wilbinData);
@@ -74,118 +70,44 @@ export const adminCabangApi = {
 
   /**
    * Delete wilbin
-   * @param {number|string} wilbinId - Wilbin ID
-   * @returns {Promise} - API response
    */
   deleteWilbin: async (wilbinId) => {
     return await api.delete(MANAGEMENT_ENDPOINTS.WILBIN_DETAIL(wilbinId));
   },
 
-  /**
-   * Get list of shelters
-   * @param {Object} params - Query parameters
-   * @returns {Promise} - API response with shelter data
-   */
-  getShelters: async (params = {}) => {
-    return await api.get(MANAGEMENT_ENDPOINTS.SHELTER, { params });
+  // ==================== MASTER DATA SECTION ====================
+  
+  masterData: {
+    jenjang: jenjangApi,
+    mataPelajaran: mataPelajaranApi,
+    kelas: kelasApi,
+    materi: materiApi,
   },
 
-  /**
-   * Get shelter details
-   * @param {number|string} shelterId - Shelter ID
-   * @returns {Promise} - API response with shelter details
-   */
-  getShelterDetail: async (shelterId) => {
-    return await api.get(MANAGEMENT_ENDPOINTS.SHELTER_DETAIL(shelterId));
+  // ==================== AKADEMIK SECTION ====================
+  
+  akademik: {
+    kurikulum: kurikulumApi,
   },
 
-  /**
-   * Create new shelter
-   * @param {Object} shelterData - Shelter data
-   * @returns {Promise} - API response
-   */
-  createShelter: async (shelterData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.SHELTER, shelterData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Update shelter
-   * @param {number|string} shelterId - Shelter ID
-   * @param {Object} shelterData - Shelter data
-   * @returns {Promise} - API response
-   */
-  updateShelter: async (shelterId, shelterData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.SHELTER_DETAIL(shelterId), shelterData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Delete shelter
-   * @param {number|string} shelterId - Shelter ID
-   * @returns {Promise} - API response
-   */
-  deleteShelter: async (shelterId) => {
-    return await api.delete(MANAGEMENT_ENDPOINTS.SHELTER_DETAIL(shelterId));
-  },
-
-  /**
-   * Get list of admin shelter
-   * @param {Object} params - Query parameters
-   * @returns {Promise} - API response with admin shelter data
-   */
-  getAdminShelters: async (params = {}) => {
-    return await api.get('/admin-shelter', { params });
-  },
-
-  /**
-   * Get admin shelter details
-   * @param {number|string} adminShelterId - Admin Shelter ID
-   * @returns {Promise} - API response with admin shelter details
-   */
-  getAdminShelterDetail: async (adminShelterId) => {
-    return await api.get(`/admin-shelter/${adminShelterId}`);
-  },
-
-  /**
-   * Create new admin shelter
-   * @param {Object} adminShelterData - Admin Shelter data
-   * @returns {Promise} - API response
-   */
-  createAdminShelter: async (adminShelterData) => {
-    return await api.post('/admin-shelter', adminShelterData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Update admin shelter
-   * @param {number|string} adminShelterId - Admin Shelter ID
-   * @param {Object} adminShelterData - Admin Shelter data
-   * @returns {Promise} - API response
-   */
-  updateAdminShelter: async (adminShelterId, adminShelterData) => {
-    return await api.post(`/admin-shelter/${adminShelterId}`, adminShelterData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Delete admin shelter
-   * @param {number|string} adminShelterId - Admin Shelter ID
-   * @returns {Promise} - API response
-   */
-  deleteAdminShelter: async (adminShelterId) => {
-    return await api.delete(`/admin-shelter/${adminShelterId}`);
-  }
+  // ==================== BACKWARD COMPATIBILITY ====================
+  // Keep existing direct exports for backward compatibility
+  
+  jenjang: jenjangApi,
+  mataPelajaran: mataPelajaranApi,
+  kelas: kelasApi,
+  materi: materiApi,
+  kurikulum: kurikulumApi,
 };
+
+// ==================== DIRECT EXPORTS ====================
+// Export individual APIs for direct import if needed
+
+export { jenjangApi } from './masterData/jenjangApi';
+export { mataPelajaranApi } from './masterData/mataPelajaranApi';
+export { kelasApi } from './masterData/kelasApi';
+export { materiApi } from './masterData/materiApi';
+export { kurikulumApi } from './akademik/kurikulumApi';
+
+// Default export
+export default adminCabangApi;
