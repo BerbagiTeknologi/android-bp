@@ -49,7 +49,7 @@ const AdminPusatProfileScreen = () => {
       });
 
       if (profile.foto) {
-        setProfileImage(`https://berbagipendidikan.org/storage/AdminPusat/${profile.id_admin_pusat}/${profile.foto}`);
+        setProfileImage(`http://192.168.8.105:8000/storage/AdminPusat/${profile.id_admin_pusat}/${profile.foto}`);
       }
     }
   }, [profile, user]);
