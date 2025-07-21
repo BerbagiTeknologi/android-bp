@@ -363,24 +363,7 @@ const AnakManagementScreen = () => {
   <TouchableOpacity 
     style={styles.fab}
     onPress={() => {
-      Alert.alert(
-        'Add Child',
-        'Choose how you want to add a child',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Add to Existing Family',
-            onPress: () => navigation.navigate('PengajuanAnakSearch')
-          },
-          {
-            text: 'Create New Family',
-            onPress: () => navigation.navigate('KeluargaForm', { isNew: true })
-          }
-        ]
-      );
+      navigation.navigate('PengajuanAnakSearch');
     }}
   >
     <Ionicons name="add" size={30} color="#ffffff" />

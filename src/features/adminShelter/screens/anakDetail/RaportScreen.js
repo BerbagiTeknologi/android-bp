@@ -6,7 +6,8 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,7 +42,9 @@ const RaportScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadRaports();
+    if (anakId) {
+      loadRaports();
+    }
   }, [anakId]);
 
   const loadRaports = async () => {
@@ -59,7 +62,7 @@ const RaportScreen = () => {
   const navigateToView = (raport) => {
     navigation.navigate('RaportView', { 
       raportId: raport.id_raport,
-      anakData 
+      anakData: anakData || raport.anak
     });
   };
 
@@ -145,26 +148,82 @@ const RaportScreen = () => {
   const renderRaport = ({ item }) => (
     <RaportCard
       raport={item}
+      anakData={anakData}
       onPress={() => navigateToView(item)}
       onPublish={() => handlePublish(item)}
       onArchive={() => handleArchive(item)}
       onDelete={() => handleDelete(item)}
+      showChildInfo={false}
+      showActions={true}
     />
   );
 
+  const renderHeader = () => {
+    if (!anakData && !anakId) return null;
+
+    return (
+      <View style={styles.headerInfo}>
+        <View style={styles.headerImageContainer}>
+          {anakData?.foto_url ? (
+            <Image
+              source={{ uri: anakData.foto_url }}
+              style={styles.headerImage}
+              defaultSource={require('../../../../assets/images/logo.png')}
+            />
+          ) : (
+            <View style={styles.headerImagePlaceholder}>
+              <Ionicons name="person" size={20} color="#ffffff" />
+            </View>
+          )}
+        </View>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerText}>
+            {anakData?.full_name || anakData?.nick_name || 'Anak'}
+          </Text>
+          {anakData?.nick_name && anakData?.full_name !== anakData?.nick_name && (
+            <Text style={styles.headerSubtext}>
+              {anakData.nick_name}
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="document-text-outline" size={64} color="#bdc3c7" />
+      <Text style={styles.emptyText}>Belum ada raport</Text>
+      <Text style={styles.emptySubText}>
+        Tap tombol + untuk membuat raport baru
+      </Text>
+    </View>
+  );
+
   if (loading && !refreshing) {
-    return <LoadingSpinner fullScreen message="Memuat data raport..." />;
+    return (
+      <View style={styles.container}>
+        {renderHeader()}
+        <LoadingSpinner fullScreen message="Memuat data raport..." />
+      </View>
+    );
+  }
+
+  if (!anakId) {
+    return (
+      <View style={styles.container}>
+        <ErrorMessage
+          message="Data anak tidak ditemukan"
+          onRetry={() => navigation.goBack()}
+          retryText="Kembali"
+        />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header Info */}
-      <View style={styles.headerInfo}>
-        <Ionicons name="person-outline" size={20} color="#3498db" />
-        <Text style={styles.headerText}>
-          {anakData?.full_name || 'Anak'}
-        </Text>
-      </View>
+      {renderHeader()}
 
       {error && (
         <ErrorMessage
@@ -181,15 +240,7 @@ const RaportScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color="#bdc3c7" />
-            <Text style={styles.emptyText}>Belum ada raport</Text>
-            <Text style={styles.emptySubText}>
-              Tap tombol + untuk membuat raport baru
-            </Text>
-          </View>
-        }
+        ListEmptyComponent={renderEmptyState}
       />
 
       {/* FAB */}
@@ -212,16 +263,44 @@ const styles = StyleSheet.create({
   headerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e3f2fd',
-    padding: 12,
+    backgroundColor: '#ffffff',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#bbdefb',
+    borderBottomColor: '#eeeeee',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerImageContainer: {
+    marginRight: 12,
+  },
+  headerImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  headerImagePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#e74c3c',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#1976d2',
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  headerSubtext: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 2,
   },
   listContent: {
     padding: 16,
@@ -243,6 +322,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#95a5a6',
     marginTop: 4,
+    textAlign: 'center',
   },
   fab: {
     position: 'absolute',

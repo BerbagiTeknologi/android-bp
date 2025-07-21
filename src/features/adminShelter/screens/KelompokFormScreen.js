@@ -54,7 +54,7 @@ const KelompokFormScreen = () => {
         }
       } catch (err) {
         console.error('Error fetching levels:', err);
-        setError('Failed to load level options. Please try again.');
+        setError('Gagal memuat opsi tingkat. Silakan coba lagi.');
       }
     };
     
@@ -94,7 +94,7 @@ const KelompokFormScreen = () => {
     
     if (!isValid) {
       // Show first error message
-      Alert.alert('Validation Error', Object.values(errors)[0]);
+      Alert.alert('Kesalahan Validasi', Object.values(errors)[0]);
       return;
     }
     
@@ -122,8 +122,8 @@ const KelompokFormScreen = () => {
       if (response.data.success) {
         // Show success message
         Alert.alert(
-          'Success',
-          isEditMode ? 'Group updated successfully' : 'Group created successfully',
+          'Berhasil',
+          isEditMode ? 'Kelompok berhasil diperbarui' : 'Kelompok berhasil dibuat',
           [
             {
               text: 'OK',
@@ -132,11 +132,11 @@ const KelompokFormScreen = () => {
           ]
         );
       } else {
-        setError(response.data.message || 'Failed to save group');
+        setError(response.data.message || 'Gagal menyimpan kelompok');
       }
     } catch (err) {
       console.error('Error saving kelompok:', err);
-      setError(err.response?.data?.message || 'Failed to save group. Please try again.');
+      setError(err.response?.data?.message || 'Gagal menyimpan kelompok. Silakan coba lagi.');
     } finally {
       setLoading(false);
     }

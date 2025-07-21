@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
-  Alert
+  Alert,
+  ScrollView
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,13 +27,42 @@ const PengajuanAnakSearchScreen = () => {
   const [kkNumber, setKkNumber] = useState('');
   const [searching, setSearching] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [loadingPriority, setLoadingPriority] = useState(false);
   const [error, setError] = useState(null);
+  const [priorityError, setPriorityError] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
+  const [priorityFamilies, setPriorityFamilies] = useState([]);
+  
+  // Load priority families on component mount
+  useEffect(() => {
+    loadPriorityFamilies();
+  }, []);
+  
+  // Load priority families
+  const loadPriorityFamilies = async () => {
+    try {
+      setLoadingPriority(true);
+      setPriorityError(null);
+      
+      const response = await adminShelterPengajuanAnakApi.getPriorityFamilies();
+      
+      if (response.data.success) {
+        setPriorityFamilies(response.data.data || []);
+      } else {
+        setPriorityError(response.data.message || 'Gagal memuat keluarga prioritas');
+      }
+    } catch (err) {
+      console.error('Error loading priority families:', err);
+      setPriorityError('Gagal memuat keluarga prioritas. Silakan coba lagi.');
+    } finally {
+      setLoadingPriority(false);
+    }
+  };
   
   // Handle search for KK
   const handleSearch = async () => {
     if (!kkNumber.trim()) {
-      Alert.alert('Input Required', 'Please enter a KK number to search');
+      Alert.alert('Input Diperlukan', 'Silakan masukkan nomor KK untuk mencari');
       return;
     }
     
@@ -45,11 +75,11 @@ const PengajuanAnakSearchScreen = () => {
       if (response.data.success) {
         setSearchResults(response.data.data || []);
       } else {
-        setError(response.data.message || 'Failed to search for families');
+        setError(response.data.message || 'Gagal mencari keluarga');
       }
     } catch (err) {
       console.error('Error searching families:', err);
-      setError('Failed to search for families. Please try again.');
+      setError('Gagal mencari keluarga. Silakan coba lagi.');
     } finally {
       setSearching(false);
     }
@@ -72,7 +102,7 @@ const PengajuanAnakSearchScreen = () => {
           mode: 'existing'
         });
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to validate family');
+        Alert.alert('Error', response.data.message || 'Gagal memvalidasi keluarga');
       }
     } catch (err) {
       setValidating(false);
@@ -81,11 +111,11 @@ const PengajuanAnakSearchScreen = () => {
       // If 404, family not found, ask to create new
       if (err.response && err.response.status === 404) {
         Alert.alert(
-          'Family Not Found',
-          'This KK number is not registered yet. Would you like to register a new family?',
+          'Keluarga Tidak Ditemukan',
+          'Nomor KK ini belum terdaftar. Apakah Anda ingin mendaftarkan keluarga baru?',
           [
             {
-              text: 'Cancel',
+              text: 'Batal',
               style: 'cancel'
             },
             {
@@ -95,26 +125,32 @@ const PengajuanAnakSearchScreen = () => {
           ]
         );
       } else {
-        Alert.alert('Error', 'Failed to validate family. Please try again.');
+        Alert.alert('Error', 'Gagal memvalidasi keluarga. Silakan coba lagi.');
       }
     }
   };
   
-  // Navigate to create new family
-  const handleCreateNewFamily = () => {
-    navigation.navigate('KeluargaForm', { isNew: true });
-  };
   
   // Render family item
-  const renderFamilyItem = ({ item }) => {
+  const renderFamilyItem = ({ item, isPrioritySection = false }) => {
     return (
       <TouchableOpacity 
-        style={styles.familyItem}
+        style={[
+          styles.familyItem,
+          item.is_priority && styles.priorityFamilyItem
+        ]}
         onPress={() => handleSelectFamily(item)}
         disabled={validating}
       >
         <View style={styles.familyItemContent}>
-          <Text style={styles.familyName}>{item.kepala_keluarga}</Text>
+          <View style={styles.familyHeader}>
+            <Text style={styles.familyName}>{item.kepala_keluarga}</Text>
+            {item.is_priority && (
+              <View style={styles.priorityBadge}>
+                <Text style={styles.priorityBadgeText}>PRIORITAS</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.kkNumber}>KK: {item.no_kk}</Text>
         </View>
         {validating ? (
@@ -127,12 +163,7 @@ const PengajuanAnakSearchScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* <View style={styles.header}>
-        <Text style={styles.title}></Text>
-        
-      </View> */}
-      
+    <ScrollView style={styles.container}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.inputContainer}>
@@ -149,7 +180,11 @@ const PengajuanAnakSearchScreen = () => {
           {kkNumber.length > 0 && (
             <TouchableOpacity 
               style={styles.clearButton}
-              onPress={() => setKkNumber('')}
+              onPress={() => {
+                setKkNumber('');
+                setSearchResults([]);
+                setError(null);
+              }}
             >
               <Ionicons name="close-circle" size={20} color="#999" />
             </TouchableOpacity>
@@ -165,59 +200,87 @@ const PengajuanAnakSearchScreen = () => {
           style={styles.searchButton}
         />
       </View>
-      
-      {/* Error Message */}
-      {error && (
-        <ErrorMessage
-          message={error}
-          onRetry={handleSearch}
-        />
-      )}
-      
-      {/* Results or Empty State */}
-      {searching ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3498db" />
-          <Text style={styles.loadingText}>Mencari...</Text>
-        </View>
-      ) : searchResults.length > 0 ? (
-        <FlatList
-          data={searchResults}
-          renderItem={renderFamilyItem}
-          keyExtractor={(item) => item.id_keluarga?.toString()}
-          contentContainerStyle={styles.resultsList}
-          ListHeaderComponent={
-            <Text style={styles.resultsHeader}>
-              Ditemukan {searchResults.length} Hasil{searchResults.length > 1 ? '' : ''}
-            </Text>
-          }
-        />
-      ) : kkNumber && !searching && !error ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="search" size={60} color="#ddd" />
-          <Text style={styles.emptyText}>Nomor KK Tidak ditemukan</Text>
-          <Button
-            title="Buat Keluarga Baru"
-            onPress={handleCreateNewFamily}
-            type="primary"
-            style={styles.createButton}
-          />
-        </View>
-      ) : (
-        <View style={styles.instructionsContainer}>
-          <Ionicons name="information-circle" size={60} color="#3498db" />
-          {/* <Text style={styles.instructionsText}>
-            Search for an existing family by KK number to add a child, or create a new family.
-          </Text> */}
-          <Button
-            title="Buat Keluarga Baru"
-            onPress={handleCreateNewFamily}
-            type="outline"
-            style={styles.createButton}
-          />
+
+      {/* Priority Families Section */}
+      {!kkNumber && (
+        <View style={styles.section}>
+     
+          
+          {priorityError && (
+            <ErrorMessage
+              message={priorityError}
+              onRetry={loadPriorityFamilies}
+            />
+          )}
+          
+          {loadingPriority ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3498db" />
+              <Text style={styles.loadingText}>Memuat keluarga prioritas...</Text>
+            </View>
+          ) : priorityFamilies.length > 0 ? (
+            <View>
+              <Text style={styles.sectionSubtitle}>
+                {priorityFamilies.length} keluarga belum punya anak
+              </Text>
+              {priorityFamilies.map((item) => (
+                <View key={item.id_keluarga}>
+                  {renderFamilyItem({ item, isPrioritySection: true })}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptySection}>
+              <Ionicons name="checkmark-circle" size={40} color="#27ae60" />
+              <Text style={styles.emptySectionText}>
+                Semua keluarga di shelter ini sudah memiliki anak
+              </Text>
+            </View>
+          )}
         </View>
       )}
-    </View>
+
+      {/* Search Results Section */}
+      {kkNumber && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="search" size={20} color="#3498db" />
+            <Text style={styles.sectionTitle}>Hasil Pencarian</Text>
+          </View>
+          
+          {error && (
+            <ErrorMessage
+              message={error}
+              onRetry={handleSearch}
+            />
+          )}
+          
+          {searching ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3498db" />
+              <Text style={styles.loadingText}>Mencari...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <View>
+              <Text style={styles.sectionSubtitle}>
+                Ditemukan {searchResults.length} hasil
+              </Text>
+              {searchResults.map((item) => (
+                <View key={item.id_keluarga}>
+                  {renderFamilyItem({ item })}
+                </View>
+              ))}
+            </View>
+          ) : !error && (
+            <View style={styles.emptySection}>
+              <Ionicons name="search" size={40} color="#ddd" />
+              <Text style={styles.emptySectionText}>Nomor KK tidak ditemukan</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+    </ScrollView>
   );
 };
 
@@ -225,24 +288,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    padding: 16,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
   },
   searchContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    margin: 16,
+    marginBottom: 8,
   },
   inputContainer: {
     flex: 1,
@@ -271,24 +321,36 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 16,
   },
-  loadingContainer: {
+  section: {
+    margin: 16,
+    marginTop: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
     flex: 1,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#666',
-  },
-  resultsList: {
-    paddingTop: 12,
-  },
-  resultsHeader: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 12,
   },
   familyItem: {
     flexDirection: 'row',
@@ -297,51 +359,59 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#eee',
   },
+  priorityFamilyItem: {
+    borderColor: '#f39c12',
+    borderWidth: 2,
+  },
   familyItemContent: {
     flex: 1,
+  },
+  familyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   familyName: {
     fontSize: 16,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 4,
+    flex: 1,
+  },
+  priorityBadge: {
+    backgroundColor: '#f39c12',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  priorityBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   kkNumber: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
-  emptyContainer: {
-    flex: 1,
+  childCount: {
+    fontSize: 12,
+    color: '#888',
+  },
+  emptySection: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 60,
+    paddingVertical: 40,
   },
-  emptyText: {
+  emptySectionText: {
     fontSize: 16,
     color: '#666',
-    marginVertical: 16,
+    marginVertical: 12,
     textAlign: 'center',
-  },
-  instructionsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 60,
-  },
-  instructionsText: {
-    fontSize: 16,
-    color: '#666',
-    marginVertical: 16,
-    textAlign: 'center',
-    maxWidth: '80%',
-  },
-  createButton: {
-    minWidth: 200,
-    marginTop: 16,
   },
 });
 

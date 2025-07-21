@@ -56,8 +56,6 @@ const KeluargaFormScreen = () => {
     no_kk: '',
     kepala_keluarga: '',
     status_ortu: '',
-    id_kacab: '',
-    id_wilbin: '',
     id_bank: '',
     no_rek: '',
     an_rek: '',
@@ -206,7 +204,7 @@ const KeluargaFormScreen = () => {
         }
       } catch (err) {
         console.error('Error fetching dropdown data:', err);
-        setError('Failed to load form data. Please try again.');
+        setError('Gagal memuat data formulir. Silakan coba lagi.');
       } finally {
         setLoadingDropdowns(false);
       }
@@ -215,26 +213,6 @@ const KeluargaFormScreen = () => {
     fetchDropdownData();
   }, []);
   
-  useEffect(() => {
-    const fetchWilbin = async () => {
-      if (!formData.id_kacab) {
-        setDropdownData(prev => ({ ...prev, wilbin: [] }));
-        return;
-      }
-      
-      try {
-        const response = await adminShelterKeluargaApi.getWilbinByKacab(formData.id_kacab);
-        
-        if (response.data.success) {
-          setDropdownData(prev => ({ ...prev, wilbin: response.data.data || [] }));
-        }
-      } catch (err) {
-        console.error('Error fetching wilbin data:', err);
-      }
-    };
-    
-    fetchWilbin();
-  }, [formData.id_kacab]);
   
   useEffect(() => {
     if (isEditMode && existingKeluarga) {
@@ -253,7 +231,10 @@ const KeluargaFormScreen = () => {
               ? response.data.data.anak[0] 
               : {};
               
-            const educationData = childData.anakPendidikan || {};
+            const educationData = childData?.anakPendidikan || {};
+            const surveyData = familyData.surveys && familyData.surveys.length > 0 
+              ? familyData.surveys[0] 
+              : {};
             
             let initialFormData = {
               no_kk: familyData.no_kk || '',
@@ -335,6 +316,37 @@ const KeluargaFormScreen = () => {
               semester: educationData.semester?.toString() || '',
               nama_pt: educationData.nama_pt || '',
               alamat_pt: educationData.alamat_pt || '',
+
+              pekerjaan_kepala_keluarga: surveyData.pekerjaan_kepala_keluarga || '',
+              penghasilan: surveyData.penghasilan || '',
+              pendidikan_kepala_keluarga: surveyData.pendidikan_kepala_keluarga || '',
+              jumlah_tanggungan: surveyData.jumlah_tanggungan?.toString() || '',
+              kepemilikan_tabungan: surveyData.kepemilikan_tabungan || '',
+              jumlah_makan: surveyData.jumlah_makan?.toString() || '',
+              kepemilikan_tanah: surveyData.kepemilikan_tanah || '',
+              kepemilikan_rumah: surveyData.kepemilikan_rumah || '',
+              kondisi_rumah_dinding: surveyData.kondisi_rumah_dinding || '',
+              kondisi_rumah_lantai: surveyData.kondisi_rumah_lantai || '',
+              kepemilikan_kendaraan: surveyData.kepemilikan_kendaraan || '',
+              kepemilikan_elektronik: surveyData.kepemilikan_elektronik || '',
+              sumber_air_bersih: surveyData.sumber_air_bersih || '',
+              jamban_limbah: surveyData.jamban_limbah || '',
+              tempat_sampah: surveyData.tempat_sampah || '',
+              perokok: surveyData.perokok || '',
+              konsumen_miras: surveyData.konsumen_miras || '',
+              persediaan_p3k: surveyData.persediaan_p3k || '',
+              makan_buah_sayur: surveyData.makan_buah_sayur || '',
+              solat_lima_waktu: surveyData.solat_lima_waktu || '',
+              membaca_alquran: surveyData.membaca_alquran || '',
+              majelis_taklim: surveyData.majelis_taklim || '',
+              membaca_koran: surveyData.membaca_koran || '',
+              pengurus_organisasi: surveyData.pengurus_organisasi || '',
+              pengurus_organisasi_sebagai: surveyData.pengurus_organisasi_sebagai || '',
+              status_anak: surveyData.status_anak || '',
+              biaya_pendidikan_perbulan: surveyData.biaya_pendidikan_perbulan?.toString() || '',
+              bantuan_lembaga_formal_lain: surveyData.bantuan_lembaga_formal_lain || '',
+              bantuan_lembaga_formal_lain_sebesar: surveyData.bantuan_lembaga_formal_lain_sebesar?.toString() || '',
+              kondisi_penerima_manfaat: surveyData.kondisi_penerima_manfaat || '',
             };
             
             setFormData(initialFormData);
@@ -343,13 +355,18 @@ const KeluargaFormScreen = () => {
               ...prev,
               [STEPS.FAMILY]: true,
               [STEPS.PARENTS]: true,
-              [STEPS.CHILD]: true,
-              [STEPS.EDUCATION]: true
+              [STEPS.CHILD]: Object.keys(childData).length > 0,
+              [STEPS.EDUCATION]: Object.keys(educationData).length > 0,
+              [STEPS.SURVEY_BASIC]: Object.keys(surveyData).length > 0,
+              [STEPS.SURVEY_FINANCIAL]: Object.keys(surveyData).length > 0,
+              [STEPS.SURVEY_ASSETS]: Object.keys(surveyData).length > 0,
+              [STEPS.SURVEY_HEALTH]: Object.keys(surveyData).length > 0,
+              [STEPS.SURVEY_RELIGIOUS]: Object.keys(surveyData).length > 0
             }));
           }
         } catch (err) {
           console.error('Error fetching family details:', err);
-          setError('Failed to load family details. Please try again.');
+          setError('Gagal memuat detail keluarga. Silakan coba lagi.');
         } finally {
           setLoading(false);
         }
@@ -374,24 +391,30 @@ const KeluargaFormScreen = () => {
       case STEPS.FAMILY:
         return !!(
           data.no_kk &&
+          data.no_kk.length === 16 &&
           data.kepala_keluarga &&
-          data.status_ortu &&
-          data.id_kacab &&
-          data.id_wilbin
+          data.status_ortu
         );
       
       case STEPS.PARENTS:
+        if (data.status_ortu === 'yatim piatu') {
+          return true;
+        }
         return (
-          (data.nama_ayah && data.nik_ayah) ||
-          (data.nama_ibu && data.nik_ibu)
+          (data.nama_ayah && data.nik_ayah && data.nik_ayah.length === 16) ||
+          (data.nama_ibu && data.nik_ibu && data.nik_ibu.length === 16)
         );
       
       case STEPS.GUARDIAN:
+        if (data.status_ortu === 'yatim piatu') {
+          return !!(data.nama_wali && data.nik_wali && data.nik_wali.length === 16 && data.hub_kerabat_wali);
+        }
         return true;
       
       case STEPS.CHILD:
         return !!(
           data.nik_anak &&
+          data.nik_anak.length === 16 &&
           data.anak_ke &&
           data.dari_bersaudara &&
           data.nick_name &&
@@ -471,17 +494,25 @@ const KeluargaFormScreen = () => {
     updateStepValidity(currentStep, isCurrentStepValid);
     
     if (isCurrentStepValid) {
-      setCurrentStep(prev => prev + 1);
+      if (currentStep === STEPS.FAMILY && formData.status_ortu === 'yatim piatu') {
+        setCurrentStep(STEPS.GUARDIAN);
+      } else {
+        setCurrentStep(prev => prev + 1);
+      }
     } else {
       Alert.alert(
-        'Validation Error',
-        'Please fill in all required fields before proceeding.'
+        'Kesalahan Validasi',
+        'Mohon lengkapi semua kolom yang wajib diisi sebelum melanjutkan.'
       );
     }
   };
   
   const goToPreviousStep = () => {
-    setCurrentStep(prev => Math.max(0, prev - 1));
+    if (currentStep === STEPS.GUARDIAN && formData.status_ortu === 'yatim piatu') {
+      setCurrentStep(STEPS.FAMILY);
+    } else {
+      setCurrentStep(prev => Math.max(0, prev - 1));
+    }
   };
   
   const goToStep = (step) => {
@@ -543,7 +574,7 @@ const KeluargaFormScreen = () => {
       
       if (response.data.success) {
         Alert.alert(
-          'Success',
+          'Berhasil',
           isEditMode
             ? 'Informasi Keluarga Berhasil Diupdate'
             : 'Keluarga Berhasil Ditambahkan',

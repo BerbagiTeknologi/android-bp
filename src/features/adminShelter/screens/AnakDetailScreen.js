@@ -31,47 +31,47 @@ const AnakDetailScreen = () => {
   const [error, setError] = useState(null);
 
   const menuItems = [
-  {
-    title: 'Edit Data',
-    screen: 'AnakForm',
-    icon: '✏️'
-  },
-  {
-    title: 'Prestasi',
-    screen: 'Prestasi',
-    icon: '🏆'
-  },
-  {
-    title: 'Surat',
-    screen: 'Surat',
-    icon: '✉️'
-  },
-  {
-    title: 'Riwayat',
-    screen: 'Riwayat',
-    icon: '📖'
-  },
-  {
-    title: 'Informasi Anak',
-    screen: 'InformasiAnak',
-    icon: '📋'
-  },
-  {
-    title: 'Penilaian',
-    screen: 'PenilaianList',
-    icon: '📝'
-  },
-  {
-    title: 'Raport Shelter',
-    screen: 'Raport',
-    icon: '📚'
-  },
-  {
-    title: 'Raport Formal',
-    screen: 'RaportFormal',
-    icon: '🎓'
-  }
-];
+    {
+      title: 'Edit Data',
+      screen: 'AnakForm',
+      icon: '✏️'
+    },
+    {
+      title: 'Prestasi',
+      screen: 'Prestasi',
+      icon: '🏆'
+    },
+    {
+      title: 'Surat',
+      screen: 'Surat',
+      icon: '✉️'
+    },
+    {
+      title: 'Riwayat',
+      screen: 'Riwayat',
+      icon: '📖'
+    },
+    {
+      title: 'Informasi Anak',
+      screen: 'InformasiAnak',
+      icon: '📋'
+    },
+    {
+      title: 'Penilaian',
+      screen: 'PenilaianList',
+      icon: '📝'
+    },
+    {
+      title: 'Raport Shelter',
+      screen: 'Raport',
+      icon: '📚'
+    },
+    {
+      title: 'Raport Formal',
+      screen: 'RaportFormal',
+      icon: '🎓'
+    }
+  ];
 
   useEffect(() => {
     if (!isNew && id) {
@@ -82,9 +82,7 @@ const AnakDetailScreen = () => {
   useEffect(() => {
     let title = isNew 
       ? 'Tambah Anak Baru' 
-      : (anakData 
-         ? (anakData.full_name || anakData.nick_name) 
-         : 'Detail Anak');
+      : (anakData?.full_name || anakData?.nick_name || 'Detail Anak');
     
     navigation.setOptions({ 
       title,
@@ -163,21 +161,29 @@ const AnakDetailScreen = () => {
   };
 
   const navigateToScreen = (screen) => {
+    // Ensure we have basic data before navigation
+    const safeAnakData = anakData || {
+      id_anak: id,
+      full_name: 'Nama Tidak Tersedia',
+      nick_name: null,
+      foto_url: null
+    };
+
     if (screen === 'AnakForm') {
       navigation.navigate(screen, { 
-        anakData,
+        anakData: safeAnakData,
         isEdit: true
       });
     } else if (screen === 'Surat') {
       navigation.navigate(screen, { 
         childId: id,
-        childName: anakData?.full_name || anakData?.nick_name || 'Anak'
+        childName: safeAnakData.full_name || safeAnakData.nick_name || 'Anak'
       });
     } else {
       navigation.navigate(screen, { 
-        anakData, 
+        anakData: safeAnakData, 
         anakId: id,
-        title: `${screen} - ${anakData?.full_name || 'Anak'}`
+        title: `${screen} - ${safeAnakData.full_name || safeAnakData.nick_name || 'Anak'}`
       });
     }
   };
@@ -192,8 +198,34 @@ const AnakDetailScreen = () => {
     </TouchableOpacity>
   );
 
+  const handleToggleStatus = async () => {
+    try {
+      setLoading(true);
+      await adminShelterAnakApi.toggleAnakStatus(id);
+      await fetchAnakDetail();
+      Alert.alert('Sukses', 'Status anak berhasil diubah');
+    } catch (err) {
+      console.error('Error toggling status:', err);
+      setError('Gagal mengubah status anak');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner fullScreen message="Memuat data anak..." />;
+  }
+
+  if (error && !anakData) {
+    return (
+      <View style={styles.container}>
+        <ErrorMessage
+          message={error}
+          onRetry={fetchAnakDetail}
+          retryText="Coba Lagi"
+        />
+      </View>
+    );
   }
 
   return (
@@ -201,8 +233,8 @@ const AnakDetailScreen = () => {
       {error && (
         <ErrorMessage
           message={error}
-          onRetry={fetchAnakDetail}
-          retryText="Coba Lagi"
+          onRetry={() => setError(null)}
+          style={styles.errorBanner}
         />
       )}
 
@@ -212,6 +244,7 @@ const AnakDetailScreen = () => {
             <Image
               source={{ uri: anakData.foto_url }}
               style={styles.profileImage}
+              defaultSource={require('../../../assets/images/logo.png')}
             />
           ) : (
             <View style={styles.profileImagePlaceholder}>
@@ -220,8 +253,12 @@ const AnakDetailScreen = () => {
           )}
         </View>
         
-        <Text style={styles.profileName}>{anakData?.full_name || 'Tanpa Nama'}</Text>
-        {anakData?.nick_name && <Text style={styles.profileNickname}>{anakData.nick_name}</Text>}
+        <Text style={styles.profileName}>
+          {anakData?.full_name || 'Nama Tidak Tersedia'}
+        </Text>
+        {anakData?.nick_name && anakData?.full_name !== anakData?.nick_name && (
+          <Text style={styles.profileNickname}>{anakData.nick_name}</Text>
+        )}
         
         <View style={[
           styles.statusBadge,
@@ -234,19 +271,7 @@ const AnakDetailScreen = () => {
 
         <Button
           title={anakData?.status_validasi === 'aktif' ? 'Ubah ke Non-Aktif' : 'Ubah ke Aktif'}
-          onPress={async () => {
-            try {
-              setLoading(true);
-              await adminShelterAnakApi.toggleAnakStatus(id);
-              await fetchAnakDetail();
-              Alert.alert('Sukses', 'Status anak berhasil diubah');
-            } catch (err) {
-              console.error('Error toggling status:', err);
-              setError('Gagal mengubah status anak');
-            } finally {
-              setLoading(false);
-            }
-          }}
+          onPress={handleToggleStatus}
           type={anakData?.status_validasi === 'aktif' ? 'danger' : 'success'}
           style={styles.toggleButton}
           size="small"
@@ -272,6 +297,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  errorBanner: {
+    margin: 16,
+    marginBottom: 0,
   },
   profileHeader: {
     backgroundColor: '#e74c3c',

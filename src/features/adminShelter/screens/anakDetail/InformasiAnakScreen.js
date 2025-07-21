@@ -15,12 +15,14 @@ import { formatEducationDetail, getEducationIcon } from '../../../../common/util
 const InformasiAnakScreen = () => {
   const route = useRoute();
   const { anakData } = route.params || {};
-  const educationDetail = formatEducationDetail(anakData?.anakPendidikan);
+  
+  // Safe access to education data
+  const educationDetail = anakData?.anakPendidikan ? formatEducationDetail(anakData.anakPendidikan) : null;
 
   const getLevelBadgeColor = (level) => {
-    if (!level) return '#95a5a6';
+    if (!level || !level.nama_level_binaan) return '#95a5a6';
     
-    const levelName = level.nama_level_binaan?.toLowerCase() || '';
+    const levelName = level.nama_level_binaan.toLowerCase();
     
     if (levelName.includes('sd') || levelName.includes('dasar')) return '#3498db';
     if (levelName.includes('smp') || levelName.includes('menengah pertama')) return '#f39c12';
@@ -30,6 +32,17 @@ const InformasiAnakScreen = () => {
     
     return '#95a5a6';
   };
+
+  if (!anakData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="person-outline" size={64} color="#cccccc" />
+          <Text style={styles.emptyText}>Data anak tidak tersedia</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -41,7 +54,7 @@ const InformasiAnakScreen = () => {
             <Ionicons name="person-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Nama Lengkap</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.full_name || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.full_name || '-'}</Text>
         </View>
         
         <View style={styles.infoRow}>
@@ -49,7 +62,7 @@ const InformasiAnakScreen = () => {
             <Ionicons name="happy-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Nama Panggilan</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.nick_name || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.nick_name || '-'}</Text>
         </View>
         
         <View style={styles.infoRow}>
@@ -57,20 +70,20 @@ const InformasiAnakScreen = () => {
             <Ionicons name="card-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>NIK</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.nik_anak || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.nik_anak || '-'}</Text>
         </View>
         
         <View style={styles.infoRow}>
           <View style={styles.infoLabel}>
             <Ionicons 
-              name={anakData?.jenis_kelamin === 'Laki-laki' ? 'male-outline' : 'female-outline'} 
+              name={anakData.jenis_kelamin === 'Laki-laki' ? 'male-outline' : 'female-outline'} 
               size={20} 
               color="#666" 
             />
             <Text style={styles.infoLabelText}>Jenis Kelamin</Text>
           </View>
           <Text style={styles.infoValue}>
-            {anakData?.jenis_kelamin || '-'}
+            {anakData.jenis_kelamin || '-'}
           </Text>
         </View>
         
@@ -80,7 +93,7 @@ const InformasiAnakScreen = () => {
             <Text style={styles.infoLabelText}>Tanggal Lahir</Text>
           </View>
           <Text style={styles.infoValue}>
-            {anakData?.tanggal_lahir ? formatDateToIndonesian(anakData.tanggal_lahir) : '-'}
+            {anakData.tanggal_lahir ? formatDateToIndonesian(anakData.tanggal_lahir) : '-'}
           </Text>
         </View>
         
@@ -89,7 +102,7 @@ const InformasiAnakScreen = () => {
             <Ionicons name="location-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Tempat Lahir</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.tempat_lahir || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.tempat_lahir || '-'}</Text>
         </View>
         
         <View style={styles.infoRow}>
@@ -98,7 +111,7 @@ const InformasiAnakScreen = () => {
             <Text style={styles.infoLabelText}>Anak Ke</Text>
           </View>
           <Text style={styles.infoValue}>
-            {anakData?.anak_ke ? 
+            {anakData.anak_ke ? 
               `${anakData.anak_ke} dari ${anakData.dari_bersaudara || '-'}` : 
               '-'}
           </Text>
@@ -109,7 +122,7 @@ const InformasiAnakScreen = () => {
             <Ionicons name="home-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Tinggal Bersama</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.tinggal_bersama || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.tinggal_bersama || '-'}</Text>
         </View>
       </View>
 
@@ -124,10 +137,10 @@ const InformasiAnakScreen = () => {
           <View style={styles.statusContainer}>
             <View style={[
               styles.statusBadge,
-              { backgroundColor: anakData?.status_validasi === 'aktif' ? '#2ecc71' : '#e74c3c' }
+              { backgroundColor: anakData.status_validasi === 'aktif' ? '#2ecc71' : '#e74c3c' }
             ]}>
               <Text style={styles.statusBadgeText}>
-                {anakData?.status_validasi === 'aktif' ? 'Active' : 'Inactive'}
+                {anakData.status_validasi === 'aktif' ? 'Active' : 'Inactive'}
               </Text>
             </View>
           </View>
@@ -139,7 +152,7 @@ const InformasiAnakScreen = () => {
             <Text style={styles.infoLabelText}>Level Binaan</Text>
           </View>
           <View style={styles.levelContainer}>
-            {anakData?.levelAnakBinaan ? (
+            {anakData.levelAnakBinaan ? (
               <View style={[
                 styles.levelBadge,
                 { backgroundColor: getLevelBadgeColor(anakData.levelAnakBinaan) }
@@ -160,8 +173,8 @@ const InformasiAnakScreen = () => {
             <Text style={styles.infoLabelText}>Jenis Anak</Text>
           </View>
           <View style={styles.jenisContainer}>
-            <Text style={styles.infoValue}>{anakData?.jenis_anak_binaan || '-'}</Text>
-            {anakData?.status_cpb && (
+            <Text style={styles.infoValue}>{anakData.jenis_anak_binaan || '-'}</Text>
+            {anakData.status_cpb && (
               <View style={[
                 styles.cpbBadge,
                 { backgroundColor: anakData.status_cpb === 'CPB' ? '#e74c3c' : '#3498db' }
@@ -174,7 +187,7 @@ const InformasiAnakScreen = () => {
           </View>
         </View>
 
-        {anakData?.kelompok && (
+        {anakData.kelompok && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="grid-outline" size={20} color="#666" />
@@ -199,7 +212,7 @@ const InformasiAnakScreen = () => {
             <Ionicons name="book-outline" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Hafalan</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.hafalan || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.hafalan || '-'}</Text>
         </View>
         
         <View style={styles.infoRow}>
@@ -207,10 +220,10 @@ const InformasiAnakScreen = () => {
             <Ionicons name="person" size={20} color="#666" />
             <Text style={styles.infoLabelText}>Agama</Text>
           </View>
-          <Text style={styles.infoValue}>{anakData?.agama || '-'}</Text>
+          <Text style={styles.infoValue}>{anakData.agama || '-'}</Text>
         </View>
 
-        {anakData?.pelajaran_favorit && (
+        {anakData.pelajaran_favorit && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="heart-outline" size={20} color="#666" />
@@ -220,7 +233,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {anakData?.hobi && (
+        {anakData.hobi && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="game-controller-outline" size={20} color="#666" />
@@ -230,7 +243,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {anakData?.prestasi && (
+        {anakData.prestasi && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="trophy-outline" size={20} color="#666" />
@@ -244,7 +257,7 @@ const InformasiAnakScreen = () => {
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Informasi Shelter</Text>
         
-        {anakData?.shelter && (
+        {anakData.shelter ? (
           <>
             <View style={styles.infoRow}>
               <View style={styles.infoLabel}>
@@ -270,13 +283,15 @@ const InformasiAnakScreen = () => {
               <Text style={styles.infoValue}>{anakData.shelter.alamat || '-'}</Text>
             </View>
           </>
+        ) : (
+          <Text style={styles.emptyText}>Data shelter tidak tersedia</Text>
         )}
       </View>
 
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Informasi Keluarga</Text>
         
-        {anakData?.keluarga ? (
+        {anakData.keluarga ? (
           <>
             <View style={styles.infoRow}>
               <View style={styles.infoLabel}>
@@ -321,7 +336,7 @@ const InformasiAnakScreen = () => {
                 <Text style={styles.infoValue}>{educationDetail.jenjang}</Text>
                 <View style={styles.educationBadge}>
                   <Text style={styles.educationBadgeText}>
-                    {anakData.anakPendidikan.jenjang?.toUpperCase()}
+                    {anakData.anakPendidikan.jenjang?.toUpperCase() || '-'}
                   </Text>
                 </View>
               </View>
@@ -343,7 +358,7 @@ const InformasiAnakScreen = () => {
               <Text style={styles.infoValue}>{educationDetail.institusi}</Text>
             </View>
             
-            {anakData?.anakPendidikan?.alamat_sekolah && (
+            {anakData.anakPendidikan.alamat_sekolah && (
               <View style={styles.infoRow}>
                 <View style={styles.infoLabel}>
                   <Ionicons name="location-outline" size={20} color="#666" />
@@ -353,7 +368,7 @@ const InformasiAnakScreen = () => {
               </View>
             )}
             
-            {anakData?.anakPendidikan?.alamat_pt && (
+            {anakData.anakPendidikan.alamat_pt && (
               <View style={styles.infoRow}>
                 <View style={styles.infoLabel}>
                   <Ionicons name="location-outline" size={20} color="#666" />
@@ -387,7 +402,7 @@ const InformasiAnakScreen = () => {
             <Text style={styles.infoLabelText}>Status Featured</Text>
           </View>
           <View style={styles.featuredContainer}>
-            {anakData?.marketplace_featured ? (
+            {anakData.marketplace_featured ? (
               <View style={styles.featuredBadge}>
                 <Ionicons name="star" size={16} color="#fff" />
                 <Text style={styles.featuredBadgeText}>Featured</Text>
@@ -398,7 +413,7 @@ const InformasiAnakScreen = () => {
           </View>
         </View>
 
-        {anakData?.background_story && (
+        {anakData.background_story && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="book-outline" size={20} color="#666" />
@@ -408,7 +423,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {anakData?.educational_goals && (
+        {anakData.educational_goals && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="school-outline" size={20} color="#666" />
@@ -418,7 +433,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {anakData?.personality_traits && (
+        {anakData.personality_traits && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="happy-outline" size={20} color="#666" />
@@ -437,7 +452,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {anakData?.special_needs && (
+        {anakData.special_needs && (
           <View style={styles.infoRow}>
             <View style={styles.infoLabel}>
               <Ionicons name="medical-outline" size={20} color="#e74c3c" />
@@ -449,7 +464,7 @@ const InformasiAnakScreen = () => {
           </View>
         )}
 
-        {!anakData?.background_story && !anakData?.educational_goals && !anakData?.personality_traits && !anakData?.special_needs && (
+        {!anakData.background_story && !anakData.educational_goals && !anakData.personality_traits && !anakData.special_needs && (
           <Text style={styles.emptyText}>Data marketplace tidak tersedia</Text>
         )}
       </View>
@@ -461,6 +476,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 16,
   },
   infoSection: {
     backgroundColor: '#ffffff',
@@ -633,13 +661,6 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     lineHeight: 22,
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 16,
-  }
 });
 
 export default InformasiAnakScreen;

@@ -1,43 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Animated,
-  SafeAreaView,
-  Vibration
+  View, Text, StyleSheet, Alert, Animated, SafeAreaView, Vibration
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { Audio } from 'expo-av';
-import { format, isToday, isFuture, isPast, startOfDay } from 'date-fns';
+import { format, startOfDay, isFuture, isPast } from 'date-fns';
 
 import QrScanner from '../../components/QrScanner';
-
 import {
-  validateToken,
-  selectQrTokenLoading,
-  selectValidationResult,
-  resetValidationResult
+  validateToken, selectQrTokenLoading, selectValidationResult, resetValidationResult
 } from '../../redux/qrTokenSlice';
-
 import {
-  recordAttendanceByQr,
-  selectAttendanceLoading,
-  selectAttendanceError,
-  selectDuplicateError,
-  resetAttendanceError
+  recordAttendanceByQr, selectAttendanceLoading, selectAttendanceError,
+  selectDuplicateError, resetAttendanceError
 } from '../../redux/attendanceSlice';
-
 import {
-  recordTutorAttendanceByQr,
-  selectTutorAttendanceLoading,
-  selectTutorAttendanceError,
-  selectTutorDuplicateError,
-  resetTutorAttendanceError
+  recordTutorAttendanceByQr, selectTutorAttendanceLoading,
+  selectTutorAttendanceError, selectTutorDuplicateError, resetTutorAttendanceError
 } from '../../redux/tutorAttendanceSlice';
 
 import OfflineSync from '../../utils/offlineSync';
@@ -46,17 +27,11 @@ import { tutorAttendanceApi } from '../../api/tutorAttendanceApi';
 
 const QrScannerScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
-  
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef(null);
   
   const { 
-    id_aktivitas, 
-    activityName, 
-    activityDate, 
-    activityType,
-    kelompokId,
-    kelompokName
+    id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName
   } = route.params || {};
   
   const tokenLoading = useSelector(selectQrTokenLoading);
@@ -64,7 +39,6 @@ const QrScannerScreen = ({ navigation, route }) => {
   const attendanceLoading = useSelector(selectAttendanceLoading);
   const attendanceError = useSelector(selectAttendanceError);
   const duplicateError = useSelector(selectDuplicateError);
-  
   const tutorAttendanceLoading = useSelector(selectTutorAttendanceLoading);
   const tutorAttendanceError = useSelector(selectTutorAttendanceError);
   const tutorDuplicateError = useSelector(selectTutorDuplicateError);
@@ -87,25 +61,19 @@ const QrScannerScreen = ({ navigation, route }) => {
         );
         sound.current = cameraSound;
       } catch (error) {
-        console.error('Failed to load sound', error);
+        console.error('Gagal memuat suara', error);
       }
     };
     
     loadSound();
-    
-    return () => {
-      if (sound.current) {
-        sound.current.unloadAsync();
-      }
-    };
+    return () => sound.current?.unloadAsync();
   }, []);
   
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsConnected(state.isConnected && state.isInternetReachable);
     });
-    
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
   
   useEffect(() => {
@@ -118,11 +86,9 @@ const QrScannerScreen = ({ navigation, route }) => {
   
   useEffect(() => {
     setIsBimbelActivity(activityType === 'Bimbel');
-    
     if (activityType === 'Bimbel' && kelompokId) {
       fetchKelompokStudents(kelompokId);
     }
-    
     validateActivityDate();
   }, [activityType, kelompokId, activityDate]);
   
@@ -133,16 +99,14 @@ const QrScannerScreen = ({ navigation, route }) => {
   }, [duplicateError, tutorDuplicateError]);
   
   useEffect(() => {
-    if (validationResult && validationResult.valid && validationResult.token && validationResult.anak) {
+    if (validationResult?.valid && validationResult?.token && validationResult?.anak) {
       if (isBimbelActivity && kelompokStudentIds.length > 0) {
         const studentId = validationResult.anak.id_anak;
-        
         if (!kelompokStudentIds.includes(studentId)) {
-          showToast(`Student not in the ${kelompokName || 'selected'} group`, 'error');
+          showToast(`Siswa tidak dalam kelompok ${kelompokName || 'yang dipilih'}`, 'error');
           return;
         }
       }
-      
       handleAttendanceRecording(validationResult.token.token, validationResult.anak.id_anak);
     }
   }, [validationResult, isBimbelActivity, kelompokStudentIds]);
@@ -169,19 +133,16 @@ const QrScannerScreen = ({ navigation, route }) => {
     if (!kelompokId) return;
     
     setLoadingKelompokData(true);
-    
     try {
       const response = await adminShelterKelompokApi.getGroupChildren(kelompokId);
-      
-      if (response.data && response.data.data) {
+      if (response.data?.data) {
         const studentIds = response.data.data
           .filter(student => student.status_validasi === 'aktif')
           .map(student => student.id_anak);
-        
         setKelompokStudentIds(studentIds);
       }
     } catch (error) {
-      console.error('Error fetching kelompok students:', error);
+      console.error('Error mengambil siswa kelompok:', error);
       setKelompokStudentIds([]);
     } finally {
       setLoadingKelompokData(false);
@@ -197,7 +158,7 @@ const QrScannerScreen = ({ navigation, route }) => {
         Vibration.vibrate(100);
       }
     } catch (error) {
-      console.error('Error playing sound', error);
+      console.error('Error memainkan suara', error);
       Vibration.vibrate(100);
     }
   }, []);
@@ -208,48 +169,38 @@ const QrScannerScreen = ({ navigation, route }) => {
     setToastVisible(true);
     
     Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true
+      toValue: 1, duration: 300, useNativeDriver: true
     }).start();
     
-    setTimeout(() => {
-      hideToast();
-    }, 2000);
+    setTimeout(hideToast, 2000);
   }, [fadeAnim]);
   
   const hideToast = useCallback(() => {
     Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true
-    }).start(() => {
-      setToastVisible(false);
-    });
+      toValue: 0, duration: 300, useNativeDriver: true
+    }).start(() => setToastVisible(false));
   }, [fadeAnim]);
   
   const handleScan = useCallback(async (qrData) => {
-    if (!id_aktivitas || isProcessing) {
-      return;
-    }
+    if (!id_aktivitas || isProcessing) return;
     
     if (!id_aktivitas) {
-      Alert.alert('Error', 'No activity selected. Please go back and select an activity first.');
+      Alert.alert('Error', 'Tidak ada aktivitas yang dipilih. Silakan kembali dan pilih aktivitas terlebih dahulu.');
       return;
     }
     
     if (activityDateStatus === 'future') {
-      Alert.alert('Activity Not Started', 'This activity has not started yet. Please wait until the activity date.');
+      Alert.alert('Aktivitas Belum Dimulai', 'Aktivitas ini belum dimulai. Silakan tunggu sampai tanggal aktivitas.');
       return;
     }
     
     if (activityDateStatus === 'past') {
       Alert.alert(
-        'Past Activity', 
-        'This activity was in the past. Attendance will be marked as absent.',
+        'Aktivitas Lampau', 
+        'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir.',
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Continue', onPress: () => proceedWithScan(qrData) }
+          { text: 'Batal', style: 'cancel' },
+          { text: 'Lanjutkan', onPress: () => proceedWithScan(qrData) }
         ]
       );
       return;
@@ -263,7 +214,6 @@ const QrScannerScreen = ({ navigation, route }) => {
     
     try {
       const isTutorToken = await validateIfTutorToken(qrData.token);
-      
       setTimeout(() => {
         if (isTutorToken) {
           handleTutorAttendanceRecording(qrData.token);
@@ -272,14 +222,10 @@ const QrScannerScreen = ({ navigation, route }) => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error determining token type:', error);
-      setTimeout(() => {
-        dispatch(validateToken(qrData.token));
-      }, 100);
+      console.error('Error menentukan jenis token:', error);
+      setTimeout(() => dispatch(validateToken(qrData.token)), 100);
     } finally {
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 1000);
+      setTimeout(() => setIsProcessing(false), 1000);
     }
   }, [dispatch]);
   
@@ -295,59 +241,39 @@ const QrScannerScreen = ({ navigation, route }) => {
   const handleAttendanceRecording = useCallback(async (token, id_anak) => {
     try {
       if (isConnected) {
-        const currentTime = new Date();
-        const formattedArrivalTime = format(currentTime, 'yyyy-MM-dd HH:mm:ss');
-        
+        const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
         const result = await dispatch(recordAttendanceByQr({ 
-          id_anak, 
-          id_aktivitas, 
-          status: null,
-          token,
-          arrival_time: formattedArrivalTime
+          id_anak, id_aktivitas, status: null, token, arrival_time: formattedArrivalTime
         })).unwrap();
         
         await playSound();
         
-        const studentName = validationResult?.anak?.full_name || 'Student';
+        const studentName = validationResult?.anak?.full_name || 'Siswa';
+        let status = 'Hadir', toastType = 'success';
         
-        let status = 'Present';
-        let toastType = 'success';
-        
-        if (result.data && result.data.absen) {
+        if (result.data?.absen) {
           if (result.data.absen === 'Tidak') {
-            status = 'Absent';
+            status = 'Tidak Hadir';
             toastType = 'error';
           } else if (result.data.absen === 'Terlambat') {
-            status = 'Late';
+            status = 'Terlambat';
             toastType = 'warning';
           }
         }
         
-        setTimeout(() => {
-          showToast(`${status}: ${studentName}`, toastType);
-        }, 100);
+        setTimeout(() => showToast(`${status}: ${studentName}`, toastType), 100);
       } else {
-        const currentTime = new Date();
-        const formattedArrivalTime = format(currentTime, 'yyyy-MM-dd HH:mm:ss');
-        
         const result = await OfflineSync.processAttendance({
-          id_anak,
-          id_aktivitas,
-          status: null,
-          token,
-          arrival_time: formattedArrivalTime
+          id_anak, id_aktivitas, status: null, token,
+          arrival_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
         }, 'qr');
         
         await playSound();
-        setTimeout(() => {
-          showToast('Saved for syncing when online', 'warning');
-        }, 100);
+        setTimeout(() => showToast('Disimpan untuk sinkronisasi saat online', 'warning'), 100);
       }
     } catch (error) {
       if (!error.isDuplicate) {
-        setTimeout(() => {
-          showToast(error.message || 'Failed to record', 'error');
-        }, 100);
+        setTimeout(() => showToast(error.message || 'Gagal merekam', 'error'), 100);
       }
     }
   }, [isConnected, dispatch, id_aktivitas, validationResult, playSound, showToast]);
@@ -355,101 +281,70 @@ const QrScannerScreen = ({ navigation, route }) => {
   const handleTutorAttendanceRecording = useCallback(async (token) => {
     try {
       if (isConnected) {
-        const currentTime = new Date();
-        const formattedArrivalTime = format(currentTime, 'yyyy-MM-dd HH:mm:ss');
-        
+        const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
         const result = await dispatch(recordTutorAttendanceByQr({ 
-          id_aktivitas, 
-          token,
-          arrival_time: formattedArrivalTime
+          id_aktivitas, token, arrival_time: formattedArrivalTime
         })).unwrap();
         
         await playSound();
         
-        let status = 'Present';
-        let toastType = 'success';
+        let status = 'Hadir', toastType = 'success';
         
-        if (result.data && result.data.absen) {
+        if (result.data?.absen) {
           if (result.data.absen === 'Tidak') {
-            status = 'Absent';
+            status = 'Tidak Hadir';
             toastType = 'error';
           } else if (result.data.absen === 'Terlambat') {
-            status = 'Late';
+            status = 'Terlambat';
             toastType = 'warning';
           }
         }
         
         const tutorName = result.data?.absen_user?.tutor?.nama || 'Tutor';
-        setTimeout(() => {
-          showToast(`${status}: ${tutorName} (Tutor)`, toastType);
-        }, 100);
+        setTimeout(() => showToast(`${status}: ${tutorName} (Tutor)`, toastType), 100);
       } else {
-        const result = await OfflineSync.processAttendance({
-          id_aktivitas,
-          token,
-          arrival_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+        await OfflineSync.processAttendance({
+          id_aktivitas, token, arrival_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
           type: 'tutor'
         }, 'qr');
         
         await playSound();
-        setTimeout(() => {
-          showToast('Saved for syncing when online', 'warning');
-        }, 100);
+        setTimeout(() => showToast('Disimpan untuk sinkronisasi saat online', 'warning'), 100);
       }
     } catch (error) {
       if (!error.isDuplicate) {
-        setTimeout(() => {
-          showToast(error.message || 'Failed to record tutor attendance', 'error');
-        }, 100);
+        setTimeout(() => showToast(error.message || 'Gagal merekam kehadiran tutor', 'error'), 100);
       }
     }
   }, [isConnected, dispatch, id_aktivitas, playSound, showToast]);
   
-  const handleClose = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+  const handleClose = useCallback(() => navigation.goBack(), [navigation]);
   
   const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing;
   
-  const getToastStyle = () => {
-    switch(toastType) {
-      case 'error':
-        return styles.errorToast;
-      case 'warning':
-        return styles.warningToast;
-      case 'success':
-      default:
-        return styles.successToast;
-    }
-  };
+  const getToastStyle = () => ({
+    error: styles.errorToast,
+    warning: styles.warningToast,
+    success: styles.successToast
+  }[toastType] || styles.successToast);
   
-  const getToastIcon = () => {
-    switch(toastType) {
-      case 'error':
-        return 'close-circle';
-      case 'warning':
-        return 'alert-circle';
-      case 'success':
-      default:
-        return 'checkmark-circle';
-    }
-  };
+  const getToastIcon = () => ({
+    error: 'close-circle',
+    warning: 'alert-circle',
+    success: 'checkmark-circle'
+  }[toastType] || 'checkmark-circle');
 
   const getActivityStatusInfo = () => {
     switch(activityDateStatus) {
       case 'future':
         return {
-          show: true,
-          color: '#f39c12',
-          icon: 'time-outline',
-          text: 'Activity has not started yet'
+          show: true, color: '#f39c12', icon: 'time-outline',
+          text: 'Aktivitas belum dimulai'
         };
       case 'past':
         return {
-          show: true,
-          color: '#e74c3c',
-          icon: 'alert-circle',
-          text: 'Past activity - attendance will be marked as absent'
+          show: true, color: '#e74c3c', icon: 'alert-circle',
+          text: 'Aktivitas lampau - kehadiran akan ditandai tidak hadir'
         };
       default:
         return { show: false };
@@ -469,12 +364,12 @@ const QrScannerScreen = ({ navigation, route }) => {
       
       <View style={styles.bottomBar}>
         <Text style={styles.activityName}>
-          {activityName || 'No activity selected'}
+          {activityName || 'Tidak ada aktivitas dipilih'}
         </Text>
         
         {isBimbelActivity && kelompokName && (
           <Text style={styles.kelompokInfo}>
-            Group: {kelompokName}
+            Kelompok: {kelompokName}
           </Text>
         )}
         
@@ -491,7 +386,7 @@ const QrScannerScreen = ({ navigation, route }) => {
           <View style={styles.autoDetectionNote}>
             <Ionicons name="time-outline" size={16} color="#fff" />
             <Text style={styles.autoDetectionText}>
-              Attendance status will be automatically determined based on schedule
+              Status kehadiran akan ditentukan otomatis berdasarkan jadwal
             </Text>
           </View>
         )}
@@ -499,19 +394,13 @@ const QrScannerScreen = ({ navigation, route }) => {
         {!isConnected && (
           <View style={styles.offlineIndicator}>
             <Ionicons name="cloud-offline" size={16} color="#fff" />
-            <Text style={styles.offlineText}>Offline Mode</Text>
+            <Text style={styles.offlineText}>Mode Offline</Text>
           </View>
         )}
       </View>
       
       {toastVisible && (
-        <Animated.View 
-          style={[
-            styles.toast,
-            getToastStyle(),
-            { opacity: fadeAnim }
-          ]}
-        >
+        <Animated.View style={[styles.toast, getToastStyle(), { opacity: fadeAnim }]}>
           <Ionicons name={getToastIcon()} size={20} color="#fff" />
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
@@ -521,107 +410,38 @@ const QrScannerScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 16,
-    paddingBottom: 30,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)', padding: 16, paddingBottom: 30
   },
-  activityName: {
-    color: '#fff',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  kelompokInfo: {
-    color: '#fff',
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 10,
-    opacity: 0.8,
-  },
+  activityName: { color: '#fff', fontSize: 14, textAlign: 'center', marginBottom: 6 },
+  kelompokInfo: { color: '#fff', fontSize: 12, textAlign: 'center', marginBottom: 10, opacity: 0.8 },
   activityStatusNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: 10, borderRadius: 6, marginBottom: 10
   },
-  activityStatusText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
+  activityStatusText: { color: '#fff', marginLeft: 8, fontSize: 12, textAlign: 'center', fontWeight: '500' },
   autoDetectionNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(52, 152, 219, 0.7)',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(52, 152, 219, 0.7)', padding: 10, borderRadius: 6, marginBottom: 10
   },
-  autoDetectionText: {
-    color: '#fff',
-    marginLeft: 8,
-    fontSize: 12,
-    textAlign: 'center',
-  },
+  autoDetectionText: { color: '#fff', marginLeft: 8, fontSize: 12, textAlign: 'center' },
   offlineIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e74c3c',
-    padding: 6,
-    borderRadius: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#e74c3c', padding: 6, borderRadius: 4
   },
-  offlineText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontSize: 12,
-  },
+  offlineText: { color: '#fff', marginLeft: 6, fontSize: 12 },
   toast: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    position: 'absolute', bottom: 100, left: 20, right: 20,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16,
+    borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3, shadowRadius: 3, elevation: 5
   },
-  successToast: {
-    backgroundColor: 'rgba(46, 204, 113, 0.9)',
-  },
-  warningToast: {
-    backgroundColor: 'rgba(243, 156, 18, 0.9)',
-  },
-  errorToast: {
-    backgroundColor: 'rgba(231, 76, 60, 0.9)',
-  },
-  toastText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 10,
-    flex: 1,
-  },
+  successToast: { backgroundColor: 'rgba(46, 204, 113, 0.9)' },
+  warningToast: { backgroundColor: 'rgba(243, 156, 18, 0.9)' },
+  errorToast: { backgroundColor: 'rgba(231, 76, 60, 0.9)' },
+  toastText: { color: '#fff', fontSize: 14, fontWeight: '500', marginLeft: 10, flex: 1 }
 });
 
 export default QrScannerScreen;

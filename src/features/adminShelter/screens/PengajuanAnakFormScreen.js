@@ -104,12 +104,15 @@ const PengajuanAnakFormScreen = () => {
   
   const handleDateChange = (event, selectedDate) => {
     toggleDatePicker();
-    if (selectedDate) {
+    
+    // Only update if user didn't cancel (selectedDate exists and event type is not dismissed)
+    if (selectedDate && event.type !== 'dismissed') {
       const day = String(selectedDate.getDate()).padStart(2, '0');
       const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const year = selectedDate.getFullYear();
       handleChange('tanggal_lahir', `${day}-${month}-${year}`);
     }
+    // If user canceled (event.type === 'dismissed' or no selectedDate), do nothing
   };
   
   const handleSelectImage = async () => {
@@ -348,25 +351,21 @@ const PengajuanAnakFormScreen = () => {
             inputProps={{ maxLength: 16, keyboardType: 'numeric' }}
           />
           
-          <View style={styles.rowContainer}>
-            <View style={styles.inputHalf}>
-              <Text style={styles.label}>Anak ke*</Text>
-              <TextInput
-                value={formData.anak_ke}
-                onChangeText={(value) => handleChange('anak_ke', value)}
-                placeholder="contoh: 2" inputProps={{ keyboardType: 'numeric' }}
-              />
-            </View>
-            
-            <View style={styles.inputHalf}>
-              <Text style={styles.label}>Dari berapa bersaudara*</Text>
-              <TextInput
-                value={formData.dari_bersaudara}
-                onChangeText={(value) => handleChange('dari_bersaudara', value)}
-                placeholder="contoh: 3" inputProps={{ keyboardType: 'numeric' }}
-              />
-            </View>
-          </View>
+          <TextInput
+            label="Anak ke*" value={formData.anak_ke}
+            onChangeText={(value) => handleChange('anak_ke', value)}
+            placeholder="contoh: 2"
+            leftIcon={<Ionicons name="person-outline" size={20} color="#777" />}
+            inputProps={{ keyboardType: 'numeric' }}
+          />
+          
+          <TextInput
+            label="Dari berapa bersaudara*" value={formData.dari_bersaudara}
+            onChangeText={(value) => handleChange('dari_bersaudara', value)}
+            placeholder="contoh: 3"
+            leftIcon={<Ionicons name="people-outline" size={20} color="#777" />}
+            inputProps={{ keyboardType: 'numeric' }}
+          />
           
           <TextInput
             label="Nama Panggilan*" value={formData.nick_name}

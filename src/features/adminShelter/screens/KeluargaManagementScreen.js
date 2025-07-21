@@ -102,11 +102,7 @@ const KeluargaManagementScreen = () => {
 
   const handleViewKeluarga = id => navigation.navigate('KeluargaDetail', { id });
   const handleAddKeluarga = () => {
-    Alert.alert('Tambah Keluarga', 'Pilih Opsi:', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Buat Keluarga Baru', onPress: () => navigation.navigate('KeluargaForm', { isNew: true }) },
-      { text: 'Pengajuan Anak', onPress: () => navigation.navigate('PengajuanAnakSearch') },
-    ]);
+    navigation.navigate('KeluargaForm', { isNew: true });
   };
 
   const handleDeleteKeluarga = keluarga => {

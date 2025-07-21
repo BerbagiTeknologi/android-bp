@@ -14,30 +14,12 @@ import TutorTokenSection from '../../components/TutorTokenSection';
 import { useQrTokenGeneration } from '../../hooks/useQrTokenGeneration';
 
 const QrTokenGenerationScreen = ({ navigation, route }) => {
-  const hookData = useQrTokenGeneration(route.params || {});
-  
   const {
-    mode,
-    setMode,
-    selectedStudents,
-    filteredStudents,
-    studentTokens,
-    activityName,
-    activityDate,
-    activityType,
-    kelompokName,
-    level,
-    activityTutor,
-    tokenLoading,
-    tokenError,
-    tutorLoading,
-    tutorError,
-    exportLoading,
-    setQrRef,
-    toggleStudentSelection,
-    handleGenerateToken,
-    handleExportQr
-  } = hookData;
+    mode, setMode, selectedStudents, filteredStudents, studentTokens,
+    activityName, activityDate, activityType, kelompokName, level, activityTutor,
+    tokenLoading, tokenError, tutorLoading, tutorError, exportLoading,
+    setQrRef, toggleStudentSelection, handleGenerateToken, handleExportQr
+  } = useQrTokenGeneration(route.params || {});
 
   const renderStudentItem = ({ item }) => {
     const isSelected = selectedStudents.includes(item.id_anak);
@@ -47,10 +29,7 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
       <View style={styles.studentCard}>
         <View style={styles.studentHeader}>
           <TouchableOpacity
-            style={[
-              styles.checkbox,
-              isSelected && styles.checkboxSelected
-            ]}
+            style={[styles.checkbox, isSelected && styles.checkboxSelected]}
             onPress={() => toggleStudentSelection(item.id_anak)}
           >
             {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
@@ -58,7 +37,7 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
           
           <View style={styles.studentInfo}>
             <Text style={styles.studentName}>
-              {item.full_name || item.nick_name || 'Unknown'}
+              {item.full_name || item.nick_name || 'Tidak Diketahui'}
             </Text>
             <Text style={styles.studentId}>ID: {item.id_anak}</Text>
           </View>
@@ -70,7 +49,7 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
               disabled={tokenLoading}
             >
               <Text style={styles.generateButtonText}>
-                {token ? 'Regenerate' : 'Generate'}
+                {token ? 'Buat Ulang' : 'Buat'}
               </Text>
             </TouchableOpacity>
             
@@ -100,87 +79,85 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
     );
   };
 
+  const ModeButton = ({ mode: btnMode, icon, text, active, disabled, onPress }) => (
+    <TouchableOpacity
+      style={[
+        styles.modeButton,
+        active && styles.modeButtonActive,
+        disabled && styles.modeButtonDisabled
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Ionicons 
+        name={icon} 
+        size={20} 
+        color={active ? '#fff' : (disabled ? '#bdc3c7' : '#3498db')} 
+      />
+      <Text style={[
+        styles.modeButtonText,
+        active && styles.modeButtonTextActive,
+        disabled && styles.modeButtonTextDisabled
+      ]}>
+        {text}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       {activityName && (
         <View style={styles.activityInfo}>
           <Text style={styles.activityName}>{activityName}</Text>
-          {activityDate && (
-            <Text style={styles.activityDate}>{activityDate}</Text>
-          )}
+          {activityDate && <Text style={styles.activityDate}>{activityDate}</Text>}
           
           {activityType === 'Bimbel' && kelompokName && (
             <View style={styles.contextInfo}>
-              <Text style={styles.contextInfoText}>Group: {kelompokName}</Text>
-              {level && <Text style={styles.contextInfoText}>Level: {level}</Text>}
+              <Text style={styles.contextInfoText}>Kelompok: {kelompokName}</Text>
+              {level && <Text style={styles.contextInfoText}>Tingkat: {level}</Text>}
             </View>
           )}
         </View>
       )}
       
       <View style={styles.modeToggleContainer}>
-        <TouchableOpacity
-          style={[
-            styles.modeButton,
-            mode === 'students' && styles.modeButtonActive
-          ]}
+        <ModeButton
+          mode="students"
+          icon="people"
+          text="Siswa"
+          active={mode === 'students'}
           onPress={() => setMode('students')}
-        >
-          <Ionicons 
-            name="people" 
-            size={20} 
-            color={mode === 'students' ? '#fff' : '#3498db'} 
-          />
-          <Text style={[
-            styles.modeButtonText,
-            mode === 'students' && styles.modeButtonTextActive
-          ]}>
-            Students
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.modeButton,
-            mode === 'tutor' && styles.modeButtonActive,
-            !activityTutor && styles.modeButtonDisabled
-          ]}
-          onPress={() => activityTutor && setMode('tutor')}
+        />
+        <ModeButton
+          mode="tutor"
+          icon="person"
+          text="Tutor"
+          active={mode === 'tutor'}
           disabled={!activityTutor}
-        >
-          <Ionicons 
-            name="person" 
-            size={20} 
-            color={mode === 'tutor' ? '#fff' : (!activityTutor ? '#bdc3c7' : '#3498db')} 
-          />
-          <Text style={[
-            styles.modeButtonText,
-            mode === 'tutor' && styles.modeButtonTextActive,
-            !activityTutor && styles.modeButtonTextDisabled
-          ]}>
-            Tutor
-          </Text>
-        </TouchableOpacity>
+          onPress={() => activityTutor && setMode('tutor')}
+        />
       </View>
       
-      {(tokenError || tutorError) && (
-        <ErrorMessage message={tokenError || tutorError} />
-      )}
+      {(tokenError || tutorError) && <ErrorMessage message={tokenError || tutorError} />}
       
       {mode === 'students' ? (
-        <StudentTokenSection
-          {...hookData}
-          renderStudentItem={renderStudentItem}
-        />
+        <StudentTokenSection {...{ 
+          selectedStudents, filteredStudents, studentTokens, tokenLoading,
+          exportLoading, setQrRef, toggleStudentSelection, handleGenerateToken,
+          handleExportQr, renderStudentItem
+        }} />
       ) : (
-        <TutorTokenSection {...hookData} />
+        <TutorTokenSection {...{
+          activityTutor, tokenLoading, tutorLoading, tutorError, exportLoading,
+          handleGenerateToken, handleExportQr, setQrRef
+        }} />
       )}
       
       {(tokenLoading || exportLoading || tutorLoading) && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#3498db" />
           <Text style={styles.loadingText}>
-            {exportLoading ? 'Exporting QR codes...' : 'Generating QR codes...'}
+            {exportLoading ? 'Mengekspor kode QR...' : 'Membuat kode QR...'}
           </Text>
         </View>
       )}
@@ -189,148 +166,58 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  activityInfo: {
-    backgroundColor: '#3498db',
-    padding: 16,
-    alignItems: 'center',
-  },
-  activityName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  activityDate: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  activityInfo: { backgroundColor: '#3498db', padding: 16, alignItems: 'center' },
+  activityName: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  activityDate: { fontSize: 14, color: 'rgba(255, 255, 255, 0.8)', marginTop: 4 },
   contextInfo: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.3)',
-    alignItems: 'center',
+    marginTop: 8, paddingTop: 8, alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.3)'
   },
-  contextInfoText: {
-    fontSize: 12,
-    color: '#fff',
-    marginVertical: 2,
-  },
+  contextInfoText: { fontSize: 12, color: '#fff', marginVertical: 2 },
   modeToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
+    flexDirection: 'row', backgroundColor: '#fff', padding: 8,
+    borderBottomWidth: 1, borderBottomColor: '#e1e1e1'
   },
   modeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, paddingHorizontal: 16, marginHorizontal: 4,
+    borderRadius: 8, backgroundColor: '#f8f9fa'
   },
-  modeButtonActive: {
-    backgroundColor: '#3498db',
-  },
-  modeButtonDisabled: {
-    opacity: 0.5,
-  },
-  modeButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#3498db',
-  },
-  modeButtonTextActive: {
-    color: '#fff',
-  },
-  modeButtonTextDisabled: {
-    color: '#bdc3c7',
-  },
+  modeButtonActive: { backgroundColor: '#3498db' },
+  modeButtonDisabled: { opacity: 0.5 },
+  modeButtonText: { marginLeft: 8, fontSize: 16, fontWeight: '500', color: '#3498db' },
+  modeButtonTextActive: { color: '#fff' },
+  modeButtonTextDisabled: { color: '#bdc3c7' },
   studentCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1, shadowRadius: 2, elevation: 2
   },
-  studentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
+  studentHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#3498db',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#3498db',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12
   },
-  checkboxSelected: {
-    backgroundColor: '#3498db',
-  },
-  studentInfo: {
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#2c3e50',
-  },
-  studentId: {
-    fontSize: 12,
-    color: '#7f8c8d',
-  },
-  studentActions: {
-    flexDirection: 'row',
-  },
+  checkboxSelected: { backgroundColor: '#3498db' },
+  studentInfo: { flex: 1 },
+  studentName: { fontSize: 16, fontWeight: '500', color: '#2c3e50' },
+  studentId: { fontSize: 12, color: '#7f8c8d' },
+  studentActions: { flexDirection: 'row' },
   generateButton: {
-    backgroundColor: '#f1c40f',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    marginRight: 6,
+    backgroundColor: '#f1c40f', paddingVertical: 6, paddingHorizontal: 10,
+    borderRadius: 16, marginRight: 6
   },
-  generateButtonText: {
-    color: '#fff',
-    fontWeight: '500',
-    fontSize: 12,
-  },
+  generateButtonText: { color: '#fff', fontWeight: '500', fontSize: 12 },
   exportButton: {
-    backgroundColor: '#27ae60',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#27ae60', paddingVertical: 6, paddingHorizontal: 10,
+    borderRadius: 16, justifyContent: 'center', alignItems: 'center'
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center', alignItems: 'center'
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#3498db',
-  },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#3498db' }
 });
 
 export default QrTokenGenerationScreen;

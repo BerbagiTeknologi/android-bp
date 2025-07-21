@@ -123,14 +123,6 @@ const KeluargaDetailScreen = () => {
     navigation.navigate('AnakDetail', { id: childId });
   };
   
-  // Add child
-  const handleAddChild = () => {
-    // Pass family data to pre-populate child form
-    navigation.navigate('PengajuanAnakSearch', { 
-      isNew: true, 
-      familyData: keluargaData.keluarga 
-    });
-  };
   
   // Loading state
   if (loading && !refreshing) {
@@ -397,14 +389,6 @@ const KeluargaDetailScreen = () => {
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Anak</Text>
-              <Button
-                title="Tambah Anak"
-                onPress={handleAddChild}
-                type="primary"
-                size="small"
-                style={styles.addButton}
-                leftIcon={<Ionicons name="add" size={16} color="#fff" />}
-              />
             </View>
             
             {children.length > 0 ? (
@@ -456,13 +440,6 @@ const KeluargaDetailScreen = () => {
               <View style={styles.emptyChildren}>
                 <Ionicons name="people-outline" size={40} color="#ddd" />
                 <Text style={styles.emptyText}>Tidak ada anak yang terdaftar di keluarga ini</Text>
-                <Button
-                  title="Tambah Anak"
-                  onPress={handleAddChild}
-                  type="outline"
-                  size="small"
-                  style={styles.emptyButton}
-                />
               </View>
             )}
           </View>
@@ -528,9 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
-  addButton: {
-    backgroundColor: '#e74c3c',
-  },
   childrenList: {
     marginTop: 8,
   },
@@ -592,9 +566,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#999',
     marginVertical: 12,
-  },
-  emptyButton: {
-    minWidth: 120,
   },
 });
 

@@ -376,7 +376,7 @@ const AddChildrenToKelompokScreen = () => {
   );
   
   if (loading) {
-    return <LoadingSpinner fullScreen message="Loading available children..." />;
+    return <LoadingSpinner fullScreen message="Memuat..." />;
   }
   
   return (
