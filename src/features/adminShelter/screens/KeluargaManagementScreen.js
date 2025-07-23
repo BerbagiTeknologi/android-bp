@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import components
@@ -86,6 +86,16 @@ const KeluargaManagementScreen = () => {
 
   useEffect(() => { fetchKeluargaData(1, true); }, [debouncedSearchQuery]);
   useEffect(() => { fetchKeluargaData(); }, []);
+  
+  // Auto-refresh data when screen comes back to focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Only refresh if we're not currently loading and not in the middle of searching
+      if (!loading && !refreshing && debouncedSearchQuery === searchQuery) {
+        fetchKeluargaData(1, true);
+      }
+    }, [loading, refreshing, debouncedSearchQuery, searchQuery])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -105,23 +115,84 @@ const KeluargaManagementScreen = () => {
     navigation.navigate('KeluargaForm', { isNew: true });
   };
 
-  const handleDeleteKeluarga = keluarga => {
+  const handleDeleteKeluarga = async (keluarga) => {
+    try {
+      setLoading(true);
+      const response = await adminShelterKeluargaApi.deleteKeluarga(keluarga.id_keluarga);
+      
+      if (response.data.success) {
+        handleRefresh();
+        Alert.alert('Berhasil', 'Keluarga telah dihapus');
+      }
+    } catch (err) {
+      console.error('Error deleting keluarga:', err);
+      
+      // Handle case where family has active children
+      if (err.response?.data?.code === 'HAS_ACTIVE_CHILDREN') {
+        const childrenInfo = err.response.data.data.children_info;
+        showDeleteOptionsDialog(keluarga, childrenInfo);
+      } else {
+        Alert.alert('Error', err.response?.data?.message || 'Gagal menghapus keluarga');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showDeleteOptionsDialog = (keluarga, childrenInfo) => {
+    const activeChildrenNames = childrenInfo.active_children_list
+      .map(child => child.full_name || child.nick_name)
+      .join(', ');
+    
     Alert.alert(
-      'Delete Family',
-      `Are you sure you want to delete family "${keluarga.kepala_keluarga}"? This will also delete all associated data including children.`,
+      'Keluarga Memiliki Anak Aktif',
+      `Keluarga "${keluarga.kepala_keluarga}" memiliki ${childrenInfo.active_children} anak aktif: ${activeChildrenNames}\n\nPilih tindakan:`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: async () => {
-          try {
-            setLoading(true);
-            await adminShelterKeluargaApi.deleteKeluarga(keluarga.id_keluarga);
-            handleRefresh();
-            Alert.alert('Success', 'Family has been deleted');
-          } catch (err) {
-            console.error('Error deleting keluarga:', err);
-            Alert.alert('Error', 'Failed to delete family');
-          } finally { setLoading(false); }
-        }}
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Transfer Anak', 
+          onPress: () => showTransferAnakDialog(keluarga, childrenInfo.active_children_list)
+        },
+        { 
+          text: 'Hapus Paksa', 
+          style: 'destructive',
+          onPress: () => confirmForceDelete(keluarga, childrenInfo)
+        }
+      ]
+    );
+  };
+
+  const showTransferAnakDialog = (keluarga, activeChildren) => {
+    Alert.alert(
+      'Transfer Anak',
+      'Fitur transfer anak sedang dalam pengembangan. Silakan gunakan menu manajemen anak untuk memindahkan anak ke keluarga lain terlebih dahulu.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const confirmForceDelete = (keluarga, childrenInfo) => {
+    Alert.alert(
+      'Konfirmasi Hapus Paksa',
+      `Anda akan menghapus keluarga "${keluarga.kepala_keluarga}" dan mengubah status ${childrenInfo.active_children} anak menjadi "tanpa keluarga".\n\nApakah Anda yakin?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Hapus Paksa', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await adminShelterKeluargaApi.forceDeleteKeluarga(keluarga.id_keluarga);
+              handleRefresh();
+              Alert.alert('Berhasil', 'Keluarga telah dihapus dan status anak telah diperbarui');
+            } catch (err) {
+              console.error('Error force deleting keluarga:', err);
+              Alert.alert('Error', 'Gagal menghapus keluarga');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
       ]
     );
   };

@@ -52,6 +52,9 @@ const KeluargaFormScreen = () => {
   };
   
   const [currentStep, setCurrentStep] = useState(STEPS.FAMILY);
+  
+  // Flag to control step indicator visibility
+  const SHOW_STEP_INDICATOR = false;
   const [formData, setFormData] = useState({
     no_kk: '',
     kepala_keluarga: '',
@@ -61,8 +64,6 @@ const KeluargaFormScreen = () => {
     an_rek: '',
     no_tlp: '',
     an_tlp: '',
-    bank_choice: 'no',
-    telp_choice: 'no',
     
     nik_ayah: '',
     nama_ayah: '',
@@ -158,6 +159,9 @@ const KeluargaFormScreen = () => {
     pengurus_organisasi: '',
     pengurus_organisasi_sebagai: '',
     status_anak: '',
+    kepribadian_anak: '',
+    kondisi_fisik_anak: '',
+    keterangan_disabilitas: '',
     biaya_pendidikan_perbulan: '',
     bantuan_lembaga_formal_lain: '',
     bantuan_lembaga_formal_lain_sebesar: '',
@@ -173,7 +177,7 @@ const KeluargaFormScreen = () => {
   const [stepsValid, setStepsValid] = useState({
     [STEPS.FAMILY]: false,
     [STEPS.PARENTS]: false,
-    [STEPS.GUARDIAN]: true,
+    [STEPS.GUARDIAN]: false,
     [STEPS.CHILD]: false,
     [STEPS.EDUCATION]: false,
     [STEPS.SURVEY_BASIC]: false,
@@ -247,8 +251,6 @@ const KeluargaFormScreen = () => {
               an_rek: familyData.an_rek || '',
               no_tlp: familyData.no_tlp || '',
               an_tlp: familyData.an_tlp || '',
-              bank_choice: familyData.id_bank ? 'yes' : 'no',
-              telp_choice: familyData.no_tlp ? 'yes' : 'no',
               
               nik_ayah: ayah.nik_ayah || '',
               nama_ayah: ayah.nama_ayah || '',
@@ -343,6 +345,9 @@ const KeluargaFormScreen = () => {
               pengurus_organisasi: surveyData.pengurus_organisasi || '',
               pengurus_organisasi_sebagai: surveyData.pengurus_organisasi_sebagai || '',
               status_anak: surveyData.status_anak || '',
+              kepribadian_anak: surveyData.kepribadian_anak || '',
+              kondisi_fisik_anak: surveyData.kondisi_fisik_anak || '',
+              keterangan_disabilitas: surveyData.keterangan_disabilitas || '',
               biaya_pendidikan_perbulan: surveyData.biaya_pendidikan_perbulan?.toString() || '',
               bantuan_lembaga_formal_lain: surveyData.bantuan_lembaga_formal_lain || '',
               bantuan_lembaga_formal_lain_sebesar: surveyData.bantuan_lembaga_formal_lain_sebesar?.toString() || '',
@@ -353,8 +358,9 @@ const KeluargaFormScreen = () => {
             
             setStepsValid(prev => ({
               ...prev,
-              [STEPS.FAMILY]: true,
-              [STEPS.PARENTS]: true,
+              [STEPS.FAMILY]: validateStep(STEPS.FAMILY, initialFormData),
+              [STEPS.PARENTS]: validateStep(STEPS.PARENTS, initialFormData),
+              [STEPS.GUARDIAN]: initialFormData.status_ortu === 'yatim piatu' ? validateStep(STEPS.GUARDIAN, initialFormData) : true,
               [STEPS.CHILD]: Object.keys(childData).length > 0,
               [STEPS.EDUCATION]: Object.keys(educationData).length > 0,
               [STEPS.SURVEY_BASIC]: Object.keys(surveyData).length > 0,
@@ -384,34 +390,144 @@ const KeluargaFormScreen = () => {
   
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Reset step validations when status_ortu changes
+    if (field === 'status_ortu') {
+      setStepsValid(prev => ({
+        ...prev,
+        [STEPS.PARENTS]: false,
+        [STEPS.GUARDIAN]: value === 'yatim piatu' ? false : true
+      }));
+    }
   };
   
   const validateStep = (step, data) => {
     switch (step) {
       case STEPS.FAMILY:
-        return !!(
+        // All visible family fields are required
+        const familyRequired = !!(
           data.no_kk &&
           data.no_kk.length === 16 &&
           data.kepala_keluarga &&
           data.status_ortu
         );
+        
+        // All bank and phone fields are now required
+        return familyRequired && !!(
+          data.id_bank &&
+          data.no_rek &&
+          data.an_rek &&
+          data.no_tlp &&
+          data.an_tlp
+        );
       
       case STEPS.PARENTS:
-        if (data.status_ortu === 'yatim piatu') {
-          return true;
+        // All visible parent fields are required based on status
+        switch (data.status_ortu) {
+          case 'yatim':
+            // Father deceased: name, death date, cause required
+            // Mother alive: ALL fields required
+            return (
+              data.nama_ayah &&
+              data.tanggal_kematian_ayah &&
+              data.penyebab_kematian_ayah &&
+              data.nama_ibu &&
+              data.nik_ibu &&
+              data.nik_ibu.length === 16 &&
+              data.agama_ibu &&
+              data.tempat_lahir_ibu &&
+              data.tanggal_lahir_ibu &&
+              data.alamat_ibu &&
+              data.id_prov_ibu &&
+              data.id_kab_ibu &&
+              data.id_kec_ibu &&
+              data.id_kel_ibu &&
+              data.penghasilan_ibu
+            );
+          
+          case 'piatu':
+            // Father alive: ALL fields required
+            // Mother deceased: name, death date, cause required
+            return (
+              data.nama_ayah &&
+              data.nik_ayah &&
+              data.nik_ayah.length === 16 &&
+              data.agama_ayah &&
+              data.tempat_lahir_ayah &&
+              data.tanggal_lahir_ayah &&
+              data.alamat_ayah &&
+              data.id_prov_ayah &&
+              data.id_kab_ayah &&
+              data.id_kec_ayah &&
+              data.id_kel_ayah &&
+              data.penghasilan_ayah &&
+              data.nama_ibu &&
+              data.tanggal_kematian_ibu &&
+              data.penyebab_kematian_ibu
+            );
+          
+          case 'yatim piatu':
+            // Both parents deceased: name, death date, cause required for both
+            return (
+              data.nama_ayah &&
+              data.tanggal_kematian_ayah &&
+              data.penyebab_kematian_ayah &&
+              data.nama_ibu &&
+              data.tanggal_kematian_ibu &&
+              data.penyebab_kematian_ibu
+            );
+          
+          case 'dhuafa':
+          case 'non dhuafa':
+          default:
+            // Both parents alive: ALL fields required for both
+            return (
+              data.nama_ayah &&
+              data.nik_ayah &&
+              data.nik_ayah.length === 16 &&
+              data.agama_ayah &&
+              data.tempat_lahir_ayah &&
+              data.tanggal_lahir_ayah &&
+              data.alamat_ayah &&
+              data.id_prov_ayah &&
+              data.id_kab_ayah &&
+              data.id_kec_ayah &&
+              data.id_kel_ayah &&
+              data.penghasilan_ayah &&
+              data.nama_ibu &&
+              data.nik_ibu &&
+              data.nik_ibu.length === 16 &&
+              data.agama_ibu &&
+              data.tempat_lahir_ibu &&
+              data.tanggal_lahir_ibu &&
+              data.alamat_ibu &&
+              data.id_prov_ibu &&
+              data.id_kab_ibu &&
+              data.id_kec_ibu &&
+              data.id_kel_ibu &&
+              data.penghasilan_ibu
+            );
         }
-        return (
-          (data.nama_ayah && data.nik_ayah && data.nik_ayah.length === 16) ||
-          (data.nama_ibu && data.nik_ibu && data.nik_ibu.length === 16)
-        );
       
       case STEPS.GUARDIAN:
         if (data.status_ortu === 'yatim piatu') {
-          return !!(data.nama_wali && data.nik_wali && data.nik_wali.length === 16 && data.hub_kerabat_wali);
+          // If guardian step is visible, ALL guardian fields are required
+          return !!(
+            data.nama_wali &&
+            data.nik_wali &&
+            data.nik_wali.length === 16 &&
+            data.agama_wali &&
+            data.tempat_lahir_wali &&
+            data.tanggal_lahir_wali &&
+            data.alamat_wali &&
+            data.penghasilan_wali &&
+            data.hub_kerabat_wali
+          );
         }
         return true;
       
       case STEPS.CHILD:
+        // ALL child fields are required (no conditionals here)
         return !!(
           data.nik_anak &&
           data.nik_anak.length === 16 &&
@@ -423,29 +539,70 @@ const KeluargaFormScreen = () => {
           data.tempat_lahir &&
           data.tanggal_lahir &&
           data.jenis_kelamin &&
-          data.tinggal_bersama
+          data.tinggal_bersama &&
+          data.hafalan &&
+          data.pelajaran_favorit &&
+          data.hobi &&
+          data.prestasi &&
+          data.jarak_rumah &&
+          data.transportasi
         );
       
       case STEPS.EDUCATION:
-        return !!(data.jenjang);
+        // Base requirement: jenjang is always required
+        if (!data.jenjang) return false;
+        
+        // Additional requirements based on education level
+        switch (data.jenjang) {
+          case 'belum_sd':
+            return true; // Only jenjang required
+          case 'sd':
+          case 'smp':
+            return !!(data.kelas && data.nama_sekolah && data.alamat_sekolah);
+          case 'sma':
+            return !!(data.kelas && data.nama_sekolah && data.alamat_sekolah && data.jurusan);
+          case 'perguruan_tinggi':
+            return !!(data.semester && data.jurusan && data.nama_pt && data.alamat_pt);
+          default:
+            return true;
+        }
 
       case STEPS.SURVEY_BASIC:
-        return !!(
+        // All visible basic survey fields are required
+        const basicRequired = !!(
           data.pekerjaan_kepala_keluarga &&
           data.pendidikan_kepala_keluarga &&
           data.jumlah_tanggungan &&
-          data.status_anak
+          data.kondisi_fisik_anak &&
+          data.status_anak &&
+          data.kepribadian_anak
         );
+        
+        // If disability is selected, disability details are required
+        if (data.kondisi_fisik_anak === 'Disabilitas') {
+          return basicRequired && !!data.keterangan_disabilitas;
+        }
+        
+        return basicRequired;
 
       case STEPS.SURVEY_FINANCIAL:
-        return !!(
+        // All financial fields are required
+        const financialRequired = !!(
           data.penghasilan &&
           data.kepemilikan_tabungan &&
           data.biaya_pendidikan_perbulan &&
           data.bantuan_lembaga_formal_lain
         );
+        
+        // If receiving assistance, amount is required
+        if (data.bantuan_lembaga_formal_lain === 'Ya') {
+          return financialRequired && !!data.bantuan_lembaga_formal_lain_sebesar;
+        }
+        
+        return financialRequired;
 
       case STEPS.SURVEY_ASSETS:
+        // ALL asset fields are required
         return !!(
           data.kepemilikan_tanah &&
           data.kepemilikan_rumah &&
@@ -456,6 +613,7 @@ const KeluargaFormScreen = () => {
         );
 
       case STEPS.SURVEY_HEALTH:
+        // ALL health fields are required
         return !!(
           data.jumlah_makan &&
           data.sumber_air_bersih &&
@@ -468,7 +626,8 @@ const KeluargaFormScreen = () => {
         );
 
       case STEPS.SURVEY_RELIGIOUS:
-        return !!(
+        // All religious fields are required
+        const religiousRequired = !!(
           data.solat_lima_waktu &&
           data.membaca_alquran &&
           data.majelis_taklim &&
@@ -476,6 +635,13 @@ const KeluargaFormScreen = () => {
           data.pengurus_organisasi &&
           data.kondisi_penerima_manfaat
         );
+        
+        // If organization member, role is required
+        if (data.pengurus_organisasi === 'Ya') {
+          return religiousRequired && !!data.pengurus_organisasi_sebagai;
+        }
+        
+        return religiousRequired;
       
       case STEPS.REVIEW:
         return true;
@@ -490,37 +656,83 @@ const KeluargaFormScreen = () => {
   };
   
   const goToNextStep = () => {
-    const isCurrentStepValid = validateStep(currentStep, formData);
+    console.log('=== goToNextStep called ===');
+    console.log('Current step:', currentStep);
+    console.log('Current formData:', formData);
+    
+    let isCurrentStepValid;
+    
+    // For FAMILY step, use enhanced validation from component
+    if (currentStep === STEPS.FAMILY && formData._stepValidation) {
+      console.log('Using component validation');
+      isCurrentStepValid = formData._stepValidation();
+    } else {
+      console.log('Using default validation');
+      // For other steps, use original validation
+      isCurrentStepValid = validateStep(currentStep, formData);
+    }
+    
+    console.log('isCurrentStepValid:', isCurrentStepValid);
     updateStepValidity(currentStep, isCurrentStepValid);
     
     if (isCurrentStepValid) {
-      if (currentStep === STEPS.FAMILY && formData.status_ortu === 'yatim piatu') {
-        setCurrentStep(STEPS.GUARDIAN);
-      } else {
-        setCurrentStep(prev => prev + 1);
+      let nextStep = currentStep + 1;
+      
+      // Skip GUARDIAN step if status_ortu is not 'yatim piatu'
+      if (currentStep === STEPS.PARENTS && formData.status_ortu !== 'yatim piatu') {
+        nextStep = STEPS.CHILD; // Skip GUARDIAN step
       }
+      
+      setCurrentStep(nextStep);
     } else {
-      Alert.alert(
-        'Kesalahan Validasi',
-        'Mohon lengkapi semua kolom yang wajib diisi sebelum melanjutkan.'
-      );
+      // Only show alert for non-FAMILY steps (FAMILY step shows inline errors)
+      if (currentStep !== STEPS.FAMILY) {
+        Alert.alert(
+          'Kesalahan Validasi',
+          'Mohon lengkapi semua kolom yang wajib diisi sebelum melanjutkan.'
+        );
+      }
     }
   };
   
   const goToPreviousStep = () => {
-    if (currentStep === STEPS.GUARDIAN && formData.status_ortu === 'yatim piatu') {
-      setCurrentStep(STEPS.FAMILY);
-    } else {
-      setCurrentStep(prev => Math.max(0, prev - 1));
+    let prevStep = currentStep - 1;
+    
+    // Special navigation logic
+    if (currentStep === STEPS.GUARDIAN) {
+      // From GUARDIAN, always go back to PARENTS
+      prevStep = STEPS.PARENTS;
+    } else if (currentStep === STEPS.CHILD && formData.status_ortu !== 'yatim piatu') {
+      // From CHILD, if not yatim piatu, go back to PARENTS (skip GUARDIAN)
+      prevStep = STEPS.PARENTS;
     }
+    
+    setCurrentStep(Math.max(0, prevStep));
   };
   
   const goToStep = (step) => {
-    const highestCompletedStep = Object.entries(stepsValid)
-      .filter(([_, isValid]) => isValid)
-      .reduce((highest, [step, _]) => Math.max(highest, parseInt(step)), -1);
+    // Check if the step should be accessible
+    const isStepAccessible = (targetStep) => {
+      // GUARDIAN step is only accessible if status is 'yatim piatu'
+      if (targetStep === STEPS.GUARDIAN && formData.status_ortu !== 'yatim piatu') {
+        return false;
+      }
+      
+      // Check if previous steps are valid
+      for (let i = 0; i < targetStep; i++) {
+        // Skip GUARDIAN validation if status is not 'yatim piatu'
+        if (i === STEPS.GUARDIAN && formData.status_ortu !== 'yatim piatu') {
+          continue;
+        }
+        if (!stepsValid[i]) {
+          return false;
+        }
+      }
+      
+      return true;
+    };
     
-    if (step <= highestCompletedStep + 1) {
+    if (isStepAccessible(step)) {
       setCurrentStep(step);
     }
   };
@@ -534,8 +746,7 @@ const KeluargaFormScreen = () => {
       
       Object.entries(formData).forEach(([key, value]) => {
         if (
-          key === 'bank_choice' ||
-          key === 'telp_choice' ||
+          key === '_stepValidation' ||
           (key === 'foto' && !value)
         ) {
           return;
@@ -739,41 +950,52 @@ const KeluargaFormScreen = () => {
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
         
-        <View style={styles.stepsContainer}>
-          {Object.values(STEPS).map((step) => (
-            <TouchableOpacity
-              key={step}
-              style={[
-                styles.stepIndicator,
-                currentStep === step && styles.currentStep,
-                stepsValid[step] && styles.validStep,
-              ]}
-              onPress={() => goToStep(step)}
-              disabled={submitting}
-            >
-              <Text style={[
-                styles.stepNumber,
-                (currentStep === step || stepsValid[step]) && styles.activeStepText
-              ]}>
-                {step + 1}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {SHOW_STEP_INDICATOR && (
+          <View style={styles.stepsContainer}>
+            {Object.values(STEPS).map((step) => {
+              // Hide GUARDIAN step indicator if status is not 'yatim piatu'
+              if (step === STEPS.GUARDIAN && formData.status_ortu !== 'yatim piatu') {
+                return null;
+              }
+              
+              return (
+                <TouchableOpacity
+                  key={step}
+                  style={[
+                    styles.stepIndicator,
+                    currentStep === step && styles.currentStep,
+                    stepsValid[step] && styles.validStep,
+                  ]}
+                  onPress={() => goToStep(step)}
+                  disabled={submitting}
+                >
+                  <Text style={[
+                    styles.stepNumber,
+                    (currentStep === step || stepsValid[step]) && styles.activeStepText
+                  ]}>
+                    {step + 1}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
         
-        <Text style={styles.stepTitle}>
-          {currentStep === STEPS.FAMILY && 'Data Keluarga'}
-          {currentStep === STEPS.PARENTS && 'Data Orang tua'}
-          {currentStep === STEPS.GUARDIAN && 'Data Wali'}
-          {currentStep === STEPS.CHILD && 'Data Anak'}
-          {currentStep === STEPS.EDUCATION && 'Data Pendidikan'}
-          {currentStep === STEPS.SURVEY_BASIC && 'Data Dasar Survei'}
-          {currentStep === STEPS.SURVEY_FINANCIAL && 'Data Keuangan'}
-          {currentStep === STEPS.SURVEY_ASSETS && 'Data Aset'}
-          {currentStep === STEPS.SURVEY_HEALTH && 'Data Kesehatan'}
-          {currentStep === STEPS.SURVEY_RELIGIOUS && 'Data Keagamaan'}
-          {currentStep === STEPS.REVIEW && 'Review'}
-        </Text>
+        {SHOW_STEP_INDICATOR && (
+          <Text style={styles.stepTitle}>
+            {currentStep === STEPS.FAMILY && 'Data Keluarga'}
+            {currentStep === STEPS.PARENTS && 'Data Orang tua'}
+            {currentStep === STEPS.GUARDIAN && 'Data Wali'}
+            {currentStep === STEPS.CHILD && 'Data Anak'}
+            {currentStep === STEPS.EDUCATION && 'Data Pendidikan'}
+            {currentStep === STEPS.SURVEY_BASIC && 'Data Dasar Survei'}
+            {currentStep === STEPS.SURVEY_FINANCIAL && 'Data Keuangan'}
+            {currentStep === STEPS.SURVEY_ASSETS && 'Data Aset'}
+            {currentStep === STEPS.SURVEY_HEALTH && 'Data Kesehatan'}
+            {currentStep === STEPS.SURVEY_RELIGIOUS && 'Data Keagamaan'}
+            {currentStep === STEPS.REVIEW && 'Review'}
+          </Text>
+        )}
         
         <View style={styles.formContainer}>
           {renderCurrentStep()}

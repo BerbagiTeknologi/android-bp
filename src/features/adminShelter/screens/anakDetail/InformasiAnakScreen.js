@@ -318,7 +318,24 @@ const InformasiAnakScreen = () => {
             </View>
           </>
         ) : (
-          <Text style={styles.emptyText}>Data keluarga tidak tersedia</Text>
+          <View style={styles.familyStatusContainer}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoLabel}>
+                <Ionicons name="alert-circle-outline" size={20} color="#f39c12" />
+                <Text style={[styles.infoLabelText, styles.warningLabel]}>Status Keluarga</Text>
+              </View>
+              <View style={styles.statusWarningContainer}>
+                <Text style={styles.statusWarningText}>
+                  {anakData.status_keluarga === 'tanpa_keluarga' 
+                    ? 'Tanpa Keluarga' 
+                    : 'Keluarga tidak aktif atau telah dihapus'}
+                </Text>
+                <Text style={styles.statusWarningSubtext}>
+                  {anakData.keterangan_keluarga || 'Data anak tetap tersimpan dan dapat dikelola melalui sistem'}
+                </Text>
+              </View>
+            </View>
+          </View>
         )}
       </View>
 
@@ -660,6 +677,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#e74c3c',
     lineHeight: 22,
+  },
+  familyStatusContainer: {
+    paddingLeft: 0,
+  },
+  statusWarningContainer: {
+    paddingLeft: 28,
+    backgroundColor: '#fff9e6',
+    padding: 12,
+    borderRadius: 6,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f39c12',
+  },
+  statusWarningText: {
+    fontSize: 14,
+    color: '#f39c12',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  statusWarningSubtext: {
+    fontSize: 12,
+    color: '#b7950b',
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
 });
 
