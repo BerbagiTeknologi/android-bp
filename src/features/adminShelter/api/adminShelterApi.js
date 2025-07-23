@@ -1,9 +1,10 @@
 import api from '../../../api/axiosConfig';
-import { ADMIN_SHELTER_ENDPOINTS, MANAGEMENT_ENDPOINTS } from '../../../constants/endpoints';
+import { ADMIN_SHELTER_ENDPOINTS } from '../../../constants/endpoints';
 
 /**
  * Admin Shelter API service
  * Contains methods for admin shelter specific API requests
+ * Note: For anak (children) operations, use adminShelterAnakApi instead
  */
 export const adminShelterApi = {
   /**
@@ -33,60 +34,6 @@ export const adminShelterApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
-  },
-
-  /**
-   * Get list of children
-   * @param {Object} params - Query parameters
-   * @returns {Promise} - API response with children data
-   */
-  getChildren: async (params = {}) => {
-    return await api.get(MANAGEMENT_ENDPOINTS.CHILDREN, { params });
-  },
-
-  /**
-   * Get child details
-   * @param {number|string} childId - Child ID
-   * @returns {Promise} - API response with child details
-   */
-  getChildDetail: async (childId) => {
-    return await api.get(MANAGEMENT_ENDPOINTS.CHILD_DETAIL(childId));
-  },
-
-  /**
-   * Create new child
-   * @param {Object} childData - Child data
-   * @returns {Promise} - API response
-   */
-  createChild: async (childData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.CHILDREN, childData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Update child
-   * @param {number|string} childId - Child ID
-   * @param {Object} childData - Child data
-   * @returns {Promise} - API response
-   */
-  updateChild: async (childId, childData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.CHILD_DETAIL(childId), childData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-
-  /**
-   * Delete child
-   * @param {number|string} childId - Child ID
-   * @returns {Promise} - API response
-   */
-  deleteChild: async (childId) => {
-    return await api.delete(MANAGEMENT_ENDPOINTS.CHILD_DETAIL(childId));
   },
 
   /**

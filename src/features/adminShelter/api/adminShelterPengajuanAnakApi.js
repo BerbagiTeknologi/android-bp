@@ -8,6 +8,14 @@ import api from '../../../api/axiosConfig';
  */
 export const adminShelterPengajuanAnakApi = {
   /**
+   * Get priority families (families without children) in the same shelter
+   * @returns {Promise} - API response with priority families
+   */
+  getPriorityFamilies: async () => {
+    return await api.get('/admin-shelter/pengajuan-anak/priority-families');
+  },
+
+  /**
    * Search for families by KK number
    * @param {string} searchQuery - KK number to search for
    * @returns {Promise} - API response with matching families

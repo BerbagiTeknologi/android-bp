@@ -32,6 +32,20 @@ export const adminShelterKeluargaApi = {
     return await api.delete(ADMIN_SHELTER_ENDPOINTS.KELUARGA.DETAIL(id));
   },
 
+  forceDeleteKeluarga: async (id) => {
+    return await api.delete(`${ADMIN_SHELTER_ENDPOINTS.KELUARGA.DETAIL(id)}/force`);
+  },
+
+  transferAnak: async (anakId, newKeluargaId) => {
+    return await api.put(`/admin-shelter/anak/${anakId}/transfer`, {
+      new_keluarga_id: newKeluargaId
+    });
+  },
+
+  getAvailableKeluarga: async () => {
+    return await api.get(`${ADMIN_SHELTER_ENDPOINTS.KELUARGA.LIST}/available`);
+  },
+
   getDropdownData: async () => {
     return await api.get(ADMIN_SHELTER_ENDPOINTS.KELUARGA.DROPDOWN);
   },

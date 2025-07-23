@@ -86,5 +86,21 @@ export const semesterApi = {
    */
   duplicateSemester: async (id, newData) => {
     return await api.post(`/admin-shelter/semester/${id}/duplicate`, newData);
+  },
+
+  /**
+   * Attach kurikulum to semester
+   */
+  attachKurikulum: async (semesterId, kurikulumId) => {
+    return await api.post(`/admin-shelter/semester/${semesterId}/kurikulum`, {
+      kurikulum_id: kurikulumId
+    });
+  },
+
+  /**
+   * Detach kurikulum from semester
+   */
+  detachKurikulum: async (semesterId) => {
+    return await api.delete(`/admin-shelter/semester/${semesterId}/kurikulum`);
   }
 };

@@ -1,11 +1,14 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { tutorHonorApi } from '../api/tutorHonorApi';
+import { formatRupiah } from '../../../utils/currencyFormatter';
 
 const initialState = {
   honorList: [],
   selectedHonor: null,
   monthlyDetail: null,
   stats: null,
+  currentSettings: null,
+  preview: null,
   loading: false,
   error: null,
   summary: {
@@ -17,12 +20,16 @@ const initialState = {
   actionStatus: {
     calculate: 'idle',
     approve: 'idle',
-    markPaid: 'idle'
+    markPaid: 'idle',
+    fetchSettings: 'idle',
+    preview: 'idle'
   },
   actionError: {
     calculate: null,
     approve: null,
-    markPaid: null
+    markPaid: null,
+    fetchSettings: null,
+    preview: null
   },
   honorHistory: [],
   honorStatistics: null,
@@ -41,7 +48,13 @@ const initialState = {
   historyLoading: false,
   statisticsLoading: false,
   historyError: null,
-  statisticsError: null
+  statisticsError: null,
+  previewInputs: {
+    cpb_count: 0,
+    pb_count: 0,
+    npb_count: 0,
+    session_count: 1
+  }
 };
 
 export const fetchTutorHonor = createAsyncThunk(
@@ -112,6 +125,38 @@ export const fetchHonorStats = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch honor stats');
+    }
+  }
+);
+
+export const fetchCurrentSettings = createAsyncThunk(
+  'tutorHonor/fetchCurrentSettings',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await tutorHonorApi.getCurrentSettings();
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch current settings');
+    }
+  }
+);
+
+export const calculatePreview = createAsyncThunk(
+  'tutorHonor/calculatePreview',
+  async (data, { rejectWithValue, getState }) => {
+    try {
+      const state = getState();
+      const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+      
+      if (paymentSystem) {
+        const response = await tutorHonorApi.calculateDynamicPreview(paymentSystem, data);
+        return response.data;
+      } else {
+        const response = await tutorHonorApi.calculatePreview(data);
+        return response.data;
+      }
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to calculate preview');
     }
   }
 );
@@ -191,6 +236,59 @@ const tutorHonorSlice = createSlice({
         per_page: 10,
         total: 0
       };
+    },
+    resetPreview: (state) => {
+      state.preview = null;
+    },
+    clearCurrentSettings: (state) => {
+      state.currentSettings = null;
+    },
+    setPreviewInputs: (state, action) => {
+      state.previewInputs = { ...state.previewInputs, ...action.payload };
+    },
+    resetPreviewInputs: (state) => {
+      const paymentSystem = state.currentSettings?.payment_system;
+      
+      switch (paymentSystem) {
+        case 'per_student_category':
+        case 'session_per_student_category':
+          state.previewInputs = {
+            cpb_count: 5,
+            pb_count: 3,
+            npb_count: 2,
+            session_count: 1
+          };
+          break;
+        case 'per_session':
+          state.previewInputs = {
+            cpb_count: 0,
+            pb_count: 0,
+            npb_count: 0,
+            session_count: 1
+          };
+          break;
+        case 'flat_monthly':
+          state.previewInputs = {
+            cpb_count: 0,
+            pb_count: 0,
+            npb_count: 0,
+            session_count: 0
+          };
+          break;
+        default:
+          state.previewInputs = {
+            cpb_count: 5,
+            pb_count: 3,
+            npb_count: 2,
+            session_count: 1
+          };
+      }
+    },
+    updatePaymentSystemContext: (state, action) => {
+      const paymentSystem = action.payload;
+      state.currentSettings = state.currentSettings ? 
+        { ...state.currentSettings, payment_system: paymentSystem } : 
+        { payment_system: paymentSystem };
     }
   },
   extraReducers: (builder) => {
@@ -201,13 +299,26 @@ const tutorHonorSlice = createSlice({
       })
       .addCase(fetchTutorHonor.fulfilled, (state, action) => {
         state.loading = false;
-        state.honorList = action.payload.data?.honors_per_bulan || [];
+        const data = action.payload.data || action.payload;
+        
+        // Map honor list and add formatted amounts
+        state.honorList = (data.honors_per_bulan || []).map(honor => ({
+          ...honor,
+          formatted_total_honor: formatRupiah(honor.total_honor)
+        }));
+        
         state.summary = {
           totalThisMonth: 0,
-          totalActivities: action.payload.data?.total_aktivitas_tahun || 0,
-          averageStudents: action.payload.data?.rata_rata_bulanan || 0,
-          yearlyTotal: action.payload.data?.total_honor_tahun || 0
+          totalActivities: data.total_aktivitas_tahun || 0,
+          averageStudents: data.rata_rata_bulanan || 0,
+          yearlyTotal: data.total_honor_tahun || 0,
+          formatted_yearly_total: formatRupiah(data.total_honor_tahun || 0),
+          formatted_average: formatRupiah(data.rata_rata_bulanan || 0)
         };
+        
+        if (data.current_settings || action.payload.current_settings) {
+          state.currentSettings = data.current_settings || action.payload.current_settings;
+        }
       })
       .addCase(fetchTutorHonor.rejected, (state, action) => {
         state.loading = false;
@@ -220,8 +331,30 @@ const tutorHonorSlice = createSlice({
       })
       .addCase(fetchMonthlyDetail.fulfilled, (state, action) => {
         state.loading = false;
-        state.monthlyDetail = action.payload.data;
+        const detail = action.payload.data;
+        
+        // Add formatted amounts to monthly detail
+        if (detail) {
+          detail.formatted_total_honor = formatRupiah(detail.total_honor);
+          
+          if (detail.details) {
+            detail.details = detail.details.map(detailItem => ({
+              ...detailItem,
+              formatted_honor_per_aktivitas: formatRupiah(detailItem.honor_per_aktivitas),
+              formatted_cpb_amount: formatRupiah(detailItem.cpb_amount || 0),
+              formatted_pb_amount: formatRupiah(detailItem.pb_amount || 0),
+              formatted_npb_amount: formatRupiah(detailItem.npb_amount || 0),
+              formatted_session_amount: formatRupiah(detailItem.session_amount || 0)
+            }));
+          }
+        }
+        
+        state.monthlyDetail = detail;
         state.stats = action.payload.stats;
+        
+        if (action.payload.current_settings) {
+          state.currentSettings = action.payload.current_settings;
+        }
       })
       .addCase(fetchMonthlyDetail.rejected, (state, action) => {
         state.loading = false;
@@ -235,6 +368,11 @@ const tutorHonorSlice = createSlice({
       .addCase(calculateHonor.fulfilled, (state, action) => {
         state.actionStatus.calculate = 'succeeded';
         const calculatedHonor = action.payload.data;
+        
+        // Add formatted amount
+        if (calculatedHonor) {
+          calculatedHonor.formatted_total_honor = formatRupiah(calculatedHonor.total_honor);
+        }
         
         const existingIndex = state.honorList.findIndex(
           h => h.bulan === calculatedHonor.bulan && h.tahun === calculatedHonor.tahun
@@ -259,6 +397,12 @@ const tutorHonorSlice = createSlice({
         state.summary.yearlyTotal = state.honorList
           .filter(h => h.tahun === calculatedHonor.tahun)
           .reduce((sum, h) => sum + parseFloat(h.total_honor || 0), 0);
+        
+        state.summary.formatted_yearly_total = formatRupiah(state.summary.yearlyTotal);
+
+        if (action.payload.settings_used) {
+          state.currentSettings = action.payload.settings_used;
+        }
       })
       .addCase(calculateHonor.rejected, (state, action) => {
         state.actionStatus.calculate = 'failed';
@@ -272,6 +416,11 @@ const tutorHonorSlice = createSlice({
       .addCase(approveHonor.fulfilled, (state, action) => {
         state.actionStatus.approve = 'succeeded';
         const approvedHonor = action.payload.data;
+        
+        // Add formatted amount
+        if (approvedHonor) {
+          approvedHonor.formatted_total_honor = formatRupiah(approvedHonor.total_honor);
+        }
         
         const index = state.honorList.findIndex(h => h.id_honor === approvedHonor.id_honor);
         if (index !== -1) {
@@ -295,6 +444,11 @@ const tutorHonorSlice = createSlice({
         state.actionStatus.markPaid = 'succeeded';
         const paidHonor = action.payload.data;
         
+        // Add formatted amount
+        if (paidHonor) {
+          paidHonor.formatted_total_honor = formatRupiah(paidHonor.total_honor);
+        }
+        
         const index = state.honorList.findIndex(h => h.id_honor === paidHonor.id_honor);
         if (index !== -1) {
           state.honorList[index] = paidHonor;
@@ -310,7 +464,69 @@ const tutorHonorSlice = createSlice({
       })
       
       .addCase(fetchHonorStats.fulfilled, (state, action) => {
-        state.stats = action.payload.data;
+        const stats = action.payload.data;
+        
+        // Add formatted amounts to stats
+        if (stats) {
+          stats.formatted_total_honor = formatRupiah(stats.total_honor || 0);
+          stats.formatted_rata_rata_honor = formatRupiah(stats.rata_rata_honor || 0);
+          
+          // Format status breakdown
+          if (stats.status_breakdown) {
+            Object.keys(stats.status_breakdown).forEach(status => {
+              if (stats.status_breakdown[status].total_honor !== undefined) {
+                stats.status_breakdown[status].formatted_total_honor = 
+                  formatRupiah(stats.status_breakdown[status].total_honor);
+              }
+            });
+          }
+          
+          // Format monthly breakdown
+          if (stats.monthly_breakdown) {
+            Object.keys(stats.monthly_breakdown).forEach(month => {
+              if (stats.monthly_breakdown[month].total_honor !== undefined) {
+                stats.monthly_breakdown[month].formatted_total_honor = 
+                  formatRupiah(stats.monthly_breakdown[month].total_honor);
+              }
+            });
+          }
+        }
+        
+        state.stats = stats;
+      })
+
+      .addCase(fetchCurrentSettings.pending, (state) => {
+        state.actionStatus.fetchSettings = 'loading';
+        state.actionError.fetchSettings = null;
+      })
+      .addCase(fetchCurrentSettings.fulfilled, (state, action) => {
+        state.actionStatus.fetchSettings = 'succeeded';
+        state.currentSettings = action.payload.data;
+      })
+      .addCase(fetchCurrentSettings.rejected, (state, action) => {
+        state.actionStatus.fetchSettings = 'failed';
+        state.actionError.fetchSettings = action.payload;
+        state.currentSettings = null;
+      })
+
+      .addCase(calculatePreview.pending, (state) => {
+        state.actionStatus.preview = 'loading';
+        state.actionError.preview = null;
+      })
+      .addCase(calculatePreview.fulfilled, (state, action) => {
+        state.actionStatus.preview = 'succeeded';
+        const previewData = action.payload.data;
+        
+        // Add formatted total if not already present
+        if (previewData && previewData.calculation && !previewData.formatted_total) {
+          previewData.formatted_total = formatRupiah(previewData.calculation.total_amount || 0);
+        }
+        
+        state.preview = previewData;
+      })
+      .addCase(calculatePreview.rejected, (state, action) => {
+        state.actionStatus.preview = 'failed';
+        state.actionError.preview = action.payload;
       })
       
       .addCase(fetchHonorHistory.pending, (state) => {
@@ -319,7 +535,13 @@ const tutorHonorSlice = createSlice({
       })
       .addCase(fetchHonorHistory.fulfilled, (state, action) => {
         state.historyLoading = false;
-        state.honorHistory = action.payload.data || [];
+        const historyData = action.payload.data || [];
+        
+        // Add formatted amounts to history
+        state.honorHistory = historyData.map(item => ({
+          ...item,
+          formatted_total_honor: formatRupiah(item.total_honor)
+        }));
         
         if (action.payload.pagination) {
           state.historyPagination = {
@@ -341,7 +563,63 @@ const tutorHonorSlice = createSlice({
       })
       .addCase(fetchHonorStatistics.fulfilled, (state, action) => {
         state.statisticsLoading = false;
-        state.honorStatistics = action.payload.data;
+        const statistics = action.payload.data;
+        
+        // Add formatted amounts to statistics
+        if (statistics) {
+          // Format summary
+          if (statistics.summary) {
+            statistics.summary.formatted_total_honor_amount = 
+              formatRupiah(statistics.summary.total_honor_amount || 0);
+            statistics.summary.formatted_avg_honor_per_month = 
+              formatRupiah(statistics.summary.avg_honor_per_month || 0);
+          }
+          
+          // Format status breakdown
+          if (statistics.status_breakdown) {
+            Object.keys(statistics.status_breakdown).forEach(status => {
+              if (statistics.status_breakdown[status].total_honor !== undefined) {
+                statistics.status_breakdown[status].formatted_total_honor = 
+                  formatRupiah(statistics.status_breakdown[status].total_honor);
+              }
+            });
+          }
+          
+          // Format payment system breakdown
+          if (statistics.payment_system_breakdown) {
+            Object.keys(statistics.payment_system_breakdown).forEach(system => {
+              const breakdown = statistics.payment_system_breakdown[system];
+              if (breakdown.total_honor !== undefined) {
+                breakdown.formatted_total_honor = formatRupiah(breakdown.total_honor);
+              }
+              if (breakdown.avg_honor !== undefined) {
+                breakdown.formatted_avg_honor = formatRupiah(breakdown.avg_honor);
+              }
+            });
+          }
+          
+          // Format monthly data
+          if (statistics.monthly_data) {
+            statistics.monthly_data = statistics.monthly_data.map(month => ({
+              ...month,
+              formatted_total_honor: formatRupiah(month.total_honor || 0)
+            }));
+          }
+          
+          // Format performance data
+          if (statistics.performance) {
+            if (statistics.performance.highest_month) {
+              statistics.performance.highest_month.formatted_total_honor = 
+                formatRupiah(statistics.performance.highest_month.total_honor || 0);
+            }
+            if (statistics.performance.lowest_month) {
+              statistics.performance.lowest_month.formatted_total_honor = 
+                formatRupiah(statistics.performance.lowest_month.total_honor || 0);
+            }
+          }
+        }
+        
+        state.honorStatistics = statistics;
       })
       .addCase(fetchHonorStatistics.rejected, (state, action) => {
         state.statisticsLoading = false;
@@ -359,9 +637,15 @@ export const {
   resetHistoryFilters,
   resetHistoryError,
   resetStatisticsError,
-  clearHonorHistory
+  clearHonorHistory,
+  resetPreview,
+  clearCurrentSettings,
+  setPreviewInputs,
+  resetPreviewInputs,
+  updatePaymentSystemContext
 } = tutorHonorSlice.actions;
 
+// Selectors
 export const selectHonorList = state => state.tutorHonor.honorList;
 export const selectSelectedHonor = state => state.tutorHonor.selectedHonor;
 export const selectMonthlyDetail = state => state.tutorHonor.monthlyDetail;
@@ -371,6 +655,8 @@ export const selectHonorError = state => state.tutorHonor.error;
 export const selectHonorSummary = state => state.tutorHonor.summary;
 export const selectHonorActionStatus = (state, action) => state.tutorHonor.actionStatus[action];
 export const selectHonorActionError = (state, action) => state.tutorHonor.actionError[action];
+export const selectCurrentSettings = state => state.tutorHonor.currentSettings;
+export const selectPreview = state => state.tutorHonor.preview;
 export const selectHonorHistory = state => state.tutorHonor.honorHistory;
 export const selectHonorStatistics = state => state.tutorHonor.honorStatistics;
 export const selectHistoryFilters = state => state.tutorHonor.historyFilters;
@@ -379,5 +665,51 @@ export const selectHistoryLoading = state => state.tutorHonor.historyLoading;
 export const selectStatisticsLoading = state => state.tutorHonor.statisticsLoading;
 export const selectHistoryError = state => state.tutorHonor.historyError;
 export const selectStatisticsError = state => state.tutorHonor.statisticsError;
+export const selectPreviewInputs = state => state.tutorHonor.previewInputs;
+
+// Dynamic selectors based on payment system
+export const selectPaymentSystem = state => state.tutorHonor.currentSettings?.payment_system;
+export const selectPaymentSystemName = state => {
+  const systems = {
+    'flat_monthly': 'Honor Bulanan Tetap',
+    'per_session': 'Per Sesi/Pertemuan',
+    'per_student_category': 'Per Kategori Siswa',
+    'session_per_student_category': 'Per Sesi + Per Kategori Siswa'
+  };
+  const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+  return systems[paymentSystem] || paymentSystem || 'Unknown';
+};
+
+export const selectRequiredInputFields = state => {
+  const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+  
+  switch (paymentSystem) {
+    case 'flat_monthly':
+      return [];
+    case 'per_session':
+      return ['session_count'];
+    case 'per_student_category':
+      return ['cpb_count', 'pb_count', 'npb_count'];
+    case 'session_per_student_category':
+      return ['session_count', 'cpb_count', 'pb_count', 'npb_count'];
+    default:
+      return ['cpb_count', 'pb_count', 'npb_count'];
+  }
+};
+
+export const selectHasStudentBreakdown = state => {
+  const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+  return ['per_student_category', 'session_per_student_category'].includes(paymentSystem);
+};
+
+export const selectHasSessionBreakdown = state => {
+  const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+  return ['per_session', 'session_per_student_category'].includes(paymentSystem);
+};
+
+export const selectIsFlatMonthly = state => {
+  const paymentSystem = state.tutorHonor.currentSettings?.payment_system;
+  return paymentSystem === 'flat_monthly';
+};
 
 export default tutorHonorSlice.reducer;
