@@ -115,7 +115,22 @@ const KeluargaManagementScreen = () => {
     navigation.navigate('KeluargaForm', { isNew: true });
   };
 
-  const handleDeleteKeluarga = async (keluarga) => {
+  const handleDeleteKeluarga = (keluarga) => {
+    Alert.alert(
+      'Konfirmasi Hapus',
+      `Apakah Anda yakin ingin menghapus keluarga "${keluarga.kepala_keluarga}"?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Hapus', 
+          style: 'destructive',
+          onPress: () => performDeleteKeluarga(keluarga)
+        }
+      ]
+    );
+  };
+
+  const performDeleteKeluarga = async (keluarga) => {
     try {
       setLoading(true);
       const response = await adminShelterKeluargaApi.deleteKeluarga(keluarga.id_keluarga);
@@ -146,13 +161,9 @@ const KeluargaManagementScreen = () => {
     
     Alert.alert(
       'Keluarga Memiliki Anak Aktif',
-      `Keluarga "${keluarga.kepala_keluarga}" memiliki ${childrenInfo.active_children} anak aktif: ${activeChildrenNames}\n\nPilih tindakan:`,
+      `Keluarga "${keluarga.kepala_keluarga}" memiliki ${childrenInfo.active_children} anak aktif: ${activeChildrenNames}.\n\nPERINGATAN: Menghapus keluarga ini akan sekaligus menghapus semua data anak yang terkait dari sistem.`,
       [
         { text: 'Batal', style: 'cancel' },
-        { 
-          text: 'Transfer Anak', 
-          onPress: () => showTransferAnakDialog(keluarga, childrenInfo.active_children_list)
-        },
         { 
           text: 'Hapus Paksa', 
           style: 'destructive',
@@ -162,13 +173,6 @@ const KeluargaManagementScreen = () => {
     );
   };
 
-  const showTransferAnakDialog = (keluarga, activeChildren) => {
-    Alert.alert(
-      'Transfer Anak',
-      'Fitur transfer anak sedang dalam pengembangan. Silakan gunakan menu manajemen anak untuk memindahkan anak ke keluarga lain terlebih dahulu.',
-      [{ text: 'OK' }]
-    );
-  };
 
   const confirmForceDelete = (keluarga, childrenInfo) => {
     Alert.alert(

@@ -13,19 +13,15 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import components
 import Button from '../../../common/components/Button';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../common/components/ErrorMessage';
 import AnakListItem from '../../../common/components/Anak/AnakListItem';
-
-// Import API
 import { adminShelterAnakApi } from '../api/adminShelterAnakApi';
 
 const AnakManagementScreen = () => {
   const navigation = useNavigation();
   const [anakList, setAnakList] = useState([]);
-  const [filteredAnakList, setFilteredAnakList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,9 +34,8 @@ const AnakManagementScreen = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState(''); // '', 'aktif', or 'non-aktif'
+  const [statusFilter, setStatusFilter] = useState('');
 
-  // Fetch anak data
   const fetchAnakData = async (page = 1, refresh = false) => {
     try {
       if (refresh) {
@@ -50,44 +45,29 @@ const AnakManagementScreen = () => {
       
       setError(null);
       
-      // Prepare params
       const params = {
         page,
-        per_page: 10
+        per_page: 10,
+        ...(statusFilter && { status: statusFilter }),
+        ...(searchQuery.trim() && { search: searchQuery.trim() })
       };
-      
-      // Add status filter if set
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-      
-      // Add search query if provided
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
       
       const response = await adminShelterAnakApi.getAllAnak(params);
       
       if (response.data.success) {
         const newData = response.data.data || [];
         
-        // If refreshing or first page, replace data
-        // Otherwise, append data
         if (refresh || page === 1) {
           setAnakList(newData);
-          setFilteredAnakList(newData);
         } else {
           setAnakList(prev => [...prev, ...newData]);
-          setFilteredAnakList(prev => [...prev, ...newData]);
         }
         
-        // Set pagination info
         if (response.data.pagination) {
           setCurrentPage(response.data.pagination.current_page);
           setTotalPages(response.data.pagination.last_page);
         }
         
-        // Set summary data if available
         if (response.data.summary) {
           setSummary(response.data.summary);
         }
@@ -104,82 +84,49 @@ const AnakManagementScreen = () => {
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
     fetchAnakData();
   }, [statusFilter]);
 
-  // Handle refresh
   const handleRefresh = () => {
     setRefreshing(true);
     fetchAnakData(1, true);
   };
 
-  // Handle load more
   const handleLoadMore = () => {
     if (loadingMore || currentPage >= totalPages) return;
-    
     setLoadingMore(true);
     fetchAnakData(currentPage + 1);
   };
 
-  // Handle search
   const handleSearch = () => {
-    // Reset to first page and fetch with search query
     setCurrentPage(1);
     fetchAnakData(1, true);
   };
 
-  // Clear search
   const clearSearch = () => {
     setSearchQuery('');
     setCurrentPage(1);
     fetchAnakData(1, true);
   };
 
-  // Handle status filter
   const handleStatusFilter = (status) => {
     setStatusFilter(status);
-    // Fetch will be triggered by the useEffect
   };
 
-  // Navigate to anak detail screen
   const handleViewAnak = (anakId) => {
     navigation.navigate('AnakDetail', { id: anakId });
   };
 
-  // Navigate to add new anak screen
   const handleAddAnak = () => {
     navigation.navigate('AnakDetail', { isNew: true });
   };
 
-  // Handle toggle status
-  const handleToggleStatus = async (anak) => {
-    try {
-      setLoading(true);
-      await adminShelterAnakApi.toggleAnakStatus(anak.id_anak);
-      
-      // Refresh data after updating
-      handleRefresh();
-      
-      // Show success message
-      Alert.alert(
-        'Status Diperbarui',
-        `Status anak berhasil diubah menjadi ${anak.status_validasi === 'aktif' ? 'non-aktif' : 'aktif'}`
-      );
-    } catch (err) {
-      console.error('Error toggling status:', err);
-      Alert.alert('Error', 'Gagal memperbarui status');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Handle delete anak
   const handleDeleteAnak = (anak) => {
     Alert.alert(
       'Hapus Anak',
-      `Anda yakin ingin menghapus ${anak.full_name || anak.nick_name}?`,
+      `Anda yakin ingin menghapus ${anak.full_name || 'anak ini'}?`,
       [
         { text: 'Batal', style: 'cancel' },
         { 
@@ -189,10 +136,7 @@ const AnakManagementScreen = () => {
             try {
               setLoading(true);
               await adminShelterAnakApi.deleteAnak(anak.id_anak);
-              
-              // Refresh data after deleting
               handleRefresh();
-              
               Alert.alert('Sukses', 'Anak berhasil dihapus');
             } catch (err) {
               console.error('Error deleting anak:', err);
@@ -211,20 +155,18 @@ const AnakManagementScreen = () => {
     
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color="#e74c3c" />
+        <ActivityIndicator size="small" color="#E11D48" />
         <Text style={styles.footerText}>Memuat data...</Text>
       </View>
     );
   };
 
-  // Loading state
   if (loading && !refreshing && !loadingMore) {
     return <LoadingSpinner fullScreen message="Memuat data anak..." />;
   }
 
   return (
     <View style={styles.container}>
-      {/* Error Message */}
       {error && (
         <ErrorMessage
           message={error}
@@ -236,7 +178,7 @@ const AnakManagementScreen = () => {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#999999" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Cari anak..."
@@ -244,17 +186,16 @@ const AnakManagementScreen = () => {
             onChangeText={setSearchQuery}
             returnKeyType="search"
             onSubmitEditing={handleSearch}
-            clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-              <Ionicons name="close-circle" size={20} color="#999999" />
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           )}
         </View>
         
         <Button
-          leftIcon={<Ionicons name="add" size={20} color="#ffffff" />}
+          leftIcon={<Ionicons name="add" size={20} color="#FFFFFF" />}
           type="primary"
           onPress={handleAddAnak}
           style={styles.addButton}
@@ -263,50 +204,27 @@ const AnakManagementScreen = () => {
       
       {/* Filter Buttons */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            statusFilter === '' && styles.filterButtonActive
-          ]}
-          onPress={() => handleStatusFilter('')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            statusFilter === '' && styles.filterButtonTextActive
-          ]}>
-            Semua ({summary.total || 0})
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            statusFilter === 'aktif' && styles.filterButtonActive
-          ]}
-          onPress={() => handleStatusFilter('aktif')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            statusFilter === 'aktif' && styles.filterButtonTextActive
-          ]}>
-            Aktif ({summary.anak_aktif || 0})
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            statusFilter === 'non-aktif' && styles.filterButtonActive
-          ]}
-          onPress={() => handleStatusFilter('non-aktif')}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            statusFilter === 'non-aktif' && styles.filterButtonTextActive
-          ]}>
-            Non-Aktif ({summary.anak_tidak_aktif || 0})
-          </Text>
-        </TouchableOpacity>
+        {[
+          { key: '', label: 'Semua', count: summary.total },
+          { key: 'aktif', label: 'Aktif', count: summary.anak_aktif },
+          { key: 'non-aktif', label: 'Non-Aktif', count: summary.anak_tidak_aktif }
+        ].map(filter => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[
+              styles.filterButton,
+              statusFilter === filter.key && styles.filterButtonActive
+            ]}
+            onPress={() => handleStatusFilter(filter.key)}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              statusFilter === filter.key && styles.filterButtonTextActive
+            ]}>
+              {filter.label} ({filter.count || 0})
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
       
       {/* Children List */}
@@ -317,7 +235,6 @@ const AnakManagementScreen = () => {
             <AnakListItem 
               item={item}
               onPress={() => handleViewAnak(item.id_anak)}
-              onToggleStatus={handleToggleStatus}
               onDelete={handleDeleteAnak}
             />
           )}
@@ -329,13 +246,16 @@ const AnakManagementScreen = () => {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={renderFooter}
+          showsVerticalScrollIndicator={false}
         />
       ) : (
         <View style={styles.emptyContainer}>
           {searchQuery.trim() !== '' ? (
             <>
-              <Ionicons name="search" size={60} color="#cccccc" />
-              <Text style={styles.emptyText}>Tidak ada anak ditemukan dengan "{searchQuery}"</Text>
+              <Ionicons name="search" size={60} color="#D1D5DB" />
+              <Text style={styles.emptyText}>
+                Tidak ada anak ditemukan dengan "{searchQuery}"
+              </Text>
               <Button 
                 title="Hapus Pencarian" 
                 onPress={clearSearch} 
@@ -345,7 +265,7 @@ const AnakManagementScreen = () => {
             </>
           ) : (
             <>
-              <Ionicons name="people" size={60} color="#cccccc" />
+              <Ionicons name="people" size={60} color="#D1D5DB" />
               <Text style={styles.emptyText}>Belum ada anak terdaftar</Text>
               <Button 
                 title="Tambah Anak Pertama" 
@@ -356,19 +276,17 @@ const AnakManagementScreen = () => {
             </>
           )}
         </View>
-        
       )}
-      {/* Floating Action Button Menu */}
-<View style={styles.fabContainer}>
-  <TouchableOpacity 
-    style={styles.fab}
-    onPress={() => {
-      navigation.navigate('PengajuanAnakSearch');
-    }}
-  >
-    <Ionicons name="add" size={30} color="#ffffff" />
-  </TouchableOpacity>
-</View>
+
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={() => navigation.navigate('PengajuanAnakSearch')}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -376,120 +294,122 @@ const AnakManagementScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F9FAFB',
   },
-  fabContainer: {
-  position: 'absolute',
-  bottom: 20,
-  right: 20,
-},
-fab: {
-  width: 56,
-  height: 56,
-  borderRadius: 28,
-  backgroundColor: '#e74c3c',
-  justifyContent: 'center',
-  alignItems: 'center',
-  elevation: 5,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.25,
-  shadowRadius: 3.84,
-},
   searchContainer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#eeeeee',
+    borderBottomColor: '#E5E7EB',
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
     paddingHorizontal: 12,
     marginRight: 12,
+    height: 44,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    height: 40,
     fontSize: 16,
-    color: '#333333',
+    color: '#111827',
   },
   clearButton: {
     padding: 4,
   },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     padding: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eeeeee',
+    borderBottomColor: '#E5E7EB',
+    gap: 8,
   },
   filterButton: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    marginHorizontal: 4,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e74c3c',
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    backgroundColor: '#FFFFFF',
   },
   filterButtonActive: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#E11D48',
   },
   filterButtonText: {
-    fontSize: 12,
-    color: '#e74c3c',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#E11D48',
+    fontWeight: '600',
   },
   filterButtonTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   listContainer: {
     padding: 16,
-    paddingTop: 8,
+    paddingBottom: 100,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999999',
+    color: '#6B7280',
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 24,
+    lineHeight: 24,
   },
   emptyButton: {
-    minWidth: 180,
+    minWidth: 200,
   },
   footerLoader: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 20,
   },
   footerText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#666666',
+    color: '#6B7280',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });
 

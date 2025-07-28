@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 // Import components
 import Button from '../../../common/components/Button';
 import TextInput from '../../../common/components/TextInput';
+import PickerInput from '../../../common/components/PickerInput';
 import ErrorMessage from '../../../common/components/ErrorMessage';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 
@@ -54,6 +55,7 @@ const TutorFormScreen = () => {
     email: existingTutor?.email || '',
     no_hp: existingTutor?.no_hp || '',
     maple: existingTutor?.maple || '',
+    jenis_tutor: existingTutor?.jenis_tutor || 'non_tahfidz',
   });
 
   // Photo state
@@ -109,6 +111,11 @@ const TutorFormScreen = () => {
     
     if (!formData.no_hp) {
       Alert.alert('Kesalahan', 'Nomor telepon tutor harus diisi');
+      return;
+    }
+    
+    if (!formData.jenis_tutor) {
+      Alert.alert('Kesalahan', 'Jenis tutor harus dipilih');
       return;
     }
 
@@ -238,6 +245,20 @@ const TutorFormScreen = () => {
           value={formData.maple}
           onChangeText={(value) => handleChange('maple', value)}
           placeholder="Masukkan mata pelajaran"
+        />
+      </View>
+
+      {/* Jenis Tutor */}
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Jenis Tutor *</Text>
+        <PickerInput
+          value={formData.jenis_tutor}
+          onValueChange={(value) => handleChange('jenis_tutor', value)}
+          items={[
+            { label: 'Tahfidz', value: 'tahfidz' },
+            { label: 'Non Tahfidz', value: 'non_tahfidz' }
+          ]}
+          placeholder="Pilih jenis tutor"
         />
       </View>
 
