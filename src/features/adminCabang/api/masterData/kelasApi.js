@@ -1,124 +1,85 @@
 import api from '../../../../api/axiosConfig';
 
-const BASE_URL = '/admin-cabang/master-data/kelas';
+const BASE_URL = '/admin-cabang/master-data';
 
 export const kelasApi = {
-  /**
-   * Get all kelas with optional filters
-   * @param {Object} params - Query parameters (search, jenjang_id, tingkat, page, limit, etc)
-   * @returns {Promise} API response
-   */
+  // Get all kelas with pagination
   getAll: async (params = {}) => {
-    try {
-      return await api.get(BASE_URL, { params });
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/kelas`, { params });
+    return response.data;
   },
 
-  /**
-   * Create new kelas
-   * @param {Object} data - Kelas data
-   * @returns {Promise} API response
-   */
-  create: async (data) => {
-    try {
-      return await api.post(BASE_URL, data);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
-   * Get kelas by ID
-   * @param {number|string} id - Kelas ID
-   * @returns {Promise} API response
-   */
+  // Get kelas by ID
   getById: async (id) => {
-    try {
-      return await api.get(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/kelas/${id}`);
+    return response.data;
   },
 
-  /**
-   * Update kelas
-   * @param {number|string} id - Kelas ID
-   * @param {Object} data - Updated kelas data
-   * @returns {Promise} API response
-   */
+  // Create new kelas
+  create: async (data) => {
+    const response = await api.post(`${BASE_URL}/kelas`, data);
+    return response.data;
+  },
+
+  // Update kelas
   update: async (id, data) => {
-    try {
-      return await api.put(`${BASE_URL}/${id}`, data);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.put(`${BASE_URL}/kelas/${id}`, data);
+    return response.data;
   },
 
-  /**
-   * Delete kelas
-   * @param {number|string} id - Kelas ID
-   * @returns {Promise} API response
-   */
+  // Delete kelas
   delete: async (id) => {
-    try {
-      return await api.delete(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.delete(`${BASE_URL}/kelas/${id}`);
+    return response.data;
   },
 
-  /**
-   * Get kelas for dropdown (simplified data)
-   * @param {Object} params - Optional filters (jenjang_id, tingkat)
-   * @returns {Promise} API response with dropdown options
-   */
-  getForDropdown: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/dropdown`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get statistics
+  getStatistics: async () => {
+    const response = await api.get(`${BASE_URL}/kelas-statistics`);
+    return response.data;
   },
 
-  /**
-   * Get kelas by jenjang
-   * @param {number|string} jenjangId - Jenjang ID
-   * @param {Object} params - Additional query parameters
-   * @returns {Promise} API response
-   */
+  // Get dropdown data
+  getDropdown: async (params = {}) => {
+    const response = await api.get(`${BASE_URL}/kelas-dropdown`, { params });
+    return response.data;
+  },
+
+  // Get kelas by jenjang
   getByJenjang: async (jenjangId, params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/by-jenjang/${jenjangId}`, { params });
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/kelas-jenjang/${jenjangId}`, { params });
+    return response.data;
   },
 
-  /**
-   * Get cascade data (jenjang + kelas)
-   * @param {Object} params - Query parameters
-   * @returns {Promise} API response with cascade data
-   */
-  getCascadeData: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/cascade-data`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get cascade data (jenjang, tingkat options, etc.)
+  getCascadeData: async () => {
+    const response = await api.get(`${BASE_URL}/kelas-cascade-data`);
+    return response.data;
   },
 
-  /**
-   * Get kelas statistics
-   * @param {Object} params - Filter parameters (jenjang_id, tingkat, etc)
-   * @returns {Promise} API response with statistics
-   */
-  getStatistics: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/statistics`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Check urutan availability (now with jenis_kelas)
+  checkUrutan: async (urutan, jenjangId, jenisKelas, excludeId = null) => {
+    const response = await api.get(`${BASE_URL}/kelas-check-urutan`, {
+      params: { 
+        urutan, 
+        id_jenjang: jenjangId,
+        jenis_kelas: jenisKelas,
+        exclude_id: excludeId 
+      }
+    });
+    return response.data;
+  },
+
+  // Get existing urutan for jenjang + jenis_kelas
+  getExistingUrutan: async (jenjangId = null, jenisKelas = null) => {
+    const response = await api.get(`${BASE_URL}/kelas-existing-urutan`, {
+      params: { 
+        id_jenjang: jenjangId,
+        jenis_kelas: jenisKelas
+      }
+    });
+    return response.data;
   }
 };
+
+export default kelasApi;

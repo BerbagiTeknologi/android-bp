@@ -1,124 +1,61 @@
 import api from '../../../../api/axiosConfig';
 
-const BASE_URL = '/admin-cabang/master-data/mata-pelajaran';
+const BASE_URL = '/admin-cabang/master-data';
 
 export const mataPelajaranApi = {
-  /**
-   * Get all mata pelajaran with optional filters
-   * @param {Object} params - Query parameters (search, jenjang_id, page, limit, etc)
-   * @returns {Promise} API response
-   */
+  // Get all mata pelajaran with pagination and filters
   getAll: async (params = {}) => {
-    try {
-      return await api.get(BASE_URL, { params });
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/mata-pelajaran`, { params });
+    return response.data;
   },
 
-  /**
-   * Create new mata pelajaran
-   * @param {Object} data - Mata pelajaran data
-   * @returns {Promise} API response
-   */
-  create: async (data) => {
-    try {
-      return await api.post(BASE_URL, data);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
-   * Get mata pelajaran by ID
-   * @param {number|string} id - Mata pelajaran ID
-   * @returns {Promise} API response
-   */
+  // Get mata pelajaran by ID
   getById: async (id) => {
-    try {
-      return await api.get(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/mata-pelajaran/${id}`);
+    return response.data;
   },
 
-  /**
-   * Update mata pelajaran
-   * @param {number|string} id - Mata pelajaran ID
-   * @param {Object} data - Updated mata pelajaran data
-   * @returns {Promise} API response
-   */
+  // Create new mata pelajaran
+  create: async (data) => {
+    const response = await api.post(`${BASE_URL}/mata-pelajaran`, data);
+    return response.data;
+  },
+
+  // Update mata pelajaran
   update: async (id, data) => {
-    try {
-      return await api.put(`${BASE_URL}/${id}`, data);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.put(`${BASE_URL}/mata-pelajaran/${id}`, data);
+    return response.data;
   },
 
-  /**
-   * Delete mata pelajaran
-   * @param {number|string} id - Mata pelajaran ID
-   * @returns {Promise} API response
-   */
+  // Delete mata pelajaran
   delete: async (id) => {
-    try {
-      return await api.delete(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.delete(`${BASE_URL}/mata-pelajaran/${id}`);
+    return response.data;
   },
 
-  /**
-   * Get mata pelajaran for dropdown (simplified data)
-   * @param {Object} params - Optional filters (jenjang_id)
-   * @returns {Promise} API response with dropdown options
-   */
-  getForDropdown: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/dropdown`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get mata pelajaran by jenjang (dependency)
+  getByJenjang: async (jenjangId) => {
+    const response = await api.get(`${BASE_URL}/mata-pelajaran-jenjang/${jenjangId}`);
+    return response.data;
   },
 
-  /**
-   * Get mata pelajaran by jenjang
-   * @param {number|string} jenjangId - Jenjang ID
-   * @param {Object} params - Additional query parameters
-   * @returns {Promise} API response
-   */
-  getByJenjang: async (jenjangId, params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/by-jenjang/${jenjangId}`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get statistics
+  getStatistics: async () => {
+    const response = await api.get(`${BASE_URL}/mata-pelajaran-statistics`);
+    return response.data;
   },
 
-  /**
-   * Get cascade data (jenjang + mata pelajaran)
-   * @param {Object} params - Query parameters
-   * @returns {Promise} API response with cascade data
-   */
-  getCascadeData: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/cascade-data`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get dropdown data
+  getDropdown: async (params = {}) => {
+    const response = await api.get(`${BASE_URL}/mata-pelajaran-dropdown`, { params });
+    return response.data;
   },
 
-  /**
-   * Get mata pelajaran statistics
-   * @param {Object} params - Filter parameters (jenjang_id, etc)
-   * @returns {Promise} API response with statistics
-   */
-  getStatistics: async (params = {}) => {
-    try {
-      return await api.get(`${BASE_URL}/statistics`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get cascade data (jenjang + mata pelajaran)
+  getCascadeData: async () => {
+    const response = await api.get(`${BASE_URL}/mata-pelajaran-cascade-data`);
+    return response.data;
   }
 };
+
+export default mataPelajaranApi;

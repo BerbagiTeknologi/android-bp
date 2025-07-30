@@ -1,125 +1,63 @@
 import api from '../../../../api/axiosConfig';
 
-const BASE_URL = '/admin-cabang/master-data/jenjang';
+const BASE_URL = '/admin-cabang/master-data';
 
 export const jenjangApi = {
-  /**
-   * Get all jenjang with optional filters
-   * @param {Object} params - Query parameters (search, page, limit, etc)
-   * @returns {Promise} API response
-   */
+  // Get all jenjang with pagination
   getAll: async (params = {}) => {
-    try {
-      return await api.get(BASE_URL, { params });
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/jenjang`, { params });
+    return response.data;
   },
 
-  /**
-   * Create new jenjang
-   * @param {Object} data - Jenjang data
-   * @returns {Promise} API response
-   */
-  create: async (data) => {
-    try {
-      return await api.post(BASE_URL, data);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
-   * Get jenjang by ID
-   * @param {number|string} id - Jenjang ID
-   * @returns {Promise} API response
-   */
+  // Get jenjang by ID
   getById: async (id) => {
-    try {
-      return await api.get(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/jenjang/${id}`);
+    return response.data;
   },
 
-  /**
-   * Update jenjang
-   * @param {number|string} id - Jenjang ID
-   * @param {Object} data - Updated jenjang data
-   * @returns {Promise} API response
-   */
+  // Create new jenjang
+  create: async (data) => {
+    const response = await api.post(`${BASE_URL}/jenjang`, data);
+    return response.data;
+  },
+
+  // Update jenjang
   update: async (id, data) => {
-    try {
-      return await api.put(`${BASE_URL}/${id}`, data);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.put(`${BASE_URL}/jenjang/${id}`, data);
+    return response.data;
   },
 
-  /**
-   * Delete jenjang
-   * @param {number|string} id - Jenjang ID
-   * @returns {Promise} API response
-   */
+  // Delete jenjang
   delete: async (id) => {
-    try {
-      return await api.delete(`${BASE_URL}/${id}`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.delete(`${BASE_URL}/jenjang/${id}`);
+    return response.data;
   },
 
-  /**
-   * Get jenjang for dropdown (simplified data)
-   * @returns {Promise} API response with dropdown options
-   */
-  getForDropdown: async () => {
-    try {
-      return await api.get(`${BASE_URL}/dropdown`);
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
-   * Get jenjang statistics
-   * @returns {Promise} API response with statistics
-   */
+  // Get statistics
   getStatistics: async () => {
-    try {
-      return await api.get(`${BASE_URL}/statistics`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/jenjang-statistics`);
+    return response.data;
   },
 
-  /**
-   * Check if urutan is available
-   * @param {number} urutan - Urutan to check
-   * @param {number|string} excludeId - ID to exclude (for edit mode)
-   * @returns {Promise} API response with availability status
-   */
-  checkUrutanAvailability: async (urutan, excludeId = null) => {
-    try {
-      const params = { urutan };
-      if (excludeId) {
-        params.exclude_id = excludeId;
-      }
-      return await api.get(`${BASE_URL}/check-urutan`, { params });
-    } catch (error) {
-      throw error;
-    }
+  // Get dropdown data
+  getDropdown: async (params = {}) => {
+    const response = await api.get(`${BASE_URL}/jenjang-dropdown`, { params });
+    return response.data;
   },
 
-  /**
-   * Get all existing urutan values
-   * @returns {Promise} API response with existing urutan array
-   */
+  // Check urutan availability
+  checkUrutan: async (urutan, excludeId = null) => {
+    const response = await api.get(`${BASE_URL}/jenjang-check-urutan`, {
+      params: { urutan, exclude_id: excludeId }
+    });
+    return response.data;
+  },
+
+  // Get existing urutan
   getExistingUrutan: async () => {
-    try {
-      return await api.get(`${BASE_URL}/existing-urutan`);
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.get(`${BASE_URL}/jenjang-existing-urutan`);
+    return response.data;
   }
 };
+
+export default jenjangApi;

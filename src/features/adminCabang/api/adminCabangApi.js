@@ -1,15 +1,6 @@
 import api from '../../../api/axiosConfig';
 import { ADMIN_CABANG_ENDPOINTS, MANAGEMENT_ENDPOINTS } from '../../../constants/endpoints';
 
-// Import Master Data APIs
-import { jenjangApi } from './masterData/jenjangApi';
-import { mataPelajaranApi } from './masterData/mataPelajaranApi';
-import { kelasApi } from './masterData/kelasApi';
-import { materiApi } from './masterData/materiApi';
-
-// Import Akademik APIs
-import { kurikulumApi } from './akademik/kurikulumApi';
-
 /**
  * Admin Cabang API service - Main entry point
  * Organized by sections: Core, Master Data, Akademik
@@ -74,40 +65,8 @@ export const adminCabangApi = {
   deleteWilbin: async (wilbinId) => {
     return await api.delete(MANAGEMENT_ENDPOINTS.WILBIN_DETAIL(wilbinId));
   },
-
-  // ==================== MASTER DATA SECTION ====================
-  
-  masterData: {
-    jenjang: jenjangApi,
-    mataPelajaran: mataPelajaranApi,
-    kelas: kelasApi,
-    materi: materiApi,
-  },
-
-  // ==================== AKADEMIK SECTION ====================
-  
-  akademik: {
-    kurikulum: kurikulumApi,
-  },
-
-  // ==================== BACKWARD COMPATIBILITY ====================
-  // Keep existing direct exports for backward compatibility
-  
-  jenjang: jenjangApi,
-  mataPelajaran: mataPelajaranApi,
-  kelas: kelasApi,
-  materi: materiApi,
-  kurikulum: kurikulumApi,
 };
 
-// ==================== DIRECT EXPORTS ====================
-// Export individual APIs for direct import if needed
-
-export { jenjangApi } from './masterData/jenjangApi';
-export { mataPelajaranApi } from './masterData/mataPelajaranApi';
-export { kelasApi } from './masterData/kelasApi';
-export { materiApi } from './masterData/materiApi';
-export { kurikulumApi } from './akademik/kurikulumApi';
 
 // Default export
 export default adminCabangApi;
