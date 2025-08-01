@@ -7,24 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AdminPusatDashboardScreen from '../features/adminPusat/screens/AdminPusatDashboardScreen';
 import AdminPusatProfileScreen from '../features/adminPusat/screens/AdminPusatProfileScreen';
 
-// Import User Management Screens
-//import UserManagementScreen from '../features/adminPusat/screens/UserManagementScreen';
-//import UserFormScreen from '../features/adminPusat/screens/UserFormScreen';
-//import UserDetailScreen from '../features/adminPusat/screens/UserDetailScreen';
-
-// Import Kacab Management Screens
-// import KacabManagementScreen from '../features/adminPusat/screens/KacabManagementScreen';
-// import KacabFormScreen from '../features/adminPusat/screens/KacabFormScreen';
-// import KacabDetailScreen from '../features/adminPusat/screens/KacabDetailScreen';
-
-// Import Keluarga Management Screens
-import KeluargaManagementScreen from '../features/adminPusat/screens/KeluargaManagementScreen';
-import KeluargaDetailScreen from '../features/adminPusat/screens/KeluargaDetailScreen';
-import KeluargaFormScreen from '../features/adminPusat/screens/KeluargaFormScreen';
-
-// Import Anak Management Screens
-import AnakManagementScreen from '../features/adminPusat/screens/AnakManagementScreen';
-import AnakDetailScreen from '../features/adminPusat/screens/AnakDetailScreen';
 import TutorHonorSettingsScreen from '../features/adminPusat/screens/TutorHonorSettingsScreen';
 import TutorHonorSettingsFormScreen from '../features/adminPusat/screens/TutorHonorSettingsFormScreen';
 
@@ -48,76 +30,6 @@ const HomeStackNavigator = () => {
 const ManagementStackNavigator = () => {
   return (
     <Stack.Navigator>
-      {/* Users */}
-      {/* <Stack.Screen 
-        name="UserManagement" 
-        component={UserManagementScreen} 
-        options={{ headerTitle: 'Manajemen Pengguna' }}
-      /> */}
-      {/* <Stack.Screen 
-        name="UserForm" 
-        component={UserFormScreen} 
-        options={({ route }) => ({ 
-          headerTitle: route.params?.isEdit ? 'Edit Pengguna' : 'Tambah Pengguna'
-        })}
-      /> */}
-      {/* <Stack.Screen 
-        name="UserDetail" 
-        component={UserDetailScreen} 
-        options={{ headerTitle: 'Detail Pengguna' }}
-      /> */}
-      
-      {/* Kacab */}
-      {/* <Stack.Screen 
-        name="KacabManagement" 
-        component={KacabManagementScreen} 
-        options={{ headerTitle: 'Manajemen Cabang' }}
-      />
-      <Stack.Screen 
-        name="KacabForm" 
-        component={KacabFormScreen} 
-        options={({ route }) => ({ 
-          headerTitle: route.params?.isEdit ? 'Edit Cabang' : 'Tambah Cabang'
-        })}
-      />
-      <Stack.Screen 
-        name="KacabDetail" 
-        component={KacabDetailScreen} 
-        options={{ headerTitle: 'Detail Cabang' }}
-      /> */}
-      
-      {/* Keluarga */}
-      <Stack.Screen 
-        name="KeluargaManagement" 
-        component={KeluargaManagementScreen} 
-        options={{ headerTitle: 'Manajemen Keluarga' }}
-      />
-      <Stack.Screen 
-        name="KeluargaForm" 
-        component={KeluargaFormScreen} 
-        options={({ route }) => ({ 
-          headerTitle: route.params?.isEdit ? 'Edit Keluarga' : 'Tambah Keluarga'
-        })}
-      />
-      <Stack.Screen 
-        name="KeluargaDetail" 
-        component={KeluargaDetailScreen} 
-        options={({ route }) => ({ 
-          headerTitle: route.params?.title || 'Detail Keluarga'
-        })}
-      />
-      
-      {/* Anak */}
-      <Stack.Screen 
-        name="AnakManagement" 
-        component={AnakManagementScreen} 
-        options={{ headerTitle: 'Manajemen Anak' }}
-      />
-      <Stack.Screen 
-        name="AnakDetail" 
-        component={AnakDetailScreen} 
-        options={{ headerTitle: 'Detail Anak' }}
-      />
       
       {/* Tutor Honor Settings */}
       <Stack.Screen 
