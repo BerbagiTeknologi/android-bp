@@ -70,6 +70,11 @@ import SemesterManagementScreen from '../features/adminShelter/screens/SemesterM
 import SemesterFormScreen from '../features/adminShelter/screens/SemesterFormScreen';
 import SemesterDetailScreen from '../features/adminShelter/screens/SemesterDetailScreen';
 import KurikulumSelectionScreen from '../features/adminShelter/screens/KurikulumSelectionScreen';
+import KurikulumHomeScreen from '../features/adminShelter/screens/kelola/KurikulumHomeScreen';
+import KurikulumBrowserScreen from '../features/adminShelter/screens/kelola/KurikulumBrowserScreen';
+import KurikulumAssignmentScreen from '../features/adminShelter/screens/kelola/KurikulumAssignmentScreen';
+import ProgressTrackingScreen from '../features/adminShelter/screens/kelola/ProgressTrackingScreen';
+import KelompokReportingScreen from '../features/adminShelter/screens/kelola/KelompokReportingScreen';
 
 import KeuanganListScreen from '../features/adminShelter/screens/KeuanganListScreen';
 import KeuanganFormScreen from '../features/adminShelter/screens/KeuanganFormScreen';
@@ -103,6 +108,31 @@ const HomeStackNavigator = () => (
       name="AttendanceStack" 
       component={AttendanceStackNavigator} 
       options={{ headerShown: false }} 
+    />
+    <HomeStack.Screen 
+      name="KurikulumHome" 
+      component={KurikulumHomeScreen} 
+      options={{ headerTitle: 'Kelola Kurikulum' }} 
+    />
+    <HomeStack.Screen 
+      name="KurikulumBrowser" 
+      component={KurikulumBrowserScreen} 
+      options={{ headerTitle: 'Browser Kurikulum' }} 
+    />
+    <HomeStack.Screen 
+      name="KurikulumAssignment" 
+      component={KurikulumAssignmentScreen} 
+      options={{ headerTitle: 'Assign Kurikulum' }} 
+    />
+    <HomeStack.Screen 
+      name="ProgressTracking" 
+      component={ProgressTrackingScreen} 
+      options={{ headerTitle: 'Progress Tracking' }} 
+    />
+    <HomeStack.Screen 
+      name="KelompokReporting" 
+      component={KelompokReportingScreen} 
+      options={{ headerTitle: 'Kelompok Report' }} 
     />
   </HomeStack.Navigator>
 );

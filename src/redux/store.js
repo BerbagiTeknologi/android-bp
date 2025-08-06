@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import rootReducer from './rootReducer';
+import { kurikulumApi } from '../features/adminCabang/api/kurikulumApi';
 
 /**
  * Redux store configuration
@@ -12,7 +13,7 @@ const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false, // Disable serializable check for non-serializable values
-    }),
+    }).concat(kurikulumApi.middleware),
   devTools: __DEV__, // Only enable Redux DevTools in development
 });
 

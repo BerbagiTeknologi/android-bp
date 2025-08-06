@@ -42,6 +42,58 @@ export const ADMIN_PUSAT_ENDPOINTS = {
     DELETE: (id) => `/admin-pusat/tutor-honor-settings/${id}`,
     CALCULATE_PREVIEW: '/admin-pusat/tutor-honor-settings/calculate-preview',
     STATISTICS: '/admin-pusat/tutor-honor-settings-statistics'
+  },
+  TEMPLATE: {
+    // Hierarchy & Navigation
+    STRUKTUR: '/admin-pusat/template-kurikulum/struktur',
+    KELAS: (jenjang) => `/admin-pusat/template-kurikulum/kelas/${jenjang}`,
+    MATA_PELAJARAN: (kelas) => `/admin-pusat/template-kurikulum/mata-pelajaran/${kelas}`,
+    MATA_PELAJARAN_STATS: (mataPelajaran, kelas) => `/admin-pusat/template-kurikulum/mata-pelajaran-stats/${mataPelajaran}/${kelas}`,
+    CLEAR_CACHE: '/admin-pusat/template-kurikulum/clear-cache',
+    
+    // Template CRUD
+    LIST: '/admin-pusat/template-materi',
+    CREATE: '/admin-pusat/template-materi',
+    DETAIL: (id) => `/admin-pusat/template-materi/${id}`,
+    UPDATE: (id) => `/admin-pusat/template-materi/${id}`,
+    DELETE: (id) => `/admin-pusat/template-materi/${id}`,
+    ACTIVATE: (id) => `/admin-pusat/template-materi/${id}/activate`,
+    DEACTIVATE: (id) => `/admin-pusat/template-materi/${id}/deactivate`,
+    DUPLICATE: (id) => `/admin-pusat/template-materi/${id}/duplicate`,
+    BY_MAPEL: (mataPelajaran, kelas) => `/admin-pusat/template-materi/by-mapel/${mataPelajaran}/${kelas}`,
+    
+    // Distribution
+    DISTRIBUTION: {
+      CABANG_LIST: '/admin-pusat/distribution/cabang',
+      DISTRIBUTE_SINGLE: (templateId) => `/admin-pusat/distribution/template/${templateId}`,
+      BULK_DISTRIBUTE: '/admin-pusat/distribution/bulk',
+      HISTORY: '/admin-pusat/distribution/history',
+      STATUS: (templateId) => `/admin-pusat/distribution/status/${templateId}`,
+      REVOKE: (templateId) => `/admin-pusat/distribution/revoke/${templateId}`,
+      SETTINGS: (templateId) => `/admin-pusat/distribution/settings/${templateId}`,
+      STATS: '/admin-pusat/distribution/stats',
+      REGIONAL_SUMMARY: '/admin-pusat/distribution/regional-summary',
+      ADOPTION_RATES: '/admin-pusat/distribution/adoption-rates',
+      NOTIFICATIONS: '/admin-pusat/distribution/notifications',
+      MARK_NOTIFICATION_READ: (id) => `/admin-pusat/distribution/notifications/${id}/read`,
+      SEND_REMINDER: (distributionId) => `/admin-pusat/distribution/${distributionId}/reminder`,
+      FEEDBACK: '/admin-pusat/distribution/feedback',
+      EXPORT_REPORT: '/admin-pusat/distribution/export-report',
+      BATCH_ACTIVATE: '/admin-pusat/distribution/batch/activate',
+      BATCH_DEACTIVATE: '/admin-pusat/distribution/batch/deactivate',
+      BATCH_DELETE: '/admin-pusat/distribution/batch/delete'
+    },
+    
+    // Monitoring & Analytics
+    MONITORING: {
+      DASHBOARD: '/admin-pusat/monitoring/dashboard',
+      CABANG_ADOPTION: '/admin-pusat/monitoring/cabang-adoption',
+      TEMPLATE_PERFORMANCE: '/admin-pusat/monitoring/template-performance',
+      ADOPTION_TRENDS: '/admin-pusat/monitoring/adoption-trends',
+      CABANG_DETAIL: (kacabId) => `/admin-pusat/monitoring/cabang/${kacabId}`,
+      TEMPLATE_USAGE: (templateId) => `/admin-pusat/monitoring/template/${templateId}/usage`,
+      EXPORT_REPORT: '/admin-pusat/monitoring/export-report'
+    }
   }
 };
 
@@ -145,7 +197,8 @@ export const ADMIN_SHELTER_ENDPOINTS = {
     LIST: '/admin-shelter/tutor',
     DETAIL: (id) => `/admin-shelter/tutor/${id}`,
     CREATE: '/admin-shelter/tutor',
-    UPDATE: (id) => `/admin-shelter/tutor/${id}`
+    UPDATE: (id) => `/admin-shelter/tutor/${id}`,
+    AVAILABLE: '/admin-shelter/tutor/available'
   },
   TUTOR_HONOR: {
     GET_TUTOR_HONOR: (tutorId) => `/admin-shelter/tutor-honor/tutor/${tutorId}`,
@@ -163,8 +216,18 @@ export const ADMIN_SHELTER_ENDPOINTS = {
   },
   KELOMPOK: {
     LIST: '/admin-shelter/kelompok',
+    CREATE: '/admin-shelter/kelompok',
     DETAIL: (id) => `/admin-shelter/kelompok/${id}`,
-    LEVELS: '/admin-shelter/kelompok-levels',
+    UPDATE: (id) => `/admin-shelter/kelompok/${id}`,
+    DELETE: (id) => `/admin-shelter/kelompok/${id}`,
+    // NEW: Kelas-based system (replaces old LEVELS)
+    AVAILABLE_KELAS: '/admin-shelter/kelompok-available-kelas',
+    // Enhanced Kelompok Management  
+    AVAILABLE_ANAK: (kelompokId) => `/admin-shelter/kelompok/${kelompokId}/available-anak`,
+    ADD_ANAK: (kelompokId) => `/admin-shelter/kelompok/${kelompokId}/add-anak`,
+    REMOVE_ANAK: (kelompokId, anakId) => `/admin-shelter/kelompok/${kelompokId}/remove-anak/${anakId}`,
+    STATS: (kelompokId) => `/admin-shelter/kelompok/${kelompokId}/stats`,
+    // Legacy endpoints (maintained for backward compatibility)
     AVAILABLE_CHILDREN: (shelterId) => `/admin-shelter/kelompok/available-children/${shelterId}`,
     GROUP_CHILDREN: (kelompokId) => `/admin-shelter/kelompok/${kelompokId}/children`,
     ADD_CHILD: (kelompokId) => `/admin-shelter/kelompok/${kelompokId}/add-child`,
@@ -186,7 +249,19 @@ export const ADMIN_SHELTER_ENDPOINTS = {
   AKTIVITAS: {
     LIST: '/admin-shelter/aktivitas',
     DETAIL: (id) => `/admin-shelter/aktivitas/${id}`,
-    CREATE: '/admin-shelter/aktivitas'
+    CREATE: '/admin-shelter/aktivitas',
+    // Phase 3: Enhanced Aktivitas with Kurikulum Integration
+    BY_SEMESTER: (semesterId) => `/admin-shelter/aktivitas/by-semester/${semesterId}`,
+    BY_MATERI: (materiId) => `/admin-shelter/aktivitas/by-materi/${materiId}`,
+    DUPLICATE: (aktivitasId) => `/admin-shelter/aktivitas/${aktivitasId}/duplicate`,
+    STATS: '/admin-shelter/aktivitas-stats'
+  },
+  // Phase 3: SIMPLIFIED Kurikulum Consumer (Read-only data provider)
+  KURIKULUM_CONSUMER: {
+    ALL_MATERI: '/admin-shelter/kurikulum/all-materi',
+    AVAILABLE_KELAS: '/admin-shelter/kurikulum/available-kelas',
+    SEMESTER_AKTIF: '/admin-shelter/kurikulum/semester-aktif',
+    MATERI_DETAIL: (materiId) => `/admin-shelter/kurikulum/materi/${materiId}`
   },
   SURAT: {
     LIST: (childId) => `/admin-shelter/anak/${childId}/surat`,

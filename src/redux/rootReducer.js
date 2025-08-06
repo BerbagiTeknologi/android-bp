@@ -4,6 +4,10 @@ import tutorReducer from '../features/adminShelter/redux/tutorSlice';
 import tutorCompetencyReducer from '../features/adminShelter/redux/tutorCompetencySlice';
 import tutorHonorReducer from '../features/adminShelter/redux/tutorHonorSlice';
 import tutorHonorSettingsReducer from '../features/adminPusat/redux/tutorHonorSettingsSlice';
+import templateHierarchyReducer from '../features/adminPusat/redux/templateHierarchySlice';
+import templateReducer from '../features/adminPusat/redux/templateSlice';
+import distributionReducer from '../features/adminPusat/redux/distributionSlice';
+import monitoringReducer from '../features/adminPusat/redux/monitoringSlice';
 import qrTokenReducer from '../features/adminShelter/redux/qrTokenSlice';
 import attendanceReducer from '../features/adminShelter/redux/attendanceSlice';
 import aktivitasReducer from '../features/adminShelter/redux/aktivitasSlice';
@@ -20,6 +24,17 @@ import laporanSuratReducer from '../features/adminShelter/redux/laporanSuratSlic
 import laporanAktivitasReducer from '../features/adminShelter/redux/laporanAktivitasSlice';
 import historiLaporanReducer from '../features/adminShelter/redux/historiLaporanSlice';
 
+// Admin Cabang reducers
+import kurikulumReducer from '../features/adminCabang/redux/kurikulumSlice';
+import materiReducer from '../features/adminCabang/redux/materiSlice';
+import semesterCabangReducer from '../features/adminCabang/redux/semesterCabangSlice';
+import templateAdoptionReducer from '../features/adminCabang/redux/templateAdoptionSlice';
+import kurikulumHierarchyReducer from '../features/adminCabang/redux/kurikulumHierarchySlice';
+import { kurikulumApi } from '../features/adminCabang/api/kurikulumApi';
+
+// Admin Shelter Kurikulum Consumer (NEW - Phase 3)
+import kurikulumConsumerReducer from '../features/adminShelter/redux/kurikulumConsumerSlice';
+
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -27,6 +42,10 @@ const appReducer = combineReducers({
   tutorCompetency: tutorCompetencyReducer,
   tutorHonor: tutorHonorReducer,
   tutorHonorSettings: tutorHonorSettingsReducer,
+  templateHierarchy: templateHierarchyReducer,
+  template: templateReducer,
+  distribution: distributionReducer,
+  monitoring: monitoringReducer,
   qrToken: qrTokenReducer,
   attendance: attendanceReducer,
   aktivitas: aktivitasReducer,
@@ -42,6 +61,19 @@ const appReducer = combineReducers({
   laporanSurat: laporanSuratReducer,
   laporanAktivitas: laporanAktivitasReducer,
   historiLaporan: historiLaporanReducer,
+  
+  // Admin Cabang reducers
+  kurikulum: kurikulumReducer,
+  materi: materiReducer,
+  semesterCabang: semesterCabangReducer,
+  templateAdoption: templateAdoptionReducer,
+  kurikulumHierarchy: kurikulumHierarchyReducer,
+  
+  // Admin Shelter Kurikulum Consumer (NEW - Phase 3)
+  kurikulumConsumer: kurikulumConsumerReducer,
+  
+  // RTK Query API reducers
+  [kurikulumApi.reducerPath]: kurikulumApi.reducer,
 });
 
 const rootReducer = (state, action) => {

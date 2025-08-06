@@ -6,9 +6,23 @@ import { Ionicons } from '@expo/vector-icons';
 // Import Screens
 import AdminPusatDashboardScreen from '../features/adminPusat/screens/AdminPusatDashboardScreen';
 import AdminPusatProfileScreen from '../features/adminPusat/screens/AdminPusatProfileScreen';
-
 import TutorHonorSettingsScreen from '../features/adminPusat/screens/TutorHonorSettingsScreen';
-import TutorHonorSettingsFormScreen from '../features/adminPusat/screens/TutorHonorSettingsFormScreen';
+
+
+// Template Screens
+import TemplateHomeScreen from '../features/adminPusat/screens/template/TemplateHomeScreen';
+import JenjangSelectionScreen from '../features/adminPusat/screens/template/JenjangSelectionScreen';
+import KelasSelectionScreen from '../features/adminPusat/screens/template/KelasSelectionScreen';
+import MataPelajaranListScreen from '../features/adminPusat/screens/template/MataPelajaranListScreen';
+import TemplateMateriManagementScreen from '../features/adminPusat/screens/template/TemplateMateriManagementScreen';
+import TemplateMateriFormScreen from '../features/adminPusat/screens/template/TemplateMateriFormScreen';
+
+// Distribution Screens
+import DistributionScreen from '../features/adminPusat/screens/distribution/DistributionScreen';
+import DistributionHistoryScreen from '../features/adminPusat/screens/distribution/DistributionHistoryScreen';
+
+// Monitoring Screens
+import MonitoringScreen from '../features/adminPusat/screens/monitoring/MonitoringScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -22,31 +36,73 @@ const HomeStackNavigator = () => {
         component={AdminPusatDashboardScreen} 
         options={{ headerTitle: 'Admin Pusat Dashboard' }}
       />
-    </Stack.Navigator>
-  );
-};
-
-// Management Stack Navigator
-const ManagementStackNavigator = () => {
-  return (
-    <Stack.Navigator>
-      
-      {/* Tutor Honor Settings */}
       <Stack.Screen 
         name="TutorHonorSettings" 
         component={TutorHonorSettingsScreen} 
         options={{ headerTitle: 'Setting Honor Tutor' }}
       />
+    </Stack.Navigator>
+  );
+};
+
+// Template Stack Navigator
+const TemplateStackNavigator = () => {
+  return (
+    <Stack.Navigator>
       <Stack.Screen 
-        name="TutorHonorSettingsForm" 
-        component={TutorHonorSettingsFormScreen} 
+        name="TemplateHome" 
+        component={TemplateHomeScreen} 
+        options={{ headerTitle: 'Template Kurikulum' }}
+      />
+      <Stack.Screen 
+        name="JenjangSelection" 
+        component={JenjangSelectionScreen} 
+        options={{ headerTitle: 'Pilih Jenjang' }}
+      />
+      <Stack.Screen 
+        name="KelasSelection" 
+        component={KelasSelectionScreen} 
+        options={{ headerTitle: 'Pilih Kelas' }}
+      />
+      <Stack.Screen 
+        name="MataPelajaranList" 
+        component={MataPelajaranListScreen} 
+        options={{ headerTitle: 'Mata Pelajaran' }}
+      />
+      <Stack.Screen 
+        name="TemplateMateriManagement" 
+        component={TemplateMateriManagementScreen} 
+        options={{ headerTitle: 'Template Materi' }}
+      />
+      <Stack.Screen 
+        name="TemplateMateriForm" 
+        component={TemplateMateriFormScreen} 
         options={({ route }) => ({ 
-          headerTitle: route.params?.isEdit ? 'Edit Setting Honor' : 'Buat Setting Honor'
+          headerTitle: route.params?.mode === 'edit' ? 'Edit Template' : 
+                      route.params?.mode === 'duplicate' ? 'Duplikasi Template' : 
+                      'Buat Template Baru'
         })}
+      />
+      <Stack.Screen 
+        name="Distribution" 
+        component={DistributionScreen} 
+        options={{ headerTitle: 'Distribusi Template' }}
+      />
+      <Stack.Screen 
+        name="DistributionHistory" 
+        component={DistributionHistoryScreen} 
+        options={{ headerTitle: 'Riwayat Distribusi' }}
+      />
+      <Stack.Screen 
+        name="MonitoringDashboard" 
+        component={MonitoringScreen} 
+        options={{ headerTitle: 'Monitoring & Analytics' }}
       />
     </Stack.Navigator>
   );
 };
+
+
 
 // Profile Stack Navigator
 const ProfileStackNavigator = () => {
@@ -71,8 +127,8 @@ const AdminPusatNavigator = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Management') {
-            iconName = focused ? 'settings' : 'settings-outline';
+          } else if (route.name === 'Template') {
+            iconName = focused ? 'library' : 'library-outline';
           } else if (route.name === 'ProfileTab') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -90,9 +146,9 @@ const AdminPusatNavigator = () => {
         options={{ tabBarLabel: 'Home' }}
       />
       <Tab.Screen 
-        name="Management" 
-        component={ManagementStackNavigator} 
-        options={{ tabBarLabel: 'Manajemen' }}
+        name="Template" 
+        component={TemplateStackNavigator} 
+        options={{ tabBarLabel: 'Template' }}
       />
       <Tab.Screen 
         name="ProfileTab" 

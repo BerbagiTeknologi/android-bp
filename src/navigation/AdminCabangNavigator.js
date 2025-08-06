@@ -16,9 +16,21 @@ import AdminCabangDonaturFormScreen from '../features/adminCabang/screens/AdminC
 import AdminCabangDonaturDetailScreen from '../features/adminCabang/screens/AdminCabangDonaturDetailScreen';
 import DonaturFilterScreen from '../features/adminCabang/screens/DonaturFilterScreen';
 
+// Kurikulum screens
+import KurikulumHomeScreen from '../features/adminCabang/screens/kurikulum/KurikulumHomeScreen';
+import JenjangSelectionScreen from '../features/adminCabang/screens/kurikulum/JenjangSelectionScreen';
+import KelasSelectionScreen from '../features/adminCabang/screens/kurikulum/KelasSelectionScreen';
+import MataPelajaranListScreen from '../features/adminCabang/screens/kurikulum/MataPelajaranListScreen';
+import MateriManagementScreen from '../features/adminCabang/screens/kurikulum/MateriManagementScreen';
+import MateriFormScreen from '../features/adminCabang/screens/kurikulum/MateriFormScreen';
+import SemesterManagementScreen from '../features/adminCabang/screens/kurikulum/SemesterManagementScreen';
+import TemplateAdoptionScreen from '../features/adminCabang/screens/kurikulum/TemplateAdoptionScreen';
+import MasterDataScreen from '../features/adminCabang/screens/kurikulum/MasterDataScreen';
+
 
 const Tab = createBottomTabNavigator();
 const DashboardStack = createStackNavigator();
+const KurikulumStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 // Dashboard Stack Navigator
@@ -77,6 +89,59 @@ const DashboardStackNavigator = () => (
   </DashboardStack.Navigator>
 );
 
+// Kurikulum Stack Navigator
+const KurikulumStackNavigator = () => (
+  <KurikulumStack.Navigator>
+    <KurikulumStack.Screen
+      name="KurikulumHome"
+      component={KurikulumHomeScreen}
+      options={{ headerTitle: 'Kurikulum' }}
+    />
+    <KurikulumStack.Screen
+      name="JenjangSelection"
+      component={JenjangSelectionScreen}
+      options={{ headerTitle: 'Pilih Jenjang' }}
+    />
+    <KurikulumStack.Screen
+      name="KelasSelection"
+      component={KelasSelectionScreen}
+      options={{ headerTitle: 'Pilih Kelas' }}
+    />
+    <KurikulumStack.Screen
+      name="MataPelajaranList"
+      component={MataPelajaranListScreen}
+      options={{ headerTitle: 'Mata Pelajaran' }}
+    />
+    <KurikulumStack.Screen
+      name="MateriManagement"
+      component={MateriManagementScreen}
+      options={{ headerTitle: 'Kelola Materi' }}
+    />
+    <KurikulumStack.Screen
+      name="MateriForm"
+      component={MateriFormScreen}
+      options={({ route }) => ({
+        headerTitle: route.params?.isEdit ? 'Edit Materi' : 'Tambah Materi'
+      })}
+    />
+    <KurikulumStack.Screen
+      name="SemesterManagement"
+      component={SemesterManagementScreen}
+      options={{ headerTitle: 'Kelola Semester' }}
+    />
+    <KurikulumStack.Screen
+      name="TemplateAdoption"
+      component={TemplateAdoptionScreen}
+      options={{ headerTitle: 'Adopsi Template' }}
+    />
+    <KurikulumStack.Screen
+      name="MasterData"
+      component={MasterDataScreen}
+      options={{ headerTitle: 'Master Data' }}
+    />
+  </KurikulumStack.Navigator>
+);
+
 // Profile Stack Navigator
 const ProfileStackNavigator = () => (
   <ProfileStack.Navigator>
@@ -94,7 +159,7 @@ const AdminCabangNavigator = () => (
       tabBarIcon: ({ focused, color, size }) => {
         let iconName;
         if (route.name === 'Home') iconName = focused ? 'grid' : 'grid-outline';
-        else if (route.name === 'MasterData') iconName = focused ? 'library' : 'library-outline';
+        else if (route.name === 'Kurikulum') iconName = focused ? 'library' : 'library-outline';
         else if (route.name === 'Profile') iconName = focused ? 'person-circle' : 'person-circle-outline';
         return <Ionicons name={iconName} size={size} color={color} />;
       },
@@ -107,6 +172,11 @@ const AdminCabangNavigator = () => (
       name="Home"
       component={DashboardStackNavigator}
       options={{ tabBarLabel: 'Dashboard' }}
+    />
+    <Tab.Screen
+      name="Kurikulum"
+      component={KurikulumStackNavigator}
+      options={{ tabBarLabel: 'Kurikulum' }}
     />
     <Tab.Screen
       name="Profile"
