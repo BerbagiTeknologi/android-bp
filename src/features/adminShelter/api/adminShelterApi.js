@@ -115,5 +115,47 @@ export const adminShelterApi = {
    */
   markAbsent: async (childId) => {
     return await api.post(`/attendance/absent/${childId}`);
+  },
+
+  /**
+   * Get semester list (read-only from cabang)
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response with semester data
+   */
+  getSemesters: async (params = {}) => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.SEMESTER.LIST, { params });
+  },
+
+  /**
+   * Get semester details
+   * @param {number|string} semesterId - Semester ID
+   * @returns {Promise} - API response with semester details
+   */
+  getSemesterDetail: async (semesterId) => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.SEMESTER.DETAIL(semesterId));
+  },
+
+  /**
+   * Get active semester
+   * @returns {Promise} - API response with active semester
+   */
+  getActiveSemester: async () => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.SEMESTER.ACTIVE);
+  },
+
+  /**
+   * Get semester statistics
+   * @returns {Promise} - API response with semester statistics
+   */
+  getSemesterStatistics: async () => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.SEMESTER.STATISTICS);
+  },
+
+  /**
+   * Test semester endpoints (debug)
+   * @returns {Promise} - API response
+   */
+  testSemesterEndpoint: async () => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.SEMESTER.TEST);
   }
 };

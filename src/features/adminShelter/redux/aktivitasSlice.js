@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { aktivitasApi } from '../api/aktivitasApi';
 import { adminShelterKelompokApi } from '../api/adminShelterKelompokApi';
+import { kurikulumShelterApi } from '../api/kurikulumShelterApi';
 
 // Initial state
 const initialState = {
@@ -19,7 +20,15 @@ const initialState = {
     from: 0,
     to: 0
   },
-  isLoadingMore: false
+  isLoadingMore: false,
+  
+  // NEW: Kurikulum caching support
+  materiCache: [],
+  materiCacheLoading: false,
+  materiCacheError: null,
+  selectedMateri: null,
+  lastCacheUpdate: null,
+  cacheExpiryMinutes: 10 // Cache expiry time
 };
 
 // Async thunks
@@ -117,6 +126,60 @@ export const deleteAktivitas = createAsyncThunk(
   }
 );
 
+// NEW: Kurikulum caching async thunks
+export const fetchAllMateri = createAsyncThunk(
+  'aktivitas/fetchAllMateri',
+  async (forceRefresh = false, { getState, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const { lastCacheUpdate, cacheExpiryMinutes, materiCache } = state.aktivitas;
+      
+      // Check if cache is still valid (unless force refresh)
+      if (!forceRefresh && lastCacheUpdate && materiCache.length > 0) {
+        const cacheAge = (Date.now() - lastCacheUpdate) / (1000 * 60); // minutes
+        if (cacheAge < cacheExpiryMinutes) {
+          return {
+            data: materiCache,
+            fromCache: true,
+            cacheAge: Math.round(cacheAge)
+          };
+        }
+      }
+      
+      const response = await kurikulumShelterApi.getAllMateri();
+      return {
+        data: response.data.data?.hierarchy?.materi_list || [],
+        fromCache: false,
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch materi');
+    }
+  }
+);
+
+export const setSelectedMateri = createAsyncThunk(
+  'aktivitas/setSelectedMateri',
+  async (materi, { rejectWithValue }) => {
+    try {
+      return materi;
+    } catch (error) {
+      return rejectWithValue('Failed to set selected materi');
+    }
+  }
+);
+
+export const clearMateriCache = createAsyncThunk(
+  'aktivitas/clearMateriCache',
+  async (_, { rejectWithValue }) => {
+    try {
+      return {};
+    } catch (error) {
+      return rejectWithValue('Failed to clear cache');
+    }
+  }
+);
+
 // Slice
 const aktivitasSlice = createSlice({
   name: 'aktivitas',
@@ -132,6 +195,13 @@ const aktivitasSlice = createSlice({
     resetAktivitasList: (state) => {
       state.aktivitasList = [];
       state.pagination = initialState.pagination;
+    },
+    // NEW: Kurikulum cache reducers
+    clearSelectedMateri: (state) => {
+      state.selectedMateri = null;
+    },
+    resetMateriCacheError: (state) => {
+      state.materiCacheError = null;
     }
   },
   extraReducers: (builder) => {
@@ -329,12 +399,78 @@ const aktivitasSlice = createSlice({
       .addCase(deleteAktivitas.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'Failed to delete activity';
+      })
+      
+      // NEW: fetchAllMateri cases
+      .addCase(fetchAllMateri.pending, (state) => {
+        state.materiCacheLoading = true;
+        state.materiCacheError = null;
+      })
+      .addCase(fetchAllMateri.fulfilled, (state, action) => {
+        state.materiCacheLoading = false;
+        const { data, fromCache, timestamp, cacheAge } = action.payload;
+        
+        if (!fromCache) {
+          // Transform data to ensure all fields are safe for rendering
+          const transformedData = data.map(materi => ({
+            ...materi,
+            nama_materi: (materi.nama_materi || '').toString(),
+            kategori: (materi.kategori || '').toString(),
+            deskripsi: (materi.deskripsi || '').toString(),
+            urutan: (materi.urutan || '').toString(),
+            file_name: (materi.file_name || '').toString(),
+            // Ensure relationship objects are properly handled
+            mataPelajaran: materi.mataPelajaran ? {
+              ...materi.mataPelajaran,
+              nama_mata_pelajaran: (materi.mataPelajaran.nama_mata_pelajaran || '').toString()
+            } : (materi.mata_pelajaran ? {
+              ...materi.mata_pelajaran,
+              nama_mata_pelajaran: (materi.mata_pelajaran.nama_mata_pelajaran || '').toString()
+            } : null),
+            kelas: materi.kelas ? {
+              ...materi.kelas,
+              nama_kelas: (materi.kelas.nama_kelas || '').toString(),
+              jenjang: materi.kelas.jenjang ? {
+                ...materi.kelas.jenjang,
+                nama_jenjang: (materi.kelas.jenjang.nama_jenjang || '').toString()
+              } : null
+            } : null
+          }));
+          
+          state.materiCache = transformedData;
+          state.lastCacheUpdate = timestamp;
+        }
+        // If from cache, no need to update the cache data
+      })
+      .addCase(fetchAllMateri.rejected, (state, action) => {
+        state.materiCacheLoading = false;
+        state.materiCacheError = action.payload || 'Failed to fetch materi';
+      })
+      
+      // setSelectedMateri cases
+      .addCase(setSelectedMateri.fulfilled, (state, action) => {
+        state.selectedMateri = action.payload;
+      })
+      
+      // clearMateriCache cases
+      .addCase(clearMateriCache.fulfilled, (state) => {
+        state.materiCache = [];
+        state.selectedMateri = null;
+        state.lastCacheUpdate = null;
+        state.materiCacheError = null;
+        console.log('Materi cache cleared');
       });
   }
 });
 
 // Actions
-export const { resetAktivitasDetail, resetAktivitasError, resetAktivitasList } = aktivitasSlice.actions;
+export const { 
+  resetAktivitasDetail, 
+  resetAktivitasError, 
+  resetAktivitasList,
+  clearSelectedMateri,
+  resetMateriCacheError
+} = aktivitasSlice.actions;
 
 // Selectors
 export const selectAktivitasList = (state) => state.aktivitas.aktivitasList;
@@ -345,5 +481,18 @@ export const selectAktivitasPagination = (state) => state.aktivitas.pagination;
 export const selectKelompokDetail = (state) => state.aktivitas.kelompokDetail?.data;
 export const selectKelompokLoading = (state) => state.aktivitas.kelompokLoading;
 export const selectIsLoadingMore = (state) => state.aktivitas.isLoadingMore;
+
+// NEW: Kurikulum selectors
+export const selectMateriCache = (state) => state.aktivitas.materiCache;
+export const selectMateriCacheLoading = (state) => state.aktivitas.materiCacheLoading;
+export const selectMateriCacheError = (state) => state.aktivitas.materiCacheError;
+export const selectSelectedMateri = (state) => state.aktivitas.selectedMateri;
+export const selectLastCacheUpdate = (state) => state.aktivitas.lastCacheUpdate;
+export const selectIsCacheValid = (state) => {
+  const { lastCacheUpdate, cacheExpiryMinutes } = state.aktivitas;
+  if (!lastCacheUpdate) return false;
+  const cacheAge = (Date.now() - lastCacheUpdate) / (1000 * 60); // minutes
+  return cacheAge < cacheExpiryMinutes;
+};
 
 export default aktivitasSlice.reducer;

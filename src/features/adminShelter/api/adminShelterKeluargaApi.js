@@ -10,6 +10,15 @@ export const adminShelterKeluargaApi = {
     return await api.get(ADMIN_SHELTER_ENDPOINTS.KELUARGA.DETAIL(id));
   },
 
+  /**
+   * Get child detail including education data
+   * @param {number|string} childId - Child ID
+   * @returns {Promise} - API response with child and education data
+   */
+  getAnakDetail: async (childId) => {
+    return await api.get(ADMIN_SHELTER_ENDPOINTS.ANAK.DETAIL(childId));
+  },
+
   createKeluarga: async (keluargaData) => {
     return await api.post(ADMIN_SHELTER_ENDPOINTS.KELUARGA.LIST, keluargaData, {
       headers: {
