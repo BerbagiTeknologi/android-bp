@@ -58,7 +58,7 @@ const ActivityDetailScreen = ({ navigation, route }) => {
   
   const handleRecordAttendance = () => {
     if (!activity) return;
-    navigation.navigate('QrScanner', {
+    navigation.navigate('AttendanceManagement', {
       id_aktivitas,
       activityName: activity.jenis_kegiatan,
       activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null,
@@ -82,16 +82,20 @@ const ActivityDetailScreen = ({ navigation, route }) => {
   
   const handleViewAttendanceRecords = () => {
     if (!activity) return;
-    navigation.navigate('AttendanceList', {
+    navigation.navigate('AttendanceManagement', {
       id_aktivitas,
       activityName: activity.jenis_kegiatan,
-      activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null
+      activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null,
+      activityType: activity.jenis_kegiatan,
+      kelompokId: activity.selectedKelompokId || kelompokDetail?.id_kelompok || null,
+      kelompokName: activity.nama_kelompok || null,
+      initialTab: 'AttendanceList'
     });
   };
   
   const handleGenerateQrCodes = () => {
     if (!activity) return;
-    navigation.navigate('QrTokenGeneration', {
+    navigation.navigate('AttendanceManagement', {
       id_aktivitas,
       activityName: activity.jenis_kegiatan,
       activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null,
@@ -99,7 +103,8 @@ const ActivityDetailScreen = ({ navigation, route }) => {
       kelompokId: activity.selectedKelompokId || kelompokDetail?.id_kelompok || null,
       kelompokName: activity.nama_kelompok || null,
       level: activity.level || null,
-      completeActivity: activity
+      completeActivity: activity,
+      initialTab: 'QrTokenGeneration'
     });
   };
   
@@ -270,8 +275,9 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         <View style={styles.attendanceActions}>
           <ActionButton
             onPress={handleRecordAttendance}
-            icon="qr-code"
-            text="Kehadiran QR"
+            icon="calendar"
+            text="Kelola Kehadiran"
+            style={styles.fullWidthButton}
           />
           <ActionButton
             onPress={handleManualAttendance}
@@ -279,20 +285,7 @@ const ActivityDetailScreen = ({ navigation, route }) => {
             text="Input Manual"
             style={styles.manualButton}
           />
-          <ActionButton
-            onPress={handleViewAttendanceRecords}
-            icon="list"
-            text="Lihat Catatan"
-            style={styles.recordsButton}
-          />
         </View>
-
-        <ActionButton
-          onPress={handleGenerateQrCodes}
-          icon="qr-code"
-          text="Buat Kode QR"
-          style={[styles.qrButton, styles.fullWidthButton]}
-        />
         
         <StudentsSection />
       </View>

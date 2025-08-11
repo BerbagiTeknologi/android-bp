@@ -15,12 +15,14 @@ import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
 
 import {
-  createAktivitas, updateAktivitas, selectAktivitasLoading, selectAktivitasError
+  createAktivitas, updateAktivitas, selectAktivitasLoading, selectAktivitasError,
+  fetchAllMateri, setSelectedMateri, selectMateriCache, selectMateriCacheLoading,
+  selectSelectedMateri, clearSelectedMateri
 } from '../../redux/aktivitasSlice';
 
 import { adminShelterKelompokApi } from '../../api/adminShelterKelompokApi';
-import { materiApi } from '../../api/materiApi';
 import { adminShelterTutorApi } from '../../api/adminShelterTutorApi';
+import SmartMateriSelector from '../../components/kelola/SmartMateriSelector';
 
 const ActivityFormScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
@@ -30,10 +32,15 @@ const ActivityFormScreen = ({ navigation, route }) => {
   const loading = useSelector(selectAktivitasLoading);
   const error = useSelector(selectAktivitasError);
   
+  // NEW: Kurikulum selectors
+  const materiCache = useSelector(selectMateriCache);
+  const materiCacheLoading = useSelector(selectMateriCacheLoading);
+  const selectedMateriFromStore = useSelector(selectSelectedMateri);
+  
   const [formData, setFormData] = useState({
     jenis_kegiatan: '', level: '', nama_kelompok: '', materi: '', id_materi: null,
     tanggal: new Date(), foto_1: null, foto_2: null, foto_3: null,
-    selectedKelompokId: null, selectedLevelId: null, start_time: null,
+    selectedKelompokId: null, selectedKelompokObject: null, start_time: null,
     end_time: null, late_threshold: null, late_minutes_threshold: 15, id_tutor: null
   });
   
@@ -44,27 +51,34 @@ const ActivityFormScreen = ({ navigation, route }) => {
   
   const [photos, setPhotos] = useState({ foto_1: null, foto_2: null, foto_3: null });
   const [kelompokList, setKelompokList] = useState([]);
-  const [materiList, setMateriList] = useState([]);
   const [tutorList, setTutorList] = useState([]);
   const [loadingStates, setLoadingStates] = useState({
-    kelompok: false, materi: false, tutor: false
+    kelompok: false, tutor: false
   });
-  const [errors, setErrors] = useState({ kelompok: null, materi: null, tutor: null });
+  const [errors, setErrors] = useState({ kelompok: null, tutor: null });
   
   useEffect(() => {
     if (isEditing && activity) initializeEditForm();
     fetchTutorData();
-  }, [isEditing, activity]);
+    // Fetch materi cache on component mount
+    dispatch(fetchAllMateri());
+  }, [isEditing, activity, dispatch]);
   
   useEffect(() => {
     if (formData.jenis_kegiatan === 'Bimbel') fetchKelompokData();
   }, [formData.jenis_kegiatan]);
   
+  // NEW: Update selected materi in store when form data changes
   useEffect(() => {
-    if (formData.selectedLevelId && formData.jenis_kegiatan === 'Bimbel' && !uiState.useCustomMateri) {
-      fetchMateriData(formData.selectedLevelId);
+    if (formData.id_materi && materiCache.length > 0) {
+      const foundMateri = materiCache.find(m => m.id_materi === formData.id_materi);
+      if (foundMateri) {
+        dispatch(setSelectedMateri(foundMateri));
+      }
+    } else if (!formData.id_materi) {
+      dispatch(clearSelectedMateri());
     }
-  }, [formData.selectedLevelId, formData.jenis_kegiatan, uiState.useCustomMateri]);
+  }, [formData.id_materi, materiCache, dispatch]);
   
   const initializeEditForm = () => {
     const parseTime = (timeStr) => timeStr ? new Date(`2000-01-01T${timeStr}`) : null;
@@ -124,8 +138,8 @@ const ActivityFormScreen = ({ navigation, route }) => {
           setFormData(prev => ({
             ...prev,
             selectedKelompokId: match.id_kelompok,
-            level: match.level_anak_binaan?.nama_level_binaan || prev.level,
-            selectedLevelId: match.level_anak_binaan?.id_level_anak_binaan || null
+            selectedKelompokObject: match,
+            level: getKelompokDisplayLevel(match)
           }));
         }
       }
@@ -135,13 +149,17 @@ const ActivityFormScreen = ({ navigation, route }) => {
     'kelompok'
   );
   
-  const fetchMateriData = (levelId) => fetchData(
-    () => materiApi.getMateriByLevel(levelId),
-    setMateriList,
-    setLoadingStates,
-    setErrors,
-    'materi'
-  );
+  // NEW: Helper function to get display level from kelas_gabungan
+  const getKelompokDisplayLevel = (kelompok) => {
+    if (!kelompok.kelas_gabungan || kelompok.kelas_gabungan.length === 0) {
+      return kelompok.level_anak_binaan?.nama_level_binaan || '';
+    }
+    
+    // For kelas_gabungan, show combined class names
+    return `Gabungan ${kelompok.kelas_gabungan.length} kelas`;
+  };
+  
+  // REMOVED: fetchMateriData - replaced with SmartMateriSelector
   
   const fetchTutorData = () => fetchData(
     adminShelterTutorApi.getActiveTutors,
@@ -178,30 +196,44 @@ const ActivityFormScreen = ({ navigation, route }) => {
     setFormData(prev => ({
       ...prev,
       selectedKelompokId: kelompokId,
+      selectedKelompokObject: selected,
       nama_kelompok: selected?.nama_kelompok || '',
-      level: selected?.level_anak_binaan?.nama_level_binaan || '',
-      selectedLevelId: selected?.level_anak_binaan?.id_level_anak_binaan || null,
+      level: selected ? getKelompokDisplayLevel(selected) : '',
       id_materi: null,
       materi: ''
     }));
+    
+    // Clear selected materi when kelompok changes
+    dispatch(clearSelectedMateri());
   };
   
-  const handleMateriChange = (materiId) => {
-    const selected = materiList.find(m => m.id_materi === materiId);
+  // NEW: Handle materi selection from SmartMateriSelector
+  const handleMateriSelect = (materi) => {
+    if (!materi) {
+      setFormData(prev => ({
+        ...prev,
+        id_materi: null,
+        materi: ''
+      }));
+      dispatch(clearSelectedMateri());
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
-      id_materi: materiId,
-      materi: selected ? `${selected.mata_pelajaran} - ${selected.nama_materi}` : ''
+      id_materi: materi.id_materi,
+      materi: `${(materi.mataPelajaran?.nama_mata_pelajaran || materi.mata_pelajaran?.nama_mata_pelajaran || '').toString()} - ${(materi.nama_materi || '').toString()}`
     }));
+    
+    dispatch(setSelectedMateri(materi));
   };
   
   const toggleCustomMateri = (value) => {
     setUIState(prev => ({ ...prev, useCustomMateri: value }));
     setFormData(prev => ({ ...prev, id_materi: null, materi: '' }));
     
-    if (!value && formData.selectedLevelId) {
-      fetchMateriData(formData.selectedLevelId);
-    }
+    // Clear selected materi when toggling custom mode
+    dispatch(clearSelectedMateri());
   };
   
   const handleTimeChange = (event, selectedTime, field, pickerField) => {
@@ -511,22 +543,15 @@ const ActivityFormScreen = ({ navigation, route }) => {
                 numberOfLines={4}
                 textAlignVertical="top"
               />
-            ) : !formData.selectedLevelId ? (
-              <View style={styles.infoContainer}>
-                <Ionicons name="information-circle" size={20} color="#3498db" />
-                <Text style={styles.infoText}>Silakan pilih kelompok terlebih dahulu</Text>
-              </View>
             ) : (
-              <PickerSection
-                data={materiList}
-                loading={loadingStates.materi}
-                error={errors.materi}
-                onRetry={() => fetchMateriData(formData.selectedLevelId)}
-                placeholder="Pilih materi"
-                selectedValue={formData.id_materi}
-                onValueChange={handleMateriChange}
-                labelKey={(item) => `${item.mata_pelajaran} - ${item.nama_materi}`}
-                valueKey="id_materi"
+              <SmartMateriSelector
+                allMateri={materiCache}
+                selectedKelompok={formData.selectedKelompokObject}
+                selectedMateri={selectedMateriFromStore}
+                onMateriSelect={handleMateriSelect}
+                loading={materiCacheLoading}
+                placeholder="Pilih materi dari daftar"
+                showPreview={true}
               />
             )}
           </View>

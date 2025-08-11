@@ -32,6 +32,9 @@ const KelompokDetailScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   
+  // Supporting data for kelas gabungan display
+  const [availableKelas, setAvailableKelas] = useState([]);
+  
   const fetchKelompokDetails = async () => {
     try {
       setError(null);
@@ -41,7 +44,7 @@ const KelompokDetailScreen = () => {
       if (response.data.success) {
         setKelompok(response.data.data);
         navigation.setOptions({ 
-          headerTitle: response.data.data.nama_kelompok || 'Group Detail' 
+          headerTitle: response.data.data.nama_kelompok || 'Detail Kelompok' 
         });
       } else {
         setError(response.data.message || 'Failed to load group details');
@@ -68,12 +71,25 @@ const KelompokDetailScreen = () => {
       setRefreshing(false);
     }
   };
+
+  // Fetch available kelas for displaying kelas gabungan info
+  const fetchAvailableKelas = async () => {
+    try {
+      const response = await adminShelterKelompokApi.getAvailableKelas();
+      if (response.data.success) {
+        setAvailableKelas(response.data.data.kelas_list || []);
+      }
+    } catch (err) {
+      console.error('Error fetching available kelas:', err);
+    }
+  };
   
   useEffect(() => {
     if (id) {
       Promise.all([
         fetchKelompokDetails(),
-        fetchGroupChildren()
+        fetchGroupChildren(),
+        fetchAvailableKelas()
       ]);
     }
   }, [id]);
@@ -82,7 +98,8 @@ const KelompokDetailScreen = () => {
     setRefreshing(true);
     Promise.all([
       fetchKelompokDetails(),
-      fetchGroupChildren()
+      fetchGroupChildren(),
+      fetchAvailableKelas()
     ]);
   };
   
@@ -92,12 +109,12 @@ const KelompokDetailScreen = () => {
   
   const handleDeleteKelompok = () => {
     Alert.alert(
-      'Delete Group',
-      `Are you sure you want to delete ${kelompok.nama_kelompok}?`,
+      'Hapus Kelompok',
+      `Apakah Anda yakin ingin menghapus ${kelompok.nama_kelompok}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         { 
-          text: 'Delete', 
+          text: 'Hapus', 
           style: 'destructive',
           onPress: async () => {
             try {
@@ -105,8 +122,8 @@ const KelompokDetailScreen = () => {
               
               if (children.length > 0) {
                 Alert.alert(
-                  'Cannot Delete',
-                  'This group has children assigned to it. Remove all children first.',
+                  'Tidak Dapat Menghapus',
+                  'Kelompok ini masih memiliki anak binaan. Pindahkan semua anak terlebih dahulu.',
                   [{ text: 'OK' }]
                 );
                 setLoading(false);
@@ -117,8 +134,8 @@ const KelompokDetailScreen = () => {
               
               if (response.data.success) {
                 Alert.alert(
-                  'Success',
-                  'Group has been deleted',
+                  'Berhasil',
+                  'Kelompok berhasil dihapus',
                   [
                     {
                       text: 'OK',
@@ -143,12 +160,12 @@ const KelompokDetailScreen = () => {
   
   const handleRemoveChild = (child) => {
     Alert.alert(
-      'Remove Child',
-      `Are you sure you want to remove ${child.full_name || child.nick_name} from this group?`,
+      'Keluarkan Anak',
+      `Apakah Anda yakin ingin mengeluarkan ${child.full_name || child.nick_name} dari kelompok ini?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         { 
-          text: 'Remove', 
+          text: 'Keluarkan', 
           style: 'destructive',
           onPress: async () => {
             try {
@@ -188,19 +205,58 @@ const KelompokDetailScreen = () => {
     });
   };
 
-  const getLevelBadgeColor = (level) => {
-    if (!level) return '#95a5a6';
-    
-    const levelName = level.nama_level_binaan?.toLowerCase() || '';
-    
-    if (levelName.includes('sd') || levelName.includes('dasar')) return '#3498db';
-    if (levelName.includes('smp') || levelName.includes('menengah pertama')) return '#f39c12';
-    if (levelName.includes('sma') || levelName.includes('menengah atas')) return '#e74c3c';
-    if (levelName.includes('tk') || levelName.includes('paud')) return '#9b59b6';
-    if (levelName.includes('universitas') || levelName.includes('tinggi')) return '#2ecc71';
-    
-    return '#95a5a6';
+  // Get jenjang color based on name
+  const getJenjangColor = (jenjangName) => {
+    const jenjangColors = {
+      'PAUD': '#9b59b6',
+      'TK': '#8e44ad', 
+      'SD': '#3498db',
+      'SMP': '#f39c12',
+      'SMA': '#e74c3c'
+    };
+    return jenjangColors[jenjangName] || '#95a5a6';
   };
+
+  // Get kelas details by ID
+  const getKelasById = (kelasId) => {
+    return availableKelas.find(k => k.id_kelas === kelasId);
+  };
+
+  // Render kelas gabungan chips (updated for array of kelas IDs)
+  const renderKelasGabunganChips = (kelasGabunganIds) => {
+    if (!kelasGabunganIds || kelasGabunganIds.length === 0) {
+      return (
+        <View style={styles.noKelasContainer}>
+          <Text style={styles.noKelasText}>Tidak ada kelas terdaftar</Text>
+          <Text style={styles.noKelasSubText}>
+            Edit kelompok untuk menambahkan kelas
+          </Text>
+        </View>
+      );
+    }
+
+    // Convert kelas IDs to kelas objects
+    const kelasDetails = kelasGabunganIds.map(kelasId => getKelasById(kelasId)).filter(Boolean);
+    
+    return (
+      <View style={styles.kelasChipsContainer}>
+        {kelasDetails.map((kelas) => (
+          <View
+            key={kelas.id_kelas}
+            style={[
+              styles.kelasChip,
+              { backgroundColor: getJenjangColor(kelas.jenjang?.nama_jenjang) }
+            ]}
+          >
+            <Text style={styles.kelasChipText}>
+              {kelas.jenjang?.nama_jenjang} {kelas.nama_kelas}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return '';
@@ -228,7 +284,7 @@ const KelompokDetailScreen = () => {
         age--;
       }
       
-      return `${age}y`;
+      return `${age}th`;
     } catch (error) {
       return '';
     }
@@ -242,7 +298,7 @@ const KelompokDetailScreen = () => {
         ) : (
           <View style={styles.childImagePlaceholder}>
             <Ionicons 
-              name={child.jenis_kelamin === 'Laki-laki' ? 'Laki-laki' : 'Perempuan'} 
+              name={child.jenis_kelamin === 'Laki-laki' ? 'person' : 'person'} 
               size={20} 
               color="#666" 
             />
@@ -264,20 +320,10 @@ const KelompokDetailScreen = () => {
             { backgroundColor: child.status_validasi === 'aktif' ? '#2ecc71' : '#e74c3c' }
           ]}>
             <Text style={styles.statusBadgeText}>
-              {child.status_validasi === 'aktif' ? 'Active' : 'Inactive'}
+              {child.status_validasi === 'aktif' ? 'Aktif' : 'Tidak Aktif'}
             </Text>
           </View>
           
-          {child.levelAnakBinaan && (
-            <View style={[
-              styles.levelBadge,
-              { backgroundColor: getLevelBadgeColor(child.levelAnakBinaan) }
-            ]}>
-              <Text style={styles.levelBadgeText}>
-                {child.levelAnakBinaan.nama_level_binaan}
-              </Text>
-            </View>
-          )}
 
           {child.anakPendidikan && (
             <View style={styles.educationBadge}>
@@ -300,7 +346,7 @@ const KelompokDetailScreen = () => {
   );
   
   if (loading && !refreshing) {
-    return <LoadingSpinner fullScreen message="Loading group details..." />;
+    return <LoadingSpinner fullScreen message="Memuat detail kelompok..." />;
   }
   
   return (
@@ -320,59 +366,129 @@ const KelompokDetailScreen = () => {
       
       {kelompok && (
         <>
-          <View style={styles.infoCard}>
-            <View style={styles.infoHeader}>
+          {/* Header Card */}
+          <View style={styles.headerCard}>
+            <View style={styles.headerIcon}>
+              <Ionicons name="people-circle" size={48} color="#9b59b6" />
+            </View>
+            <View style={styles.headerInfo}>
               <Text style={styles.groupName}>{kelompok.nama_kelompok}</Text>
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={handleEditKelompok}
-                >
-                  <Ionicons name="create-outline" size={22} color="#3498db" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={handleDeleteKelompok}
-                >
-                  <Ionicons name="trash-outline" size={22} color="#e74c3c" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tingkat:</Text>
-              <View style={styles.detailValueContainer}>
-                <Text style={styles.detailValue}>
-                  {kelompok.level_anak_binaan?.nama_level_binaan || 'No Level'}
-                </Text>
-                {kelompok.level_anak_binaan && (
-                  <View style={[
-                    styles.levelIndicator,
-                    { backgroundColor: getLevelBadgeColor(kelompok.level_anak_binaan) }
-                  ]}>
-                    <Text style={styles.levelIndicatorText}>
-                      {kelompok.level_anak_binaan.nama_level_binaan}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Jumlah Anak:</Text>
-              <Text style={styles.detailValue}>{kelompok.anak_count || 0}</Text>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Shelter:</Text>
-              <Text style={styles.detailValue}>
+              <Text style={styles.shelterName}>
                 {kelompok.shelter?.nama_shelter || 'Unknown Shelter'}
               </Text>
             </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={handleEditKelompok}
+              >
+                <Ionicons name="create-outline" size={22} color="#3498db" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={handleDeleteKelompok}
+              >
+                <Ionicons name="trash-outline" size={22} color="#e74c3c" />
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {/* Kelas Gabungan Section */}
+          <View style={styles.kelasSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="school" size={20} color="#3498db" />
+              <Text style={styles.sectionTitle}>Kelas Gabungan</Text>
+            </View>
+            {renderKelasGabunganChips(kelompok.kelas_gabungan)}
+          </View>
+
+          {/* Statistics Cards */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Ionicons name="people" size={24} color="#2ecc71" />
+              <Text style={styles.statNumber}>{children.length}</Text>
+              <Text style={styles.statLabel}>Anak Binaan</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Ionicons name="school" size={24} color="#3498db" />
+              <Text style={styles.statNumber}>
+                {kelompok.kelas_gabungan?.length || 0}
+              </Text>
+              <Text style={styles.statLabel}>Kelas</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Ionicons name="layers" size={24} color="#9b59b6" />
+              <Text style={styles.statNumber}>
+                {(() => {
+                  if (!kelompok.kelas_gabungan || kelompok.kelas_gabungan.length === 0) return 0;
+                  const kelasDetails = kelompok.kelas_gabungan.map(kelasId => getKelasById(kelasId)).filter(Boolean);
+                  const jenjangSet = new Set(kelasDetails.map(k => k.jenjang?.nama_jenjang));
+                  return jenjangSet.size;
+                })()}
+              </Text>
+              <Text style={styles.statLabel}>Jenjang</Text>
+            </View>
+          </View>
+
+          {/* Simplified Kurikulum Info */}
+          {kelompok.kelas_gabungan && kelompok.kelas_gabungan.length > 0 && (
+            <View style={styles.kurikulumInfoSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="library" size={20} color="#e67e22" />
+                <Text style={styles.sectionTitle}>Informasi Kurikulum</Text>
+              </View>
+              <Text style={styles.kurikulumInfoText}>
+                Kelompok ini dapat mengakses materi untuk {kelompok.kelas_gabungan.length} kelas yang dipilih.
+                Aktivitas dapat dibuat berdasarkan materi yang tersedia untuk kombinasi kelas ini.
+              </Text>
+              <Button
+                title="Lihat Materi Tersedia"
+                onPress={() => navigation.navigate('KurikulumBrowser')}
+                type="outline"
+                size="small"
+                style={styles.viewMateriButton}
+                leftIcon={<Ionicons name="book-outline" size={16} color="#e67e22" />}
+              />
+            </View>
+          )}
+
+          {/* Kurikulum Management Section */}
+          {/* Simplified Aktivitas Management */}
+          <View style={styles.aktivitasManagementSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="calendar" size={20} color="#3498db" />
+              <Text style={styles.sectionTitle}>Kelola Aktivitas</Text>
+            </View>
+            <View style={styles.aktivitasActions}>
+              <Button
+                title="Buat Aktivitas"
+                onPress={() => navigation.navigate('AktivitasForm', { kelompok })}
+                type="primary"
+                style={styles.createAktivitasButton}
+                leftIcon={<Ionicons name="add-circle" size={16} color="#ffffff" />}
+              />
+              
+              <Button
+                title="Lihat Aktivitas"
+                onPress={() => navigation.navigate('AktivitasList', { kelompokId: kelompok.id_kelompok })}
+                type="outline"
+                style={styles.viewAktivitasButton}
+                leftIcon={<Ionicons name="list-outline" size={16} color="#3498db" />}
+              />
+            </View>
+            
+            <Text style={styles.aktivitasNote}>
+              Buat aktivitas pembelajaran berdasarkan materi yang sesuai dengan kelas gabungan kelompok ini.
+            </Text>
+          </View>
+
           
+          {/* Children Section */}
           <View style={styles.childrenContainer}>
             <View style={styles.sectionHeader}>
+              <Ionicons name="people" size={20} color="#2ecc71" />
               <Text style={styles.sectionTitle}>Daftar Anak ({children.length})</Text>
               <Button
                 title="Tambah Anak"
@@ -390,15 +506,19 @@ const KelompokDetailScreen = () => {
                 renderItem={renderChildItem}
                 keyExtractor={(item) => item.id_anak?.toString()}
                 scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
               />
             ) : (
               <View style={styles.emptyChildren}>
-                <Ionicons name="people" size={40} color="#cccccc" />
-                <Text style={styles.emptyText}>Belum ada Anak binaan</Text>
+                <Ionicons name="people-outline" size={48} color="#bdc3c7" />
+                <Text style={styles.emptyText}>Belum ada anak binaan</Text>
+                <Text style={styles.emptySubText}>
+                  Tambahkan anak binaan untuk memulai kegiatan kelompok
+                </Text>
                 <Button
-                  title="Tambah Anak"
+                  title="Tambah Anak Pertama"
                   onPress={handleAddChildren}
-                  type="outline"
+                  type="primary"
                   size="small"
                   style={styles.emptyButton}
                 />
@@ -420,101 +540,214 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 30,
   },
-  infoCard: {
+
+  // Header Card
+  headerCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 12,
+    padding: 20,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  infoHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerIcon: {
+    marginRight: 16,
+  },
+  headerInfo: {
+    flex: 1,
   },
   groupName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
+    color: '#2c3e50',
+    marginBottom: 4,
   },
-  actions: {
+  shelterName: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  headerActions: {
     flexDirection: 'row',
+    gap: 8,
   },
-  actionButton: {
+  headerActionButton: {
     padding: 8,
-    marginLeft: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    width: 80,
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-  },
-  detailValue: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  detailValueContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  levelIndicator: {
-    marginLeft: 8,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  levelIndicatorText: {
-    fontSize: 12,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  childrenContainer: {
-    backgroundColor: '#ffffff',
     borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+  },
+
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  // Kelas Gabungan Section
+  kelasSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     padding: 16,
-    elevation: 2,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    elevation: 2,
   },
-  sectionHeader: {
+  kelasChipsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  kelasChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  kelasChipText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  noKelasContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noKelasText: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontWeight: '500',
+  },
+  noKelasSubText: {
+    fontSize: 14,
+    color: '#95a5a6',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  // Statistics Cards
+  statsContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2c3e50',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  // Kurikulum Info Section
+  kurikulumInfoSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  kurikulumInfoText: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  viewMateriButton: {
+    borderColor: '#e67e22',
+  },
+
+  // Aktivitas Management Section
+  aktivitasManagementSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  aktivitasActions: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 12,
+  },
+  createAktivitasButton: {
+    flex: 1,
+    backgroundColor: '#3498db',
+  },
+  viewAktivitasButton: {
+    flex: 1,
+    borderColor: '#3498db',
+  },
+  aktivitasNote: {
+    fontSize: 13,
+    color: '#7f8c8d',
+    lineHeight: 18,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+
+
+  // Children Section
+  childrenContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   addChildrenButton: {
     backgroundColor: '#9b59b6',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 8,
   },
   childItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   childImageContainer: {
     width: 50,
@@ -540,12 +773,12 @@ const styles = StyleSheet.create({
   childName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
+    color: '#2c3e50',
     marginBottom: 4,
   },
   childDetails: {
     fontSize: 14,
-    color: '#666',
+    color: '#7f8c8d',
     marginBottom: 6,
   },
   childBadgeContainer: {
@@ -559,16 +792,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   statusBadgeText: {
-    fontSize: 10,
-    color: '#ffffff',
-    fontWeight: '500',
-  },
-  levelBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-  },
-  levelBadgeText: {
     fontSize: 10,
     color: '#ffffff',
     fontWeight: '500',
@@ -589,13 +812,21 @@ const styles = StyleSheet.create({
   },
   emptyChildren: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 32,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
-    marginTop: 10,
+    color: '#7f8c8d',
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#95a5a6',
+    textAlign: 'center',
+    marginTop: 4,
     marginBottom: 16,
+    lineHeight: 20,
   },
   emptyButton: {
     minWidth: 150,

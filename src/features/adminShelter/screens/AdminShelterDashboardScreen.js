@@ -18,11 +18,9 @@ const AdminShelterDashboardScreen = () => {
   const menuItems = [
     { title: 'Keluarga', icon: 'home', color: '#1abc9c', onPress: () => navigation.navigate('Management', { screen: 'KeluargaManagement' }) },
     { title: 'Anak Binaan', icon: 'people', color: '#e74c3c', onPress: () => navigation.navigate('Management', { screen: 'AnakManagement' }) },
-    { title: 'Kelompok', icon: 'people-circle', color: '#9b59b6', onPress: () => navigation.navigate('Management', { screen: 'KelompokManagement' }) },
     { title: 'Tutor', icon: 'school', color: '#2ecc71', onPress: () => navigation.navigate('Management', { screen: 'TutorManagement' }) },
     { title: 'Keuangan', icon: 'wallet', color: '#f39c12', onPress: () => navigation.navigate('Management', { screen: 'KeuanganList' }) },
-    { title: 'Absensi', icon: 'calendar', color: '#3498db', onPress: () => navigation.navigate('Attendance') },
-    { title: 'Semester', icon: 'calendar', color: '#8e44ad', onPress: () => navigation.navigate('Management', { screen: 'SemesterManagement' }) },
+    { title: 'Kelola Kurikulum', icon: 'library', color: '#9b59b6', onPress: () => navigation.navigate('KurikulumHome') },
     { title: 'Laporan Kegiatan', icon: 'bar-chart', color: '#e67e22', onPress: () => navigation.navigate('Management', { screen: 'LaporanKegiatanMain' }) }
   ];
 

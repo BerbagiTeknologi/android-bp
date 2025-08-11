@@ -35,7 +35,7 @@ const AnakFormScreen = () => {
     anak_ke: '',
     dari_bersaudara: '',
     tinggal_bersama: 'Ayah',
-    jenis_anak_binaan: 'BPCB',
+    jenis_anak_binaan: 'BCPB',
     hafalan: 'Tahfidz',
     pelajaran_favorit: '',
     hobi: '',
@@ -63,7 +63,7 @@ const AnakFormScreen = () => {
         anak_ke: anakData.anak_ke?.toString() || '',
         dari_bersaudara: anakData.dari_bersaudara?.toString() || '',
         tinggal_bersama: anakData.tinggal_bersama || 'Ayah',
-        jenis_anak_binaan: anakData.jenis_anak_binaan || 'BPCB',
+        jenis_anak_binaan: anakData.jenis_anak_binaan || 'BCPB',
         hafalan: anakData.hafalan || 'Tahfidz',
         pelajaran_favorit: anakData.pelajaran_favorit || '',
         hobi: anakData.hobi || '',
@@ -324,7 +324,7 @@ const AnakFormScreen = () => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Jenis Anak Binaan</Text>
           <View style={styles.radioGroup}>
-            {['BPCB', 'NPB'].map(option => (
+            {['BCPB', 'NPB'].map(option => (
               <TouchableOpacity
                 key={option}
                 style={styles.radioOption}

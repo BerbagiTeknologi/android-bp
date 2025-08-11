@@ -8,33 +8,27 @@ import NetInfo from '@react-native-community/netinfo';
 import { Audio } from 'expo-av';
 import { format, startOfDay, isFuture, isPast } from 'date-fns';
 
-import QrScanner from '../../components/QrScanner';
-import useLocation from '../../hooks/useLocation';
+import QrScanner from '../../../components/QrScanner';
 import {
   validateToken, selectQrTokenLoading, selectValidationResult, resetValidationResult
-} from '../../redux/qrTokenSlice';
+} from '../../../redux/qrTokenSlice';
 import {
   recordAttendanceByQr, selectAttendanceLoading, selectAttendanceError,
   selectDuplicateError, resetAttendanceError
-} from '../../redux/attendanceSlice';
+} from '../../../redux/attendanceSlice';
 import {
   recordTutorAttendanceByQr, selectTutorAttendanceLoading,
   selectTutorAttendanceError, selectTutorDuplicateError, resetTutorAttendanceError
-} from '../../redux/tutorAttendanceSlice';
+} from '../../../redux/tutorAttendanceSlice';
 
-import OfflineSync from '../../utils/offlineSync';
-import { adminShelterKelompokApi } from '../../api/adminShelterKelompokApi';
-import { tutorAttendanceApi } from '../../api/tutorAttendanceApi';
-import { qrTokenApi } from '../../api/qrTokenApi';
+import OfflineSync from '../../../utils/offlineSync';
+import { adminShelterKelompokApi } from '../../../api/adminShelterKelompokApi';
+import { tutorAttendanceApi } from '../../../api/tutorAttendanceApi';
 
-const QrScannerScreen = ({ navigation, route }) => {
+const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName }) => {
   const dispatch = useDispatch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef(null);
-  
-  const { 
-    id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName
-  } = route.params || {};
   
   const tokenLoading = useSelector(selectQrTokenLoading);
   const validationResult = useSelector(selectValidationResult);
@@ -54,26 +48,12 @@ const QrScannerScreen = ({ navigation, route }) => {
   const [loadingKelompokData, setLoadingKelompokData] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activityDateStatus, setActivityDateStatus] = useState('valid');
-  const [gpsConfig, setGpsConfig] = useState(null);
-  
-  // GPS location hook
-  const {
-    getCurrentLocation,
-    loading: locationLoading,
-    error: locationError,
-    hasPermission,
-    requestPermissions
-  } = useLocation({
-    enableHighAccuracy: true,
-    timeout: 15000,
-    maximumAge: 10000
-  });
   
   useEffect(() => {
     const loadSound = async () => {
       try {
         const { sound: cameraSound } = await Audio.Sound.createAsync(
-          require('../../../../assets/sounds/camera-shutter.wav')
+          require('../../../../../assets/sounds/camera-shutter.wav')
         );
         sound.current = cameraSound;
       } catch (error) {
@@ -106,8 +86,7 @@ const QrScannerScreen = ({ navigation, route }) => {
       fetchKelompokStudents(kelompokId);
     }
     validateActivityDate();
-    fetchGpsConfig();
-  }, [activityType, kelompokId, activityDate, id_aktivitas]);
+  }, [activityType, kelompokId, activityDate]);
   
   useEffect(() => {
     if (duplicateError || tutorDuplicateError) {
@@ -163,20 +142,6 @@ const QrScannerScreen = ({ navigation, route }) => {
       setKelompokStudentIds([]);
     } finally {
       setLoadingKelompokData(false);
-    }
-  };
-  
-  const fetchGpsConfig = async () => {
-    if (!id_aktivitas) return;
-    
-    try {
-      const response = await qrTokenApi.getActivityGpsConfig(id_aktivitas);
-      if (response.data?.success) {
-        setGpsConfig(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching GPS config:', error);
-      setGpsConfig(null);
     }
   };
   
@@ -269,45 +234,12 @@ const QrScannerScreen = ({ navigation, route }) => {
     }
   }, []);
   
-  const getGpsLocationIfRequired = async () => {
-    if (!gpsConfig?.required) return null;
-    
-    try {
-      if (!hasPermission) {
-        await requestPermissions();
-      }
-      
-      const location = await getCurrentLocation();
-      return {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        accuracy: location.accuracy,
-        timestamp: new Date(location.timestamp).toISOString()
-      };
-    } catch (error) {
-      if (gpsConfig?.required) {
-        throw new Error('GPS location required but could not be obtained: ' + (locationError || error.message));
-      }
-      return null;
-    }
-  };
-
   const handleAttendanceRecording = useCallback(async (token, id_anak) => {
     try {
       if (isConnected) {
         const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
-        let gpsData = null;
-        
-        // Get GPS data if required
-        try {
-          gpsData = await getGpsLocationIfRequired();
-        } catch (gpsError) {
-          showToast(gpsError.message, 'error');
-          return;
-        }
-        
         const result = await dispatch(recordAttendanceByQr({ 
-          id_anak, id_aktivitas, status: null, token, arrival_time: formattedArrivalTime, gps_data: gpsData
+          id_anak, id_aktivitas, status: null, token, arrival_time: formattedArrivalTime
         })).unwrap();
         
         await playSound();
@@ -337,39 +269,17 @@ const QrScannerScreen = ({ navigation, route }) => {
       }
     } catch (error) {
       if (!error.isDuplicate) {
-        // Handle GPS validation errors specifically
-        if (error.error_type === 'gps_validation_failed') {
-          const gpsError = error.gps_validation;
-          if (gpsError?.error_type === 'location_out_of_range') {
-            setTimeout(() => showToast(`Anda berada ${gpsError.distance}m dari lokasi aktivitas (maksimal ${gpsError.max_distance}m)`, 'error'), 100);
-          } else if (gpsError?.error_type === 'low_accuracy') {
-            setTimeout(() => showToast(`Akurasi GPS terlalu rendah (${gpsError.current_accuracy}m). Diperlukan maksimal ${gpsError.required_accuracy}m`, 'error'), 100);
-          } else {
-            setTimeout(() => showToast(gpsError?.reason || 'Validasi GPS gagal', 'error'), 100);
-          }
-        } else {
-          setTimeout(() => showToast(error.message || 'Gagal merekam', 'error'), 100);
-        }
+        setTimeout(() => showToast(error.message || 'Gagal merekam', 'error'), 100);
       }
     }
-  }, [isConnected, dispatch, id_aktivitas, validationResult, playSound, showToast, gpsConfig]);
+  }, [isConnected, dispatch, id_aktivitas, validationResult, playSound, showToast]);
   
   const handleTutorAttendanceRecording = useCallback(async (token) => {
     try {
       if (isConnected) {
         const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
-        let gpsData = null;
-        
-        // Get GPS data if required
-        try {
-          gpsData = await getGpsLocationIfRequired();
-        } catch (gpsError) {
-          showToast(gpsError.message, 'error');
-          return;
-        }
-        
         const result = await dispatch(recordTutorAttendanceByQr({ 
-          id_aktivitas, token, arrival_time: formattedArrivalTime, gps_data: gpsData
+          id_aktivitas, token, arrival_time: formattedArrivalTime
         })).unwrap();
         
         await playSound();
@@ -399,26 +309,12 @@ const QrScannerScreen = ({ navigation, route }) => {
       }
     } catch (error) {
       if (!error.isDuplicate) {
-        // Handle GPS validation errors specifically
-        if (error.error_type === 'gps_validation_failed') {
-          const gpsError = error.gps_validation;
-          if (gpsError?.error_type === 'location_out_of_range') {
-            setTimeout(() => showToast(`Tutor berada ${gpsError.distance}m dari lokasi aktivitas (maksimal ${gpsError.max_distance}m)`, 'error'), 100);
-          } else if (gpsError?.error_type === 'low_accuracy') {
-            setTimeout(() => showToast(`Akurasi GPS terlalu rendah (${gpsError.current_accuracy}m). Diperlukan maksimal ${gpsError.required_accuracy}m`, 'error'), 100);
-          } else {
-            setTimeout(() => showToast(gpsError?.reason || 'Validasi GPS gagal', 'error'), 100);
-          }
-        } else {
-          setTimeout(() => showToast(error.message || 'Gagal merekam kehadiran tutor', 'error'), 100);
-        }
+        setTimeout(() => showToast(error.message || 'Gagal merekam kehadiran tutor', 'error'), 100);
       }
     }
-  }, [isConnected, dispatch, id_aktivitas, playSound, showToast, gpsConfig]);
+  }, [isConnected, dispatch, id_aktivitas, playSound, showToast]);
   
-  const handleClose = useCallback(() => navigation.goBack(), [navigation]);
-  
-  const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing || locationLoading;
+  const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing;
   
   const getToastStyle = () => ({
     error: styles.errorToast,
@@ -452,10 +348,9 @@ const QrScannerScreen = ({ navigation, route }) => {
   const activityStatus = getActivityStatusInfo();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <QrScanner 
         onScan={handleScan}
-        onClose={handleClose}
         isLoading={isLoading}
         disabled={activityDateStatus === 'future'}
       />
@@ -476,16 +371,6 @@ const QrScannerScreen = ({ navigation, route }) => {
             <Ionicons name={activityStatus.icon} size={16} color="#fff" />
             <Text style={styles.activityStatusText}>
               {activityStatus.text}
-            </Text>
-          </View>
-        )}
-        
-        {gpsConfig?.required && (
-          <View style={styles.gpsRequiredNote}>
-            <Ionicons name="location" size={16} color="#fff" />
-            <Text style={styles.gpsRequiredText}>
-              GPS diperlukan - Radius maksimal: {gpsConfig.max_distance}m
-              {gpsConfig.location_name && ` di ${gpsConfig.location_name}`}
             </Text>
           </View>
         )}
@@ -513,7 +398,7 @@ const QrScannerScreen = ({ navigation, route }) => {
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -535,11 +420,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(52, 152, 219, 0.7)', padding: 10, borderRadius: 6, marginBottom: 10
   },
   autoDetectionText: { color: '#fff', marginLeft: 8, fontSize: 12, textAlign: 'center' },
-  gpsRequiredNote: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(155, 89, 182, 0.7)', padding: 10, borderRadius: 6, marginBottom: 10
-  },
-  gpsRequiredText: { color: '#fff', marginLeft: 8, fontSize: 12, textAlign: 'center', fontWeight: '500' },
   offlineIndicator: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#e74c3c', padding: 6, borderRadius: 4
@@ -557,4 +437,4 @@ const styles = StyleSheet.create({
   toastText: { color: '#fff', fontSize: 14, fontWeight: '500', marginLeft: 10, flex: 1 }
 });
 
-export default QrScannerScreen;
+export default QrScannerTab;

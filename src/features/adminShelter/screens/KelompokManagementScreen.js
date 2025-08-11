@@ -32,10 +32,13 @@ const KelompokManagementScreen = () => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [levels, setLevels] = useState([]);
-  const [selectedLevel, setSelectedLevel] = useState('');
+  
+  // Multi-kelas filtering state & available kelas data
+  const [availableKelas, setAvailableKelas] = useState([]);
+  const [selectedJenjang, setSelectedJenjang] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // grid or list
 
-  // Fetch kelompok data
+  // Fetch kelompok data with new kelas gabungan support
   const fetchKelompokData = async (page = 1, refresh = false) => {
     try {
       if (refresh) {
@@ -45,7 +48,7 @@ const KelompokManagementScreen = () => {
       
       setError(null);
       
-      // Prepare params
+      // Prepare params with new filtering
       const params = {
         page,
         per_page: 10
@@ -56,15 +59,26 @@ const KelompokManagementScreen = () => {
         params.search = searchQuery.trim();
       }
       
-      // Add level filter if selected
-      if (selectedLevel) {
-        params.id_level_anak_binaan = selectedLevel;
+      // Add jenjang filtering for kelas_gabungan
+      if (selectedJenjang) {
+        params.jenjang = selectedJenjang;
       }
       
       const response = await adminShelterKelompokApi.getAllKelompok(params);
       
       if (response.data.success) {
         const newData = response.data.data || [];
+        
+        // DEBUG: Log response dari API
+        console.log('DEBUG API Response:', {
+          total_data: newData.length,
+          sample_kelompok: newData.slice(0, 1).map(k => ({
+            id: k.id_kelompok,
+            nama: k.nama_kelompok,
+            kelas_gabungan: k.kelas_gabungan,
+            kelas_gabungan_type: typeof k.kelas_gabungan
+          }))
+        });
         
         // If refreshing or first page, replace data
         // Otherwise, append data
@@ -92,15 +106,27 @@ const KelompokManagementScreen = () => {
     }
   };
 
-  // Fetch levels data
-  const fetchLevels = async () => {
+  // Fetch available kelas for filtering
+  const fetchAvailableKelas = async () => {
     try {
-      const response = await adminShelterKelompokApi.getLevels();
+      const response = await adminShelterKelompokApi.getAvailableKelas();
       if (response.data.success) {
-        setLevels(response.data.data || []);
+        const kelasList = response.data.data.kelas_list || [];
+        setAvailableKelas(kelasList);
+        
+        // DEBUG: Log available kelas
+        console.log('DEBUG Available Kelas:', {
+          total_kelas: kelasList.length,
+          sample_kelas: kelasList.slice(0, 3).map(k => ({
+            id: k.id_kelas,
+            id_type: typeof k.id_kelas,
+            nama: k.nama_kelas,
+            jenjang: k.jenjang?.nama_jenjang
+          }))
+        });
       }
     } catch (err) {
-      console.error('Error fetching levels:', err);
+      console.error('Error fetching available kelas:', err);
     }
   };
 
@@ -108,7 +134,7 @@ const KelompokManagementScreen = () => {
   useEffect(() => {
     Promise.all([
       fetchKelompokData(),
-      fetchLevels()
+      fetchAvailableKelas()
     ]);
   }, []);
 
@@ -117,7 +143,7 @@ const KelompokManagementScreen = () => {
     setRefreshing(true);
     Promise.all([
       fetchKelompokData(1, true),
-      fetchLevels()
+      fetchAvailableKelas()
     ]);
   };
 
@@ -131,7 +157,6 @@ const KelompokManagementScreen = () => {
 
   // Handle search
   const handleSearch = () => {
-    // Reset to first page and fetch with search query
     setCurrentPage(1);
     fetchKelompokData(1, true);
   };
@@ -143,11 +168,10 @@ const KelompokManagementScreen = () => {
     fetchKelompokData(1, true);
   };
 
-  // Handle level filter
-  const handleLevelFilter = (levelId) => {
-    setSelectedLevel(levelId === selectedLevel ? '' : levelId);
+  // Handle jenjang filter
+  const handleJenjangFilter = (jenjangName) => {
+    setSelectedJenjang(jenjangName === selectedJenjang ? '' : jenjangName);
     setCurrentPage(1);
-    // The filter will be applied on the next fetchKelompokData call
     fetchKelompokData(1, true);
   };
 
@@ -164,12 +188,12 @@ const KelompokManagementScreen = () => {
   // Handle delete kelompok
   const handleDeleteKelompok = (kelompok) => {
     Alert.alert(
-      'Delete Group',
-      `Are you sure you want to delete ${kelompok.nama_kelompok}?`,
+      'Hapus Kelompok',
+      `Apakah Anda yakin ingin menghapus ${kelompok.nama_kelompok}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         { 
-          text: 'Delete', 
+          text: 'Hapus', 
           style: 'destructive',
           onPress: async () => {
             try {
@@ -179,16 +203,98 @@ const KelompokManagementScreen = () => {
               // Refresh data after deleting
               handleRefresh();
               
-              Alert.alert('Success', 'Group has been deleted');
+              Alert.alert('Berhasil', 'Kelompok berhasil dihapus');
             } catch (err) {
               console.error('Error deleting kelompok:', err);
-              Alert.alert('Error', 'Failed to delete group');
+              Alert.alert('Error', 'Gagal menghapus kelompok');
             } finally {
               setLoading(false);
             }
           }
         },
       ]
+    );
+  };
+
+  // Get jenjang color based on name
+  const getJenjangColor = (jenjangName) => {
+    const jenjangColors = {
+      'PAUD': '#9b59b6',
+      'TK': '#8e44ad', 
+      'SD': '#3498db',
+      'SMP': '#f39c12',
+      'SMA': '#e74c3c'
+    };
+    return jenjangColors[jenjangName] || '#95a5a6';
+  };
+
+  // Get kelas details by ID
+  const getKelasById = (kelasId) => {
+    const result = availableKelas.find(k => k.id_kelas === kelasId);
+    
+    // DEBUG: Log pencarian kelas
+    if (!result) {
+      console.log('DEBUG getKelasById - Kelas tidak ditemukan:', {
+        searchingFor: kelasId,
+        searchingType: typeof kelasId,
+        availableKelas_sample: availableKelas.slice(0, 3).map(k => ({
+          id: k.id_kelas,
+          id_type: typeof k.id_kelas,
+          nama: k.nama_kelas
+        }))
+      });
+    }
+    
+    return result;
+  };
+
+  // Get available jenjang from kelas data
+  const getAvailableJenjang = () => {
+    const jenjangSet = new Set();
+    availableKelas.forEach(kelas => {
+      if (kelas.jenjang?.nama_jenjang) {
+        jenjangSet.add(kelas.jenjang.nama_jenjang);
+      }
+    });
+    return Array.from(jenjangSet).sort();
+  };
+
+  // Render kelas gabungan chips (updated for array of kelas IDs)
+  const renderKelasGabunganChips = (kelasGabunganIds) => {
+    if (!kelasGabunganIds || kelasGabunganIds.length === 0) {
+      return (
+        <View style={styles.noKelasChip}>
+          <Text style={styles.noKelasText}>Tidak ada kelas</Text>
+        </View>
+      );
+    }
+
+    // Convert kelas IDs to kelas objects
+    const kelasDetails = kelasGabunganIds.map(kelasId => getKelasById(kelasId)).filter(Boolean);
+    
+    return (
+      <View style={styles.kelasChipsContainer}>
+        {kelasDetails.slice(0, 3).map((kelas, index) => (
+          <View
+            key={kelas.id_kelas}
+            style={[
+              styles.kelasChip,
+              { backgroundColor: getJenjangColor(kelas.jenjang?.nama_jenjang) }
+            ]}
+          >
+            <Text style={styles.kelasChipText}>
+              {kelas.jenjang?.nama_jenjang} {kelas.nama_kelas}
+            </Text>
+          </View>
+        ))}
+        {kelasDetails.length > 3 && (
+          <View style={styles.moreKelasChip}>
+            <Text style={styles.moreKelasText}>
+              +{kelasDetails.length - 3}
+            </Text>
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -203,10 +309,32 @@ const KelompokManagementScreen = () => {
     );
   };
 
-  // Render kelompok item
+  // Enhanced kelompok item with kelas gabungan display
   const renderKelompokItem = ({ item }) => {
     const kelompok = item;
-    const levelName = kelompok.level_anak_binaan?.nama_level_binaan || 'No Level';
+    
+    // DEBUG: Log data untuk melihat struktur actual
+    console.log('DEBUG Kelompok Item:', {
+      id: kelompok.id_kelompok,
+      nama: kelompok.nama_kelompok,
+      kelas_gabungan: kelompok.kelas_gabungan,
+      kelas_gabungan_type: typeof kelompok.kelas_gabungan,
+      availableKelas_count: availableKelas.length
+    });
+    
+    const kelasGabunganIds = kelompok.kelas_gabungan || []; // Array of kelas IDs
+    const kelasDetails = kelasGabunganIds.map(kelasId => getKelasById(kelasId)).filter(Boolean);
+    
+    // DEBUG: Log hasil mapping
+    console.log('DEBUG Mapping Result:', {
+      kelasGabunganIds,
+      kelasDetails,
+      availableKelas: availableKelas.slice(0, 2) // Sample data
+    });
+    
+    // Generate jenjang summary from kelas details
+    const jenjangSet = new Set(kelasDetails.map(k => k.jenjang?.nama_jenjang));
+    const jenjangSummary = Array.from(jenjangSet);
     
     return (
       <TouchableOpacity 
@@ -232,20 +360,122 @@ const KelompokManagementScreen = () => {
             </View>
           </View>
           
+          {/* Kelas Gabungan Display */}
+          <View style={styles.kelasSection}>
+            <Text style={styles.kelasSectionTitle}>Kelas Gabungan:</Text>
+            {renderKelasGabunganChips(kelasGabunganIds)}
+          </View>
+
+          {/* Enhanced Meta Information */}
           <View style={styles.kelompokMeta}>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelText}>{levelName}</Text>
+            <View style={styles.metaItem}>
+              <Ionicons name="people" size={16} color="#666" />
+              <Text style={styles.metaText}>
+                {kelompok.jumlah_anggota || 0} anak
+              </Text>
             </View>
-          
+            
+            <View style={styles.metaItem}>
+              <Ionicons name="school" size={16} color="#666" />
+              <Text style={styles.metaText}>
+                {kelasGabunganIds.length} kelas
+              </Text>
+            </View>
+            
+            {jenjangSummary.length > 0 && (
+              <View style={styles.metaItem}>
+                <Ionicons name="layers" size={16} color="#666" />
+                <Text style={styles.metaText}>
+                  {jenjangSummary.join(', ')}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
     );
   };
 
+  // Render jenjang filter tabs
+  const renderJenjangFilters = () => {
+    const availableJenjang = getAvailableJenjang();
+    
+    return (
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedJenjang === '' && styles.filterButtonActive
+            ]}
+            onPress={() => handleJenjangFilter('')}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              selectedJenjang === '' && styles.filterButtonTextActive
+            ]}>
+              Semua
+            </Text>
+          </TouchableOpacity>
+          
+          {availableJenjang.map((jenjangName) => (
+            <TouchableOpacity
+              key={jenjangName}
+              style={[
+                styles.filterButton,
+                selectedJenjang === jenjangName && styles.filterButtonActive,
+                { borderColor: getJenjangColor(jenjangName) }
+              ]}
+              onPress={() => handleJenjangFilter(jenjangName)}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                selectedJenjang === jenjangName && styles.filterButtonTextActive
+              ]}>
+                {jenjangName}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Render view mode toggle
+  const renderViewModeToggle = () => (
+    <View style={styles.viewModeContainer}>
+      <TouchableOpacity
+        style={[
+          styles.viewModeButton,
+          viewMode === 'grid' && styles.viewModeButtonActive
+        ]}
+        onPress={() => setViewMode('grid')}
+      >
+        <Ionicons 
+          name="grid" 
+          size={18} 
+          color={viewMode === 'grid' ? '#fff' : '#666'} 
+        />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.viewModeButton,
+          viewMode === 'list' && styles.viewModeButtonActive
+        ]}
+        onPress={() => setViewMode('list')}
+      >
+        <Ionicons 
+          name="list" 
+          size={18} 
+          color={viewMode === 'list' ? '#fff' : '#666'} 
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
   // Loading state
   if (loading && !refreshing && !loadingMore) {
-    return <LoadingSpinner fullScreen message="Loading groups..." />;
+    return <LoadingSpinner fullScreen message="Memuat kelompok..." />;
   }
 
   return (
@@ -255,17 +485,17 @@ const KelompokManagementScreen = () => {
         <ErrorMessage
           message={error}
           onRetry={handleRefresh}
-          retryText="Try Again"
+          retryText="Coba Lagi"
         />
       )}
       
-      {/* Search Bar */}
+      {/* Search Bar with View Mode Toggle */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#999999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari Kelompok..."
+            placeholder="Cari kelompok..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -279,6 +509,8 @@ const KelompokManagementScreen = () => {
           )}
         </View>
         
+        {renderViewModeToggle()}
+        
         <Button
           leftIcon={<Ionicons name="add" size={20} color="#ffffff" />}
           type="primary"
@@ -287,45 +519,8 @@ const KelompokManagementScreen = () => {
         />
       </View>
       
-      {/* Level Filters */}
-      {levels.length > 0 && (
-        <View style={styles.filterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                selectedLevel === '' && styles.filterButtonActive
-              ]}
-              onPress={() => handleLevelFilter('')}
-            >
-              <Text style={[
-                styles.filterButtonText,
-                selectedLevel === '' && styles.filterButtonTextActive
-              ]}>
-                All
-              </Text>
-            </TouchableOpacity>
-            
-            {levels.map((level) => (
-              <TouchableOpacity
-                key={level.id_level_anak_binaan}
-                style={[
-                  styles.filterButton,
-                  selectedLevel === level.id_level_anak_binaan && styles.filterButtonActive
-                ]}
-                onPress={() => handleLevelFilter(level.id_level_anak_binaan)}
-              >
-                <Text style={[
-                  styles.filterButtonText,
-                  selectedLevel === level.id_level_anak_binaan && styles.filterButtonTextActive
-                ]}>
-                  {level.nama_level_binaan}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+      {/* Jenjang Filters */}
+      {renderJenjangFilters()}
       
       {/* Kelompok List */}
       {kelompokList.length > 0 ? (
@@ -340,16 +535,23 @@ const KelompokManagementScreen = () => {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={renderFooter}
+          numColumns={viewMode === 'grid' ? 1 : 1} // Keep single column for now
         />
       ) : (
         <View style={styles.emptyContainer}>
-          {searchQuery.trim() !== '' ? (
+          {searchQuery.trim() !== '' || selectedJenjang !== '' ? (
             <>
               <Ionicons name="search" size={60} color="#cccccc" />
-              <Text style={styles.emptyText}>No groups found with "{searchQuery}"</Text>
+              <Text style={styles.emptyText}>
+                Tidak ada kelompok ditemukan dengan kriteria pencarian
+              </Text>
               <Button 
-                title="Clear Search" 
-                onPress={clearSearch} 
+                title="Bersihkan Filter" 
+                onPress={() => {
+                  setSearchQuery('');
+                  setSelectedJenjang('');
+                  fetchKelompokData(1, true);
+                }} 
                 type="outline"
                 style={styles.emptyButton}
               />
@@ -357,9 +559,9 @@ const KelompokManagementScreen = () => {
           ) : (
             <>
               <Ionicons name="people-circle" size={60} color="#cccccc" />
-              <Text style={styles.emptyText}>No groups created yet</Text>
+              <Text style={styles.emptyText}>Belum ada kelompok dibuat</Text>
               <Button 
-                title="Create First Group" 
+                title="Buat Kelompok Pertama" 
                 onPress={handleAddKelompok} 
                 type="primary"
                 style={styles.emptyButton}
@@ -391,6 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
+    alignItems: 'center',
   },
   searchBar: {
     flex: 1,
@@ -399,7 +602,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f2f2',
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginRight: 12,
+    marginRight: 8,
   },
   searchIcon: {
     marginRight: 8,
@@ -412,6 +615,20 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
+  },
+  viewModeContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+    borderRadius: 6,
+    backgroundColor: '#f2f2f2',
+    padding: 2,
+  },
+  viewModeButton: {
+    padding: 8,
+    borderRadius: 4,
+  },
+  viewModeButtonActive: {
+    backgroundColor: '#9b59b6',
   },
   addButton: {
     width: 40,
@@ -449,11 +666,11 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 80, // Extra padding for floating button
+    paddingBottom: 80,
   },
   kelompokItem: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
     elevation: 2,
@@ -469,7 +686,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   kelompokName: {
     fontSize: 18,
@@ -484,22 +701,72 @@ const styles = StyleSheet.create({
     padding: 6,
     marginLeft: 8,
   },
+
+  // Kelas Gabungan Section
+  kelasSection: {
+    marginBottom: 12,
+  },
+  kelasSectionTitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  kelasChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  kelasChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  kelasChipText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  moreKelasChip: {
+    backgroundColor: '#95a5a6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  moreKelasText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  noKelasChip: {
+    backgroundColor: '#ecf0f1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  noKelasText: {
+    fontSize: 11,
+    color: '#7f8c8d',
+  },
+
+  // Enhanced Meta
   kelompokMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+    gap: 12,
+  },
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  levelBadge: {
-    backgroundColor: '#f2e5ff',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    marginRight: 8,
+  metaText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 4,
   },
-  levelText: {
-    fontSize: 12,
-    color: '#9b59b6',
-    fontWeight: '500',
-  },
+
+
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -512,6 +779,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 24,
+    lineHeight: 22,
   },
   emptyButton: {
     minWidth: 180,
