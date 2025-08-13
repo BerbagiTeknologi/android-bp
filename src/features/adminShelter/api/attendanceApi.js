@@ -51,9 +51,10 @@ export const attendanceApi = {
    * @param {string|null} status - Attendance status ('present', 'absent', 'late') or null for auto-detection
    * @param {string} token - QR token for verification
    * @param {string} arrival_time - Optional arrival time (format: YYYY-MM-DD HH:MM:SS)
+   * @param {Object} gps_data - Optional GPS data for location validation
    * @returns {Promise} - API response with recorded attendance
    */
-  recordAttendanceByQr: async (id_anak, id_aktivitas, status, token, arrival_time = null) => {
+  recordAttendanceByQr: async (id_anak, id_aktivitas, status, token, arrival_time = null, gps_data = null) => {
     const params = {
       id_anak,
       id_aktivitas,
@@ -70,6 +71,11 @@ export const attendanceApi = {
       params.arrival_time = arrival_time;
     }
     
+    // Add GPS data if provided
+    if (gps_data) {
+      params.gps_data = gps_data;
+    }
+    
     return await api.post('/admin-shelter/attendance/record-by-qr', params);
   },
 
@@ -80,9 +86,10 @@ export const attendanceApi = {
    * @param {string|null} status - Attendance status ('present', 'absent', 'late') or null for auto-detection
    * @param {string} notes - Optional notes for manual verification
    * @param {string} arrival_time - Optional arrival time (format: YYYY-MM-DD HH:MM:SS)
+   * @param {Object} gps_data - Optional GPS data for location validation
    * @returns {Promise} - API response with recorded attendance
    */
-  recordAttendanceManually: async (id_anak, id_aktivitas, status, notes = '', arrival_time = null) => {
+  recordAttendanceManually: async (id_anak, id_aktivitas, status, notes = '', arrival_time = null, gps_data = null) => {
     const params = {
       id_anak,
       id_aktivitas,
@@ -97,6 +104,11 @@ export const attendanceApi = {
     // Add arrival time if provided
     if (arrival_time) {
       params.arrival_time = arrival_time;
+    }
+    
+    // Add GPS data if provided
+    if (gps_data) {
+      params.gps_data = gps_data;
     }
     
     return await api.post('/admin-shelter/attendance/record-manual', params);

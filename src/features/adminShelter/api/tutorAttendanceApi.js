@@ -14,7 +14,7 @@ export const tutorAttendanceApi = {
     });
   },
 
-  recordTutorAttendanceByQr: async (id_aktivitas, token, arrival_time = null) => {
+  recordTutorAttendanceByQr: async (id_aktivitas, token, arrival_time = null, gps_data = null) => {
     const params = {
       id_aktivitas,
       token
@@ -24,10 +24,14 @@ export const tutorAttendanceApi = {
       params.arrival_time = arrival_time;
     }
     
+    if (gps_data) {
+      params.gps_data = gps_data;
+    }
+    
     return await api.post('/admin-shelter/tutor-attendance/record-by-qr', params);
   },
 
-  recordTutorAttendanceManually: async (id_tutor, id_aktivitas, status, notes = '', arrival_time = null) => {
+  recordTutorAttendanceManually: async (id_tutor, id_aktivitas, status, notes = '', arrival_time = null, gps_data = null) => {
     const params = {
       id_tutor,
       id_aktivitas,
@@ -40,6 +44,10 @@ export const tutorAttendanceApi = {
     
     if (arrival_time) {
       params.arrival_time = arrival_time;
+    }
+    
+    if (gps_data) {
+      params.gps_data = gps_data;
     }
     
     return await api.post('/admin-shelter/tutor-attendance/record-manual', params);

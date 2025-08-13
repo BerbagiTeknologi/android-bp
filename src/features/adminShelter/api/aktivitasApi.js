@@ -45,9 +45,9 @@ export const aktivitasApi = {
    * @returns {Promise} - API response
    */
   updateAktivitas: async (id, aktivitasData) => {
-    return await api.post(ADMIN_SHELTER_ENDPOINTS.AKTIVITAS.DETAIL(id), aktivitasData, {
+    return await api.put(ADMIN_SHELTER_ENDPOINTS.AKTIVITAS.DETAIL(id), aktivitasData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
       },
     });
   },

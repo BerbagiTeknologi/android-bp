@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { getToken } from '../../../common/utils/storageHelpers';
+import { API_BASE_URL } from '../../../constants/config';
 
 // Base URL configuration
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const BASE_URL = API_BASE_URL;
 
 // Create axios instance with authentication
 const createAuthenticatedRequest = async () => {
@@ -34,8 +35,28 @@ export const shelterOperationsApi = {
    * SIMPLIFIED approach - frontend handles filtering
    */
   async getAllMateri() {
-    const api = await createAuthenticatedRequest();
-    return api.get('/admin-shelter/kurikulum/all-materi');
+    try {
+      const api = await createAuthenticatedRequest();
+      console.log('[DEBUG] getAllMateri - API baseURL:', api.defaults.baseURL);
+      console.log('[DEBUG] getAllMateri - Full URL:', `${api.defaults.baseURL}/admin-shelter/kurikulum/all-materi`);
+      console.log('[DEBUG] getAllMateri - Headers:', api.defaults.headers);
+      
+      const response = await api.get('/admin-shelter/kurikulum/all-materi');
+      console.log('[DEBUG] getAllMateri - Response status:', response.status);
+      console.log('[DEBUG] getAllMateri - Response data:', response.data);
+      
+      return response;
+    } catch (error) {
+      console.error('[DEBUG] getAllMateri - Full error:', error);
+      console.error('[DEBUG] getAllMateri - Error config:', error.config);
+      console.error('[DEBUG] getAllMateri - Error code:', error.code);
+      console.error('[DEBUG] getAllMateri - Error message:', error.message);
+      if (error.response) {
+        console.error('[DEBUG] getAllMateri - Response status:', error.response.status);
+        console.error('[DEBUG] getAllMateri - Response data:', error.response.data);
+      }
+      throw error;
+    }
   },
   
   /**

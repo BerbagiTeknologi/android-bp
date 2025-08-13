@@ -60,5 +60,27 @@ export const qrTokenApi = {
     return await api.post('/admin-shelter/qr-tokens/invalidate', {
       token
     });
+  },
+
+  /**
+   * Get GPS configuration for an activity
+   * @param {number|string} id_aktivitas - Activity ID
+   * @returns {Promise} - API response with GPS configuration
+   */
+  getActivityGpsConfig: async (id_aktivitas) => {
+    return await api.get(`/admin-shelter/qr-tokens/activity/${id_aktivitas}/gps-config`);
+  },
+
+  /**
+   * Validate token with activity context (includes GPS config)
+   * @param {string} token - QR token string
+   * @param {number|string} id_aktivitas - Activity ID for context
+   * @returns {Promise} - API response with validation result and GPS config
+   */
+  validateTokenWithActivity: async (token, id_aktivitas) => {
+    return await api.post('/admin-shelter/qr-tokens/validate-token-activity', {
+      token,
+      id_aktivitas
+    });
   }
 };

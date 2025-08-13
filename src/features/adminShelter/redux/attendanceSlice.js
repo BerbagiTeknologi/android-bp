@@ -3,9 +3,9 @@ import { attendanceApi } from '../api/attendanceApi';
 
 export const recordAttendanceByQr = createAsyncThunk(
   'attendance/recordByQr',
-  async ({ id_anak, id_aktivitas, status, token, arrival_time }, { rejectWithValue }) => {
+  async ({ id_anak, id_aktivitas, status, token, arrival_time, gps_data }, { rejectWithValue }) => {
     try {
-      const response = await attendanceApi.recordAttendanceByQr(id_anak, id_aktivitas, status, token, arrival_time);
+      const response = await attendanceApi.recordAttendanceByQr(id_anak, id_aktivitas, status, token, arrival_time, gps_data);
       return response.data;
     } catch (error) {
       if (error.response?.status === 409) {
@@ -17,8 +17,10 @@ export const recordAttendanceByQr = createAsyncThunk(
       }
       if (error.response?.status === 422) {
         return rejectWithValue({
-          message: error.response.data.message || 'Invalid activity date',
-          isDateValidationError: true
+          message: error.response.data.message || 'GPS validation failed or invalid activity date',
+          isDateValidationError: !error.response.data.error_type || error.response.data.error_type !== 'gps_validation_failed',
+          error_type: error.response.data.error_type,
+          gps_validation: error.response.data.gps_validation
         });
       }
       return rejectWithValue(error.response?.data || { message: error.message });
@@ -28,9 +30,9 @@ export const recordAttendanceByQr = createAsyncThunk(
 
 export const recordAttendanceManually = createAsyncThunk(
   'attendance/recordManually',
-  async ({ id_anak, id_aktivitas, status, notes, arrival_time }, { rejectWithValue }) => {
+  async ({ id_anak, id_aktivitas, status, notes, arrival_time, gps_data }, { rejectWithValue }) => {
     try {
-      const response = await attendanceApi.recordAttendanceManually(id_anak, id_aktivitas, status, notes, arrival_time);
+      const response = await attendanceApi.recordAttendanceManually(id_anak, id_aktivitas, status, notes, arrival_time, gps_data);
       return response.data;
     } catch (error) {
       if (error.response?.status === 409) {
@@ -42,8 +44,10 @@ export const recordAttendanceManually = createAsyncThunk(
       }
       if (error.response?.status === 422) {
         return rejectWithValue({
-          message: error.response.data.message || 'Invalid activity date',
-          isDateValidationError: true
+          message: error.response.data.message || 'GPS validation failed or invalid activity date',
+          isDateValidationError: !error.response.data.error_type || error.response.data.error_type !== 'gps_validation_failed',
+          error_type: error.response.data.error_type,
+          gps_validation: error.response.data.gps_validation
         });
       }
       return rejectWithValue(error.response?.data || { message: error.message });
@@ -133,6 +137,7 @@ const initialState = {
   error: null,
   duplicateError: null,
   dateValidationError: null,
+  gpsError: null,
   lastUpdated: null,
   offlineQueue: [],
   isSyncing: false
@@ -146,12 +151,16 @@ const attendanceSlice = createSlice({
       state.error = null;
       state.duplicateError = null;
       state.dateValidationError = null;
+      state.gpsError = null;
     },
     resetDuplicateError: (state) => {
       state.duplicateError = null;
     },
     resetDateValidationError: (state) => {
       state.dateValidationError = null;
+    },
+    resetGpsError: (state) => {
+      state.gpsError = null;
     },
     queueOfflineAttendance: (state, action) => {
       state.offlineQueue.push(action.payload);
@@ -170,12 +179,31 @@ const attendanceSlice = createSlice({
         state.error = null;
         state.duplicateError = null;
         state.dateValidationError = null;
+        state.gpsError = null;
       })
       .addCase(recordAttendanceByQr.fulfilled, (state, action) => {
         state.loading = false;
         if (action.payload.data) {
           const attendance = action.payload.data;
           state.attendanceRecords[attendance.id_absen] = attendance;
+          
+          // Update activity records to include the new attendance
+          if (attendance.aktivitas?.id_aktivitas) {
+            const activityId = attendance.aktivitas.id_aktivitas;
+            if (state.activityRecords[activityId]) {
+              // Check if this attendance record already exists in the activity records
+              const existingIndex = state.activityRecords[activityId].findIndex(
+                record => record.id_absen === attendance.id_absen
+              );
+              if (existingIndex === -1) {
+                // Add new record if it doesn't exist
+                state.activityRecords[activityId].push(attendance);
+              } else {
+                // Update existing record
+                state.activityRecords[activityId][existingIndex] = attendance;
+              }
+            }
+          }
         }
         state.lastUpdated = new Date().toISOString();
       })
@@ -190,6 +218,14 @@ const attendanceSlice = createSlice({
           }
         } else if (action.payload?.isDateValidationError) {
           state.dateValidationError = action.payload.message;
+        } else if (action.payload?.error_type === 'gps_validation_failed' || action.payload?.gps_validation) {
+          // Handle GPS validation errors
+          state.gpsError = {
+            message: action.payload.message || 'GPS validation failed',
+            error_type: action.payload.error_type,
+            gps_validation: action.payload.gps_validation,
+            details: action.payload
+          };
         } else {
           state.error = action.payload?.message || 'Failed to record attendance';
         }
@@ -200,12 +236,31 @@ const attendanceSlice = createSlice({
         state.error = null;
         state.duplicateError = null;
         state.dateValidationError = null;
+        state.gpsError = null;
       })
       .addCase(recordAttendanceManually.fulfilled, (state, action) => {
         state.loading = false;
         if (action.payload.data) {
           const attendance = action.payload.data;
           state.attendanceRecords[attendance.id_absen] = attendance;
+          
+          // Update activity records to include the new attendance
+          if (attendance.aktivitas?.id_aktivitas) {
+            const activityId = attendance.aktivitas.id_aktivitas;
+            if (state.activityRecords[activityId]) {
+              // Check if this attendance record already exists in the activity records
+              const existingIndex = state.activityRecords[activityId].findIndex(
+                record => record.id_absen === attendance.id_absen
+              );
+              if (existingIndex === -1) {
+                // Add new record if it doesn't exist
+                state.activityRecords[activityId].push(attendance);
+              } else {
+                // Update existing record
+                state.activityRecords[activityId][existingIndex] = attendance;
+              }
+            }
+          }
         }
         state.lastUpdated = new Date().toISOString();
       })
@@ -220,6 +275,14 @@ const attendanceSlice = createSlice({
           }
         } else if (action.payload?.isDateValidationError) {
           state.dateValidationError = action.payload.message;
+        } else if (action.payload?.error_type === 'gps_validation_failed' || action.payload?.gps_validation) {
+          // Handle GPS validation errors
+          state.gpsError = {
+            message: action.payload.message || 'GPS validation failed',
+            error_type: action.payload.error_type,
+            gps_validation: action.payload.gps_validation,
+            details: action.payload
+          };
         } else {
           state.error = action.payload?.message || 'Failed to record attendance manually';
         }
@@ -231,11 +294,13 @@ const attendanceSlice = createSlice({
       })
       .addCase(getAttendanceByActivity.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.data && Array.isArray(action.payload.data)) {
+        // Handle the correct API response structure: data.students contains the attendance records
+        const attendanceData = action.payload.data?.students || action.payload.data;
+        if (attendanceData && Array.isArray(attendanceData)) {
           const id_aktivitas = action.meta.arg.id_aktivitas;
-          state.activityRecords[id_aktivitas] = action.payload.data;
+          state.activityRecords[id_aktivitas] = attendanceData;
           
-          action.payload.data.forEach(record => {
+          attendanceData.forEach(record => {
             state.attendanceRecords[record.id_absen] = record;
           });
         }
@@ -394,6 +459,7 @@ export const {
   resetAttendanceError,
   resetDuplicateError,
   resetDateValidationError,
+  resetGpsError,
   queueOfflineAttendance, 
   removeFromOfflineQueue, 
   setSyncing 
@@ -409,6 +475,7 @@ export const selectAttendanceLoading = state => state.attendance.loading;
 export const selectAttendanceError = state => state.attendance.error;
 export const selectDuplicateError = state => state.attendance.duplicateError;
 export const selectDateValidationError = state => state.attendance.dateValidationError;
+export const selectGpsError = state => state.attendance.gpsError;
 export const selectAttendanceRecords = state => state.attendance.attendanceRecords;
 
 export const selectActivityAttendance = createSelector(

@@ -3,9 +3,9 @@ import { tutorAttendanceApi } from '../api/tutorAttendanceApi';
 
 export const recordTutorAttendanceByQr = createAsyncThunk(
   'tutorAttendance/recordByQr',
-  async ({ id_aktivitas, token, arrival_time }, { rejectWithValue }) => {
+  async ({ id_aktivitas, token, arrival_time, gps_data }, { rejectWithValue }) => {
     try {
-      const response = await tutorAttendanceApi.recordTutorAttendanceByQr(id_aktivitas, token, arrival_time);
+      const response = await tutorAttendanceApi.recordTutorAttendanceByQr(id_aktivitas, token, arrival_time, gps_data);
       return response.data;
     } catch (error) {
       if (error.response?.status === 409) {
@@ -17,8 +17,10 @@ export const recordTutorAttendanceByQr = createAsyncThunk(
       }
       if (error.response?.status === 422) {
         return rejectWithValue({
-          message: error.response.data.message || 'Invalid activity date',
-          isDateValidationError: true
+          message: error.response.data.message || 'GPS validation failed or invalid activity date',
+          isDateValidationError: !error.response.data.error_type || error.response.data.error_type !== 'gps_validation_failed',
+          error_type: error.response.data.error_type,
+          gps_validation: error.response.data.gps_validation
         });
       }
       return rejectWithValue(error.response?.data || { message: error.message });
@@ -28,9 +30,9 @@ export const recordTutorAttendanceByQr = createAsyncThunk(
 
 export const recordTutorAttendanceManually = createAsyncThunk(
   'tutorAttendance/recordManually',
-  async ({ id_tutor, id_aktivitas, status, notes, arrival_time }, { rejectWithValue }) => {
+  async ({ id_tutor, id_aktivitas, status, notes, arrival_time, gps_data }, { rejectWithValue }) => {
     try {
-      const response = await tutorAttendanceApi.recordTutorAttendanceManually(id_tutor, id_aktivitas, status, notes, arrival_time);
+      const response = await tutorAttendanceApi.recordTutorAttendanceManually(id_tutor, id_aktivitas, status, notes, arrival_time, gps_data);
       return response.data;
     } catch (error) {
       if (error.response?.status === 409) {
@@ -42,8 +44,10 @@ export const recordTutorAttendanceManually = createAsyncThunk(
       }
       if (error.response?.status === 422) {
         return rejectWithValue({
-          message: error.response.data.message || 'Invalid activity date',
-          isDateValidationError: true
+          message: error.response.data.message || 'GPS validation failed or invalid activity date',
+          isDateValidationError: !error.response.data.error_type || error.response.data.error_type !== 'gps_validation_failed',
+          error_type: error.response.data.error_type,
+          gps_validation: error.response.data.gps_validation
         });
       }
       return rejectWithValue(error.response?.data || { message: error.message });

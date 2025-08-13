@@ -149,7 +149,12 @@ const qrTokenSlice = createSlice({
       })
       .addCase(getActiveToken.pending, (state) => {
         state.loading = true;
-        state.error = null;
+        // Keep existing error if it's not about "no active token"
+        if (state.error && 
+            (state.error.toLowerCase().includes('no active token') || 
+             state.error.toLowerCase().includes('tidak ada token aktif'))) {
+          state.error = null;
+        }
       })
       .addCase(getActiveToken.fulfilled, (state, action) => {
         state.loading = false;
@@ -167,7 +172,13 @@ const qrTokenSlice = createSlice({
         state.loading = false;
         const id_anak = action.meta.arg;
         state.studentTokens[id_anak] = null;
-        state.error = action.payload?.message || 'Failed to get active token';
+        // Don't set error for "no active token" as it's expected behavior
+        // Only set error for actual failures
+        const errorMessage = action.payload?.message || '';
+        if (!errorMessage.toLowerCase().includes('no active token') && 
+            !errorMessage.toLowerCase().includes('tidak ada token aktif')) {
+          state.error = errorMessage || 'Failed to get active token';
+        }
       })
       .addCase(invalidateToken.pending, (state) => {
         state.loading = true;
