@@ -74,11 +74,24 @@ const ActivityFormScreen = ({ navigation, route }) => {
       const foundMateri = materiCache.find(m => m.id_materi === formData.id_materi);
       if (foundMateri) {
         dispatch(setSelectedMateri(foundMateri));
+      } else {
+        // If materi not found in cache, clear selection
+        console.log('Materi not found in cache for id:', formData.id_materi);
       }
     } else if (!formData.id_materi) {
       dispatch(clearSelectedMateri());
     }
   }, [formData.id_materi, materiCache, dispatch]);
+
+  // Additional effect to handle edit mode initialization when cache becomes available
+  useEffect(() => {
+    if (isEditing && activity && materiCache.length > 0 && activity.id_materi && !selectedMateriFromStore) {
+      const foundMateri = materiCache.find(m => m.id_materi === activity.id_materi);
+      if (foundMateri) {
+        dispatch(setSelectedMateri(foundMateri));
+      }
+    }
+  }, [isEditing, activity, materiCache, selectedMateriFromStore, dispatch]);
   
   const initializeEditForm = () => {
     const parseTime = (timeStr) => timeStr ? new Date(`2000-01-01T${timeStr}`) : null;
@@ -334,43 +347,80 @@ const ActivityFormScreen = ({ navigation, route }) => {
   };
   
   const prepareFormData = () => {
-    const data = new FormData();
-    
-    data.append('jenis_kegiatan', formData.jenis_kegiatan);
-    
-    if (formData.id_tutor) data.append('id_tutor', formData.id_tutor);
-    
-    if (formData.jenis_kegiatan === 'Bimbel') {
-      data.append('level', formData.level || '');
-      data.append('nama_kelompok', formData.nama_kelompok || '');
+    if (isEditing) {
+      // For updates, use JSON object (photos will be handled separately if needed)
+      const data = {
+        jenis_kegiatan: formData.jenis_kegiatan,
+        tanggal: format(formData.tanggal, 'yyyy-MM-dd')
+      };
       
-      if (!uiState.useCustomMateri && formData.id_materi) {
-        data.append('id_materi', formData.id_materi);
+      if (formData.id_tutor) data.id_tutor = formData.id_tutor;
+      
+      if (formData.jenis_kegiatan === 'Bimbel') {
+        data.level = formData.level || '';
+        data.nama_kelompok = formData.nama_kelompok || '';
+        
+        if (!uiState.useCustomMateri && formData.id_materi) {
+          data.id_materi = formData.id_materi;
+        } else {
+          data.materi = formData.materi || '';
+        }
       } else {
+        data.level = '';
+        data.nama_kelompok = '';
+        data.materi = formData.materi || '';
+      }
+      
+      if (formData.start_time) data.start_time = format(formData.start_time, 'HH:mm:ss');
+      if (formData.end_time) data.end_time = format(formData.end_time, 'HH:mm:ss');
+      
+      if (uiState.useCustomLateThreshold && formData.late_threshold) {
+        data.late_threshold = format(formData.late_threshold, 'HH:mm:ss');
+      } else {
+        data.late_minutes_threshold = formData.late_minutes_threshold;
+      }
+      
+      return data;
+    } else {
+      // For creating, use FormData (for file uploads)
+      const data = new FormData();
+      
+      data.append('jenis_kegiatan', formData.jenis_kegiatan);
+      
+      if (formData.id_tutor) data.append('id_tutor', formData.id_tutor);
+      
+      if (formData.jenis_kegiatan === 'Bimbel') {
+        data.append('level', formData.level || '');
+        data.append('nama_kelompok', formData.nama_kelompok || '');
+        
+        if (!uiState.useCustomMateri && formData.id_materi) {
+          data.append('id_materi', formData.id_materi);
+        } else {
+          data.append('materi', formData.materi || '');
+        }
+      } else {
+        data.append('level', '');
+        data.append('nama_kelompok', '');
         data.append('materi', formData.materi || '');
       }
-    } else {
-      data.append('level', '');
-      data.append('nama_kelompok', '');
-      data.append('materi', formData.materi || '');
+      
+      data.append('tanggal', format(formData.tanggal, 'yyyy-MM-dd'));
+      
+      if (formData.start_time) data.append('start_time', format(formData.start_time, 'HH:mm:ss'));
+      if (formData.end_time) data.append('end_time', format(formData.end_time, 'HH:mm:ss'));
+      
+      if (uiState.useCustomLateThreshold && formData.late_threshold) {
+        data.append('late_threshold', format(formData.late_threshold, 'HH:mm:ss'));
+      } else {
+        data.append('late_minutes_threshold', formData.late_minutes_threshold.toString());
+      }
+      
+      ['foto_1', 'foto_2', 'foto_3'].forEach(key => {
+        if (formData[key]) data.append(key, formData[key]);
+      });
+      
+      return data;
     }
-    
-    data.append('tanggal', format(formData.tanggal, 'yyyy-MM-dd'));
-    
-    if (formData.start_time) data.append('start_time', format(formData.start_time, 'HH:mm:ss'));
-    if (formData.end_time) data.append('end_time', format(formData.end_time, 'HH:mm:ss'));
-    
-    if (uiState.useCustomLateThreshold && formData.late_threshold) {
-      data.append('late_threshold', format(formData.late_threshold, 'HH:mm:ss'));
-    } else {
-      data.append('late_minutes_threshold', formData.late_minutes_threshold.toString());
-    }
-    
-    ['foto_1', 'foto_2', 'foto_3'].forEach(key => {
-      if (formData[key]) data.append(key, formData[key]);
-    });
-    
-    return data;
   };
   
   const handleSubmit = async () => {

@@ -9,7 +9,12 @@ import { Audio } from 'expo-av';
 import { format, startOfDay, isFuture, isPast } from 'date-fns';
 
 import QrScanner from '../../components/QrScanner';
-import useLocation from '../../hooks/useLocation';
+import GpsPermissionModal from '../../../../common/components/GpsPermissionModal';
+import {
+  getCurrentLocation,
+  validateLocationDistance,
+  prepareGpsDataForApi
+} from '../../../../common/utils/gpsUtils';
 import {
   validateToken, selectQrTokenLoading, selectValidationResult, resetValidationResult
 } from '../../redux/qrTokenSlice';
@@ -55,19 +60,9 @@ const QrScannerScreen = ({ navigation, route }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activityDateStatus, setActivityDateStatus] = useState('valid');
   const [gpsConfig, setGpsConfig] = useState(null);
-  
-  // GPS location hook
-  const {
-    getCurrentLocation,
-    loading: locationLoading,
-    error: locationError,
-    hasPermission,
-    requestPermissions
-  } = useLocation({
-    enableHighAccuracy: true,
-    timeout: 15000,
-    maximumAge: 10000
-  });
+  const [showGpsModal, setShowGpsModal] = useState(false);
+  const [pendingAttendanceData, setPendingAttendanceData] = useState(null);
+  const [gpsLocation, setGpsLocation] = useState(null);
   
   useEffect(() => {
     const loadSound = async () => {
@@ -124,7 +119,13 @@ const QrScannerScreen = ({ navigation, route }) => {
           return;
         }
       }
-      handleAttendanceRecording(validationResult.token.token, validationResult.anak.id_anak);
+      
+      // Request GPS location if required, otherwise proceed directly
+      requestGpsLocation({
+        token: validationResult.token.token,
+        id_anak: validationResult.anak.id_anak,
+        isTutor: false
+      });
     }
   }, [validationResult, isBimbelActivity, kelompokStudentIds]);
   
@@ -247,7 +248,11 @@ const QrScannerScreen = ({ navigation, route }) => {
       const isTutorToken = await validateIfTutorToken(qrData.token);
       setTimeout(() => {
         if (isTutorToken) {
-          handleTutorAttendanceRecording(qrData.token);
+          // Request GPS location for tutor attendance
+          requestGpsLocation({
+            token: qrData.token,
+            isTutor: true
+          });
         } else {
           dispatch(validateToken(qrData.token));
         }
@@ -269,42 +274,66 @@ const QrScannerScreen = ({ navigation, route }) => {
     }
   }, []);
   
-  const getGpsLocationIfRequired = async () => {
-    if (!gpsConfig?.required) return null;
+  const requestGpsLocation = async (attendanceData) => {
+    if (!gpsConfig?.require_gps) {
+      // GPS not required, proceed directly
+      return proceedWithAttendance(attendanceData, null);
+    }
     
-    try {
-      if (!hasPermission) {
-        await requestPermissions();
+    // GPS required, show modal to get location
+    setPendingAttendanceData(attendanceData);
+    setShowGpsModal(true);
+  };
+
+  const handleGpsLocationSuccess = async (locationData) => {
+    setGpsLocation(locationData);
+    setShowGpsModal(false);
+    
+    if (pendingAttendanceData) {
+      // Validate location if activity has GPS coordinates
+      let gpsValidation = null;
+      if (gpsConfig?.latitude && gpsConfig?.longitude) {
+        gpsValidation = validateLocationDistance(
+          { latitude: locationData.latitude, longitude: locationData.longitude },
+          { latitude: gpsConfig.latitude, longitude: gpsConfig.longitude },
+          gpsConfig.max_distance_meters || 50
+        );
+        
+        if (!gpsValidation.valid) {
+          showToast(gpsValidation.reason, 'error');
+          setPendingAttendanceData(null);
+          return;
+        }
       }
       
-      const location = await getCurrentLocation();
-      return {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        accuracy: location.accuracy,
-        timestamp: new Date(location.timestamp).toISOString()
-      };
-    } catch (error) {
-      if (gpsConfig?.required) {
-        throw new Error('GPS location required but could not be obtained: ' + (locationError || error.message));
-      }
-      return null;
+      // Prepare GPS data for API
+      const gpsData = prepareGpsDataForApi(locationData, gpsValidation);
+      await proceedWithAttendance(pendingAttendanceData, gpsData);
+      setPendingAttendanceData(null);
     }
   };
 
-  const handleAttendanceRecording = useCallback(async (token, id_anak) => {
+  const handleGpsLocationError = (error) => {
+    setShowGpsModal(false);
+    setPendingAttendanceData(null);
+    showToast(`GPS Error: ${error}`, 'error');
+  };
+
+  const proceedWithAttendance = async (attendanceData, gpsData) => {
+    const { token, id_anak, isTutor } = attendanceData;
+    
+    if (isTutor) {
+      return handleTutorAttendanceRecording(token, gpsData);
+    } else {
+      return handleAttendanceRecording(token, id_anak, gpsData);
+    }
+  };
+
+  const handleAttendanceRecording = useCallback(async (token, id_anak, gpsData = null) => {
     try {
       if (isConnected) {
-        const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
-        let gpsData = null;
-        
-        // Get GPS data if required
-        try {
-          gpsData = await getGpsLocationIfRequired();
-        } catch (gpsError) {
-          showToast(gpsError.message, 'error');
-          return;
-        }
+        const now = new Date();
+        const formattedArrivalTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         
         const result = await dispatch(recordAttendanceByQr({ 
           id_anak, id_aktivitas, status: null, token, arrival_time: formattedArrivalTime, gps_data: gpsData
@@ -327,9 +356,11 @@ const QrScannerScreen = ({ navigation, route }) => {
         
         setTimeout(() => showToast(`${status}: ${studentName}`, toastType), 100);
       } else {
+        const offlineNow = new Date();
+        const offlineFormattedTime = `${offlineNow.getFullYear()}-${String(offlineNow.getMonth() + 1).padStart(2, '0')}-${String(offlineNow.getDate()).padStart(2, '0')} ${String(offlineNow.getHours()).padStart(2, '0')}:${String(offlineNow.getMinutes()).padStart(2, '0')}:${String(offlineNow.getSeconds()).padStart(2, '0')}`;
         const result = await OfflineSync.processAttendance({
           id_anak, id_aktivitas, status: null, token,
-          arrival_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+          arrival_time: offlineFormattedTime
         }, 'qr');
         
         await playSound();
@@ -354,19 +385,11 @@ const QrScannerScreen = ({ navigation, route }) => {
     }
   }, [isConnected, dispatch, id_aktivitas, validationResult, playSound, showToast, gpsConfig]);
   
-  const handleTutorAttendanceRecording = useCallback(async (token) => {
+  const handleTutorAttendanceRecording = useCallback(async (token, gpsData = null) => {
     try {
       if (isConnected) {
-        const formattedArrivalTime = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
-        let gpsData = null;
-        
-        // Get GPS data if required
-        try {
-          gpsData = await getGpsLocationIfRequired();
-        } catch (gpsError) {
-          showToast(gpsError.message, 'error');
-          return;
-        }
+        const now = new Date();
+        const formattedArrivalTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         
         const result = await dispatch(recordTutorAttendanceByQr({ 
           id_aktivitas, token, arrival_time: formattedArrivalTime, gps_data: gpsData
@@ -389,8 +412,10 @@ const QrScannerScreen = ({ navigation, route }) => {
         const tutorName = result.data?.absen_user?.tutor?.nama || 'Tutor';
         setTimeout(() => showToast(`${status}: ${tutorName} (Tutor)`, toastType), 100);
       } else {
+        const tutorOfflineNow = new Date();
+        const tutorOfflineFormattedTime = `${tutorOfflineNow.getFullYear()}-${String(tutorOfflineNow.getMonth() + 1).padStart(2, '0')}-${String(tutorOfflineNow.getDate()).padStart(2, '0')} ${String(tutorOfflineNow.getHours()).padStart(2, '0')}:${String(tutorOfflineNow.getMinutes()).padStart(2, '0')}:${String(tutorOfflineNow.getSeconds()).padStart(2, '0')}`;
         await OfflineSync.processAttendance({
-          id_aktivitas, token, arrival_time: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+          id_aktivitas, token, arrival_time: tutorOfflineFormattedTime,
           type: 'tutor'
         }, 'qr');
         
@@ -418,7 +443,7 @@ const QrScannerScreen = ({ navigation, route }) => {
   
   const handleClose = useCallback(() => navigation.goBack(), [navigation]);
   
-  const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing || locationLoading;
+  const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing;
   
   const getToastStyle = () => ({
     error: styles.errorToast,
@@ -480,11 +505,11 @@ const QrScannerScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {gpsConfig?.required && (
+        {gpsConfig?.require_gps && (
           <View style={styles.gpsRequiredNote}>
             <Ionicons name="location" size={16} color="#fff" />
             <Text style={styles.gpsRequiredText}>
-              GPS diperlukan - Radius maksimal: {gpsConfig.max_distance}m
+              GPS diperlukan - Radius maksimal: {gpsConfig.max_distance_meters || 50}m
               {gpsConfig.location_name && ` di ${gpsConfig.location_name}`}
             </Text>
           </View>
@@ -513,6 +538,20 @@ const QrScannerScreen = ({ navigation, route }) => {
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
+      
+      <GpsPermissionModal
+        visible={showGpsModal}
+        onClose={() => {
+          setShowGpsModal(false);
+          setPendingAttendanceData(null);
+        }}
+        onLocationSuccess={handleGpsLocationSuccess}
+        onLocationError={handleGpsLocationError}
+        title="GPS Required for Attendance"
+        subtitle="We need to verify your location to record attendance"
+        requiredAccuracy={20}
+        autoCloseOnSuccess={true}
+      />
     </SafeAreaView>
   );
 };

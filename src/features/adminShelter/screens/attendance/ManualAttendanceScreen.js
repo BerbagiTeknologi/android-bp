@@ -11,6 +11,11 @@ import NetInfo from '@react-native-community/netinfo';
 
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
+import GpsPermissionModal from '../../../../common/components/GpsPermissionModal';
+import {
+  validateLocationDistance,
+  prepareGpsDataForApi
+} from '../../../../common/utils/gpsUtils';
 
 import { adminShelterAnakApi } from '../../api/adminShelterAnakApi';
 import { adminShelterKelompokApi } from '../../api/adminShelterKelompokApi';
@@ -62,6 +67,9 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [arrivalTime, setArrivalTime] = useState(new Date());
   const [dateStatus, setDateStatus] = useState('valid');
+  const [showGpsModal, setShowGpsModal] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
+  const [gpsLocation, setGpsLocation] = useState(null);
   
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -242,6 +250,61 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
     setShowTimePicker(false);
     if (selectedTime) setArrivalTime(selectedTime);
   };
+
+  const requestGpsLocationForSubmit = async (submitData) => {
+    if (!activityDetails?.require_gps) {
+      // GPS not required, proceed directly
+      return proceedWithSubmit(submitData, null);
+    }
+    
+    // GPS required, show modal to get location
+    setPendingSubmitData(submitData);
+    setShowGpsModal(true);
+  };
+
+  const handleGpsLocationSuccess = async (locationData) => {
+    setGpsLocation(locationData);
+    setShowGpsModal(false);
+    
+    if (pendingSubmitData) {
+      // Validate location if activity has GPS coordinates
+      let gpsValidation = null;
+      if (activityDetails?.latitude && activityDetails?.longitude) {
+        gpsValidation = validateLocationDistance(
+          { latitude: locationData.latitude, longitude: locationData.longitude },
+          { latitude: activityDetails.latitude, longitude: activityDetails.longitude },
+          activityDetails.max_distance_meters || 50
+        );
+        
+        if (!gpsValidation.valid) {
+          Alert.alert('GPS Error', gpsValidation.reason);
+          setPendingSubmitData(null);
+          return;
+        }
+      }
+      
+      // Prepare GPS data for API
+      const gpsData = prepareGpsDataForApi(locationData, gpsValidation);
+      await proceedWithSubmit(pendingSubmitData, gpsData);
+      setPendingSubmitData(null);
+    }
+  };
+
+  const handleGpsLocationError = (error) => {
+    setShowGpsModal(false);
+    setPendingSubmitData(null);
+    Alert.alert('GPS Error', error);
+  };
+
+  const proceedWithSubmit = async (submitData, gpsData) => {
+    const { mode, data } = submitData;
+    
+    if (mode === 'student') {
+      return submitStudentAttendance(data, gpsData);
+    } else {
+      return submitTutorAttendance(data, gpsData);
+    }
+  };
   
   const filteredStudents = students.filter(student => 
     (student.full_name || student.nick_name || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -291,13 +354,25 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir. Lanjutkan?',
           [
             { text: 'Batal', style: 'cancel' },
-            { text: 'Lanjutkan', onPress: () => submitStudentAttendance() }
+            { text: 'Lanjutkan', onPress: () => {
+              const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
+              const attendanceData = {
+                id_anak: selectedStudent.id_anak, id_aktivitas, status: null,
+                notes, arrival_time: formattedTime
+              };
+              requestGpsLocationForSubmit({ mode: 'student', data: attendanceData });
+            }}
           ]
         );
         return;
       }
       
-      submitStudentAttendance();
+      const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
+      const attendanceData = {
+        id_anak: selectedStudent.id_anak, id_aktivitas, status: null,
+        notes, arrival_time: formattedTime
+      };
+      requestGpsLocationForSubmit({ mode: 'student', data: attendanceData });
     } else {
       if (!selectedTutor) {
         Alert.alert('Error', 'Silakan pilih tutor');
@@ -320,22 +395,33 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir. Lanjutkan?',
           [
             { text: 'Batal', style: 'cancel' },
-            { text: 'Lanjutkan', onPress: () => submitTutorAttendance() }
+            { text: 'Lanjutkan', onPress: () => {
+              const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
+              const tutorData = {
+                id_tutor: selectedTutor.id_tutor, id_aktivitas, status: null,
+                notes, arrival_time: formattedTime
+              };
+              requestGpsLocationForSubmit({ mode: 'tutor', data: tutorData });
+            }}
           ]
         );
         return;
       }
       
-      submitTutorAttendance();
+      const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
+      const tutorData = {
+        id_tutor: selectedTutor.id_tutor, id_aktivitas, status: null,
+        notes, arrival_time: formattedTime
+      };
+      requestGpsLocationForSubmit({ mode: 'tutor', data: tutorData });
     }
   };
   
-  const submitStudentAttendance = async () => {
-    const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
-    const attendanceData = {
-      id_anak: selectedStudent.id_anak, id_aktivitas, status: null,
-      notes, arrival_time: formattedTime
-    };
+  const submitStudentAttendance = async (attendanceData, gpsData = null) => {
+    // Add GPS data to the attendance data if provided
+    if (gpsData) {
+      attendanceData.gps_data = gpsData;
+    }
     
     try {
       if (isConnected) {
@@ -356,12 +442,11 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
     }
   };
   
-  const submitTutorAttendance = async () => {
-    const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
-    const tutorData = {
-      id_tutor: selectedTutor.id_tutor, id_aktivitas, status: null,
-      notes, arrival_time: formattedTime
-    };
+  const submitTutorAttendance = async (tutorData, gpsData = null) => {
+    // Add GPS data to the tutor data if provided
+    if (gpsData) {
+      tutorData.gps_data = gpsData;
+    }
     
     try {
       if (isConnected) {
@@ -632,6 +717,16 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           </View>
         )}
         
+        {activityDetails?.require_gps && (
+          <View style={styles.gpsRequiredIndicator}>
+            <Ionicons name="location" size={18} color="#fff" />
+            <Text style={styles.gpsRequiredText}>
+              GPS diperlukan - Radius maksimal: {activityDetails.max_distance_meters || 50}m
+              {activityDetails.location_name && ` di ${activityDetails.location_name}`}
+            </Text>
+          </View>
+        )}
+        
         {showDuplicate && (
           <View style={styles.duplicateAlert}>
             <Ionicons name="alert-circle" size={20} color="#fff" />
@@ -679,6 +774,20 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
             message={`Mencatat kehadiran ${mode === 'student' ? 'siswa' : 'tutor'}...`}
           />
         )}
+        
+        <GpsPermissionModal
+          visible={showGpsModal}
+          onClose={() => {
+            setShowGpsModal(false);
+            setPendingSubmitData(null);
+          }}
+          onLocationSuccess={handleGpsLocationSuccess}
+          onLocationError={handleGpsLocationError}
+          title="GPS Required for Attendance"
+          subtitle="We need to verify your location to record attendance"
+          requiredAccuracy={20}
+          autoCloseOnSuccess={true}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -738,6 +847,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#e74c3c', padding: 12
   },
   offlineText: { color: '#fff', marginLeft: 8, fontSize: 14 },
+  gpsRequiredIndicator: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#9b59b6', padding: 12
+  },
+  gpsRequiredText: { color: '#fff', marginLeft: 8, fontSize: 14, fontWeight: '500' },
   duplicateAlert: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#f39c12', padding: 12
   },

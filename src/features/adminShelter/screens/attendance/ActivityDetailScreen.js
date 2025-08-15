@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, FlatList
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -237,11 +237,12 @@ const ActivityDetailScreen = ({ navigation, route }) => {
     </View>
   );
 
-  return (
-    <ScrollView style={styles.container}>
-      <PhotoGallery />
-      
-      <View style={styles.infoContainer}>
+  // Data for FlatList sections
+  const sections = [
+    { id: 'photo', component: <PhotoGallery /> },
+    { 
+      id: 'header', 
+      component: (
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.title}>{activity.jenis_kegiatan}</Text>
@@ -262,16 +263,23 @@ const ActivityDetailScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         </View>
-        
+      )
+    },
+    {
+      id: 'details',
+      component: (
         <View style={styles.detailsSection}>
           <Text style={styles.sectionTitle}>Detail</Text>
           <DetailItem label="Tingkat" value={activity.level} />
           <DetailItem label="Kelompok" value={activity.nama_kelompok} />
           <DetailItem label="Materi" value={activity.materi} />
         </View>
-        
-        <TutorInfo />
-        
+      )
+    },
+    { id: 'tutor', component: <TutorInfo /> },
+    {
+      id: 'attendanceActions',
+      component: (
         <View style={styles.attendanceActions}>
           <ActionButton
             onPress={handleRecordAttendance}
@@ -286,15 +294,29 @@ const ActivityDetailScreen = ({ navigation, route }) => {
             style={styles.manualButton}
           />
         </View>
-        
-        <StudentsSection />
-      </View>
-    </ScrollView>
+      )
+    },
+    { id: 'students', component: <StudentsSection /> }
+  ];
+
+  return (
+    <FlatList
+      data={sections}
+      renderItem={({ item }) => (
+        <View style={item.id === 'photo' ? {} : styles.infoContainer}>
+          {item.component}
+        </View>
+      )}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      showsVerticalScrollIndicator={false}
+    />
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
+  listContent: { paddingBottom: 20 },
   gallery: { backgroundColor: '#000' },
   mainPhoto: { width: '100%', height: 250 },
   thumbnails: { flexDirection: 'row', padding: 8, backgroundColor: '#222' },

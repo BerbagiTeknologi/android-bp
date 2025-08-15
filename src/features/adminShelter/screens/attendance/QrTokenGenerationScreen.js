@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,12 +14,18 @@ import TutorTokenSection from '../../components/TutorTokenSection';
 import { useQrTokenGeneration } from '../../hooks/useQrTokenGeneration';
 
 const QrTokenGenerationScreen = ({ navigation, route }) => {
+  const [mode, setMode] = useState('students');
+  const hookData = useQrTokenGeneration(route.params || {});
   const {
-    mode, setMode, selectedStudents, filteredStudents, studentTokens,
+    // Student data
+    selectedStudents, filteredStudents, studentTokens,
+    // Activity context
     activityName, activityDate, activityType, kelompokName, level, activityTutor,
+    // Loading states
     tokenLoading, tokenError, tutorLoading, tutorError, exportLoading,
+    // Actions
     setQrRef, toggleStudentSelection, handleGenerateToken, handleExportQr
-  } = useQrTokenGeneration(route.params || {});
+  } = hookData;
 
   const renderStudentItem = ({ item }) => {
     const isSelected = selectedStudents.includes(item.id_anak);
@@ -141,16 +147,18 @@ const QrTokenGenerationScreen = ({ navigation, route }) => {
       {(tokenError || tutorError) && <ErrorMessage message={tokenError || tutorError} />}
       
       {mode === 'students' ? (
-        <StudentTokenSection {...{ 
-          selectedStudents, filteredStudents, studentTokens, tokenLoading,
-          exportLoading, setQrRef, toggleStudentSelection, handleGenerateToken,
-          handleExportQr, renderStudentItem
-        }} />
+        <StudentTokenSection 
+          {...hookData}
+          mode={mode}
+          setMode={setMode}
+          renderStudentItem={renderStudentItem}
+        />
       ) : (
-        <TutorTokenSection {...{
-          activityTutor, tokenLoading, tutorLoading, tutorError, exportLoading,
-          handleGenerateToken, handleExportQr, setQrRef
-        }} />
+        <TutorTokenSection 
+          {...hookData}
+          mode={mode}
+          setMode={setMode}
+        />
       )}
       
       {(tokenLoading || exportLoading || tutorLoading) && (
