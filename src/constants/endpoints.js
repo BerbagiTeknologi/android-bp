@@ -263,6 +263,13 @@ export const ADMIN_SHELTER_ENDPOINTS = {
     SEMESTER_AKTIF: '/admin-shelter/kurikulum/semester-aktif',
     MATERI_DETAIL: (materiId) => `/admin-shelter/kurikulum/materi/${materiId}`
   },
+  SEMESTER: {
+    LIST: '/admin-shelter/semester',
+    DETAIL: (id) => `/admin-shelter/semester/${id}`,
+    ACTIVE: '/admin-shelter/semester/active',
+    STATISTICS: '/admin-shelter/semester/statistics',
+    TEST: '/admin-shelter/semester-test'
+  },
   SURAT: {
     LIST: (childId) => `/admin-shelter/anak/${childId}/surat`,
     CREATE: (childId) => `/admin-shelter/anak/${childId}/surat`,

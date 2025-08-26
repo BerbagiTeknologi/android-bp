@@ -1,5 +1,5 @@
 // API base URLs
-export const API_BASE_URL = 'http://192.168.1.17:8000/api';
+export const API_BASE_URL = 'http://192.168.1.11:8000/api';
 //export const API_BASE_URL = 'http://192.168.8.105:8000/api';
 //export const API_BASE_URL = 'https://bp.berbagipendidikan.org/api';
 
@@ -8,8 +8,8 @@ export const STORAGE_TOKEN_KEY = 'berbagipendidikan_token';
 export const STORAGE_USER_KEY = 'berbagipendidikan_user';
 
 // Image URLs
-export const IMAGE_BASE_URL = 'http://192.168.8.105/storage/AdminShelter/Shelter/';
-export const PROFILE_IMAGE_BASE_URL = 'http://192.168.8.105/storage/';
+export const IMAGE_BASE_URL = 'https://bp.berbagipendidikan.org/storage/AdminShelter/Shelter/';
+export const PROFILE_IMAGE_BASE_URL = 'https://bp.berbagipendidikan.org/storage/';
 
 // App constants
 export const APP_NAME = 'Berbagi Pendidikan';

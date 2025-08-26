@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { 
   View, 
   TextInput as RNTextInput, 
@@ -29,8 +29,9 @@ import { Ionicons } from '@expo/vector-icons';
  * @param {ReactNode} [props.rightIcon] - Icon to display on the right
  * @param {boolean} [props.multiline=false] - Whether input is multiline
  * @param {Object} [props.inputProps] - Additional props for the TextInput component
+ * @param {Object} [props.fieldStatus] - Field status object (optional)
  */
-const TextInput = ({
+const TextInput = forwardRef(({
   label,
   value,
   onChangeText,
@@ -46,8 +47,9 @@ const TextInput = ({
   leftIcon,
   rightIcon,
   multiline = false,
-  inputProps = {}
-}) => {
+  inputProps = {},
+  fieldStatus = null
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -70,6 +72,25 @@ const TextInput = ({
   // Determine actual secure text entry value
   const actualSecureTextEntry = secureTextEntry && !isPasswordVisible;
 
+  // Get status indicator - simplified
+  const getStatusIcon = () => {
+    if (!fieldStatus) return null;
+    
+    if (fieldStatus.hasError) {
+      return (
+        <Ionicons name="alert-circle" size={20} color="#e53935" />
+      );
+    }
+    
+    if (fieldStatus.isValid) {
+      return (
+        <Ionicons name="checkmark-circle" size={20} color="#4caf50" />
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <View style={styles.inputContainer}>
       {/* Label */}
@@ -86,10 +107,11 @@ const TextInput = ({
 
         {/* Text Input */}
         <RNTextInput
+          ref={ref}
           style={[
             styles.input,
             leftIcon && styles.inputWithLeftIcon,
-            (rightIcon || secureTextEntry) && styles.inputWithRightIcon,
+            (rightIcon || secureTextEntry || fieldStatus) && styles.inputWithRightIcon,
             multiline && styles.multilineInput,
             inputStyle
           ]}
@@ -119,8 +141,13 @@ const TextInput = ({
           </TouchableOpacity>
         )}
 
-        {/* Right Icon (if not secure text entry) */}
-        {rightIcon && !secureTextEntry && (
+        {/* Status Icon */}
+        {fieldStatus && !secureTextEntry && (
+          <View style={styles.rightIconContainer}>{getStatusIcon()}</View>
+        )}
+
+        {/* Right Icon (if not secure text entry and no status icon) */}
+        {rightIcon && !secureTextEntry && !fieldStatus && (
           <View style={styles.rightIconContainer}>{rightIcon}</View>
         )}
       </View>
@@ -133,7 +160,7 @@ const TextInput = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   inputContainer: {

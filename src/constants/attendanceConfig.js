@@ -16,7 +16,7 @@ export default {
       errorCorrectionLevel: 'H'
     },
     
-    // QR export options
+    // QR export options - simplified
     qrExport: {
       // Default image format
       format: 'png',
@@ -24,18 +24,30 @@ export default {
       // Image quality (1-100, PNG ignores this)
       quality: 90,
       
-      // Default media library album name
-      albumName: 'QR Codes',
-      
       // Base file name template (tokens will be replaced)
       fileNameTemplate: 'qr_{studentId}_{timestamp}',
       
       // Include student info in QR image
       includeStudentInfo: true,
       
-      // Max batch size for export operations
-      maxBatchSize: 50
+      // Unified export method - always use sharing
+      preferredMethod: 'share',
+      
+      // Context-aware generation enabled
+      contextAware: true
     }
+  },
+  
+  // QR Generation workflow - simplified
+  qrGeneration: {
+    // Auto-detect context based on activity data
+    autoDetectContext: true,
+    
+    // Show tutor section when tutor is assigned
+    autoShowTutorSection: true,
+    
+    // Remove mode toggles for simplified UX
+    simplifiedUI: true
   },
   
   // Verification configuration

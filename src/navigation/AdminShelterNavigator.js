@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import AdminShelterDashboardScreen from '../features/adminShelter/screens/AdminShelterDashboardScreen';
 import AdminShelterProfileScreen from '../features/adminShelter/screens/AdminShelterProfileScreen';
+import ShelterGpsSettingScreen from '../features/adminShelter/screens/ShelterGpsSettingScreen';
 import AnakManagementScreen from '../features/adminShelter/screens/AnakManagementScreen';
 import AnakDetailScreen from '../features/adminShelter/screens/AnakDetailScreen';
 import AnakFormScreen from '../features/adminShelter/screens/AnakFormScreen';
@@ -17,7 +18,10 @@ import AttendanceReportScreen from '../features/adminShelter/screens/attendance/
 import ActivitiesListScreen from '../features/adminShelter/screens/attendance/ActivitiesListScreen';
 import ActivityFormScreen from '../features/adminShelter/screens/attendance/ActivityFormScreen';
 import ActivityDetailScreen from '../features/adminShelter/screens/attendance/ActivityDetailScreen';
+import ActivityReportScreen from '../features/adminShelter/screens/attendance/ActivityReportScreen';
+import ViewReportScreen from '../features/adminShelter/screens/attendance/ViewReportScreen';
 import QrTokenGenerationScreen from '../features/adminShelter/screens/attendance/QrTokenGenerationScreen';
+import AttendanceManagementScreen from '../features/adminShelter/screens/attendance/AttendanceManagementScreen';
 
 import InformasiAnakScreen from '../features/adminShelter/screens/anakDetail/InformasiAnakScreen';
 import RaportScreen from '../features/adminShelter/screens/anakDetail/RaportScreen';
@@ -67,8 +71,6 @@ import PenilaianFormScreen from '../features/adminShelter/screens/PenilaianFormS
 import RaportViewScreen from '../features/adminShelter/screens/RaportViewScreen';
 import RaportGenerateScreen from '../features/adminShelter/screens/RaportGenerateScreen';
 import SemesterManagementScreen from '../features/adminShelter/screens/SemesterManagementScreen';
-import SemesterFormScreen from '../features/adminShelter/screens/SemesterFormScreen';
-import SemesterDetailScreen from '../features/adminShelter/screens/SemesterDetailScreen';
 import KurikulumSelectionScreen from '../features/adminShelter/screens/KurikulumSelectionScreen';
 import KurikulumHomeScreen from '../features/adminShelter/screens/kelola/KurikulumHomeScreen';
 import KurikulumBrowserScreen from '../features/adminShelter/screens/kelola/KurikulumBrowserScreen';
@@ -159,6 +161,11 @@ const AttendanceStackNavigator = () => (
       })} 
     />
     <AttendanceStack.Screen 
+      name="AttendanceManagement" 
+      component={AttendanceManagementScreen} 
+      options={{ headerTitle: 'Kelola Kehadiran' }} 
+    />
+    <AttendanceStack.Screen 
       name="AttendanceList" 
       component={AttendanceListScreen} 
       options={{ headerTitle: 'Attendance Records' }} 
@@ -182,6 +189,16 @@ const AttendanceStackNavigator = () => (
       name="AttendanceReport" 
       component={AttendanceReportScreen} 
       options={{ headerTitle: 'Attendance Report' }} 
+    />
+    <AttendanceStack.Screen 
+      name="ActivityReport" 
+      component={ActivityReportScreen} 
+      options={{ headerTitle: 'Laporan Kegiatan' }} 
+    />
+    <AttendanceStack.Screen 
+      name="ViewReportScreen" 
+      component={ViewReportScreen} 
+      options={{ headerTitle: 'Lihat Laporan' }} 
     />
     <AttendanceStack.Screen 
       name="QrTokenGeneration" 
@@ -276,18 +293,7 @@ const ManagementStackNavigator = () => (
       component={SemesterManagementScreen} 
       options={{ headerTitle: 'Semester' }} 
     />
-    <ManagementStack.Screen 
-      name="SemesterForm" 
-      component={SemesterFormScreen} 
-      options={({ route }) => ({ 
-        headerTitle: route.params?.semester ? 'Edit Semester' : 'Tambah Semester' 
-      })} 
-    />
-    <ManagementStack.Screen 
-      name="SemesterDetail" 
-      component={SemesterDetailScreen} 
-      options={{ headerTitle: 'Detail Semester' }} 
-    />
+ 
     <ManagementStack.Screen 
       name="KurikulumSelection" 
       component={KurikulumSelectionScreen} 
@@ -510,6 +516,11 @@ const ManagementStackNavigator = () => (
     />
  
     <ManagementStack.Screen 
+      name="AttendanceManagement" 
+      component={AttendanceManagementScreen} 
+      options={{ headerTitle: 'Kelola Kehadiran' }} 
+    />
+    <ManagementStack.Screen 
       name="AttendanceList" 
       component={AttendanceListScreen} 
       options={{ headerTitle: 'Riwayat Aktivitas' }} 
@@ -582,6 +593,11 @@ const ProfileStackNavigator = () => (
       name="Profile" 
       component={AdminShelterProfileScreen} 
       options={{ headerTitle: 'Profil' }} 
+    />
+    <ProfileStack.Screen 
+      name="ShelterGpsSettingScreen" 
+      component={ShelterGpsSettingScreen} 
+      options={{ headerTitle: 'GPS Setting Shelter' }} 
     />
   </ProfileStack.Navigator>
 );
