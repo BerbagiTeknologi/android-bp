@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import Button from '../../../common/components/Button';
@@ -87,6 +87,13 @@ const AnakManagementScreen = () => {
   useEffect(() => {
     fetchAnakData();
   }, [statusFilter]);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAnakData(1, true);
+    }, [])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);

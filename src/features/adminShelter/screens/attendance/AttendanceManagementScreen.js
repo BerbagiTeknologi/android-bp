@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,49 +14,75 @@ const AttendanceManagementScreen = ({ navigation, route }) => {
     id_aktivitas, activityName, activityDate, activityType, 
     kelompokId, kelompokName, level, completeActivity, initialTab
   } = route.params || {};
+  
+  // Extract timing info from activity
+  const startTime = completeActivity?.start_time;
+  const endTime = completeActivity?.end_time;
 
-  const [initialRouteName, setInitialRouteName] = useState('QrScanner');
+  const screenOptions = useMemo(() => ({
+    tabBarActiveTintColor: '#fff',
+    tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+    tabBarStyle: {
+      backgroundColor: '#3498db',
+      elevation: 0,
+      shadowOpacity: 0,
+    },
+    tabBarLabelStyle: {
+      fontSize: 12,
+      fontWeight: '500',
+      textTransform: 'none',
+    },
+    tabBarIndicatorStyle: {
+      backgroundColor: '#fff',
+      height: 3,
+    },
+    tabBarShowIcon: true,
+    tabBarIconStyle: { marginBottom: 2 },
+    lazy: true, // Enable lazy loading
+    lazyPreloadDistance: 0, // Only load tab when focused
+    swipeEnabled: true,
+  }), []);
 
-  useEffect(() => {
-    if (initialTab) {
-      setInitialRouteName(initialTab);
-    }
-  }, [initialTab]);
-
-  const tabBarStyle = {
-    backgroundColor: '#3498db',
-    elevation: 0,
-    shadowOpacity: 0,
-  };
-
-  const tabBarLabelStyle = {
-    fontSize: 12,
-    fontWeight: '500',
-    textTransform: 'none',
-  };
-
-  const tabBarIndicatorStyle = {
-    backgroundColor: '#fff',
-    height: 3,
-  };
-
-  const getTabBarIcon = (iconName) => ({ color }) => (
+  const getTabBarIcon = useCallback((iconName) => ({ color }) => (
     <Ionicons name={iconName} size={20} color={color} />
-  );
+  ), []);
+
+  // Memoize tab props to prevent re-renders
+  const qrTokenProps = useMemo(() => ({
+    id_aktivitas,
+    activityName,
+    activityDate,
+    activityType,
+    kelompokId,
+    kelompokName,
+    level,
+    completeActivity,
+  }), [id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName, level, completeActivity]);
+
+  const qrScannerProps = useMemo(() => ({
+    navigation,
+    id_aktivitas,
+    activityName,
+    activityDate,
+    activityType,
+    kelompokId,
+    kelompokName,
+    startTime,
+    endTime,
+  }), [navigation, id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName, startTime, endTime]);
+
+  const attendanceListProps = useMemo(() => ({
+    navigation,
+    id_aktivitas,
+    activityName,
+    activityDate,
+  }), [navigation, id_aktivitas, activityName, activityDate]);
 
   return (
     <View style={styles.container}>
       <Tab.Navigator
-        initialRouteName={initialRouteName}
-        screenOptions={{
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
-          tabBarStyle: tabBarStyle,
-          tabBarLabelStyle: tabBarLabelStyle,
-          tabBarIndicatorStyle: tabBarIndicatorStyle,
-          tabBarShowIcon: true,
-          tabBarIconStyle: { marginBottom: 2 },
-        }}
+        initialRouteName={initialTab || 'QrScanner'}
+        screenOptions={screenOptions}
       >
         <Tab.Screen
           name="QrTokenGeneration"
@@ -65,19 +91,7 @@ const AttendanceManagementScreen = ({ navigation, route }) => {
             tabBarIcon: getTabBarIcon('qr-code-outline'),
           }}
         >
-          {(props) => (
-            <QrTokenGenerationTab
-              {...props}
-              id_aktivitas={id_aktivitas}
-              activityName={activityName}
-              activityDate={activityDate}
-              activityType={activityType}
-              kelompokId={kelompokId}
-              kelompokName={kelompokName}
-              level={level}
-              completeActivity={completeActivity}
-            />
-          )}
+          {() => <QrTokenGenerationTab {...qrTokenProps} />}
         </Tab.Screen>
         
         <Tab.Screen
@@ -87,18 +101,7 @@ const AttendanceManagementScreen = ({ navigation, route }) => {
             tabBarIcon: getTabBarIcon('scan-outline'),
           }}
         >
-          {(props) => (
-            <QrScannerTab
-              {...props}
-              navigation={navigation}
-              id_aktivitas={id_aktivitas}
-              activityName={activityName}
-              activityDate={activityDate}
-              activityType={activityType}
-              kelompokId={kelompokId}
-              kelompokName={kelompokName}
-            />
-          )}
+          {() => <QrScannerTab {...qrScannerProps} />}
         </Tab.Screen>
         
         <Tab.Screen
@@ -108,15 +111,7 @@ const AttendanceManagementScreen = ({ navigation, route }) => {
             tabBarIcon: getTabBarIcon('list-outline'),
           }}
         >
-          {(props) => (
-            <AttendanceListTab
-              {...props}
-              navigation={navigation}
-              id_aktivitas={id_aktivitas}
-              activityName={activityName}
-              activityDate={activityDate}
-            />
-          )}
+          {() => <AttendanceListTab {...attendanceListProps} />}
         </Tab.Screen>
       </Tab.Navigator>
     </View>

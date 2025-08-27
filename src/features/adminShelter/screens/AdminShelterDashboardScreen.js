@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../common/components/ErrorMessage';
+import TodayActivitiesCard from '../components/TodayActivitiesCard';
+import CalendarWidget from '../components/CalendarWidget';
 import { adminShelterApi } from '../api/adminShelterApi';
 
 const { width } = Dimensions.get('window');
@@ -50,6 +52,14 @@ const AdminShelterDashboardScreen = () => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
       {error && <ErrorMessage message={error} onRetry={fetchDashboardData} />}
+      
+      {/* Today's Activities Card */}
+      <TodayActivitiesCard />
+      
+      {/* Calendar Widget */}
+      <CalendarWidget />
+      
+      {/* Menu Items */}
       <View style={styles.menuContainer}>
         {menuItems.map(({ title, icon, color, onPress }, index) => (
           <TouchableOpacity key={index} style={styles.menuItem} onPress={onPress}>

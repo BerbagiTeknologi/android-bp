@@ -176,7 +176,7 @@ const QrScannerScreen = ({ navigation, route }) => {
         setGpsConfig(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching GPS config:', error);
+      console.error('Error mengambil konfigurasi GPS:', error);
       setGpsConfig(null);
     }
   };
@@ -275,7 +275,10 @@ const QrScannerScreen = ({ navigation, route }) => {
   }, []);
   
   const requestGpsLocation = async (attendanceData) => {
-    if (!gpsConfig?.require_gps) {
+    // For Bimbel activities, GPS is always required if shelter has GPS config
+    const isGpsRequired = gpsConfig?.require_gps || (isBimbelActivity && gpsConfig);
+    
+    if (!isGpsRequired) {
       // GPS not required, proceed directly
       return proceedWithAttendance(attendanceData, null);
     }
@@ -316,7 +319,7 @@ const QrScannerScreen = ({ navigation, route }) => {
   const handleGpsLocationError = (error) => {
     setShowGpsModal(false);
     setPendingAttendanceData(null);
-    showToast(`GPS Error: ${error}`, 'error');
+    showToast(`Error GPS: ${error}`, 'error');
   };
 
   const proceedWithAttendance = async (attendanceData, gpsData) => {
@@ -505,12 +508,12 @@ const QrScannerScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {gpsConfig?.require_gps && (
+        {(gpsConfig?.require_gps || (isBimbelActivity && gpsConfig)) && (
           <View style={styles.gpsRequiredNote}>
             <Ionicons name="location" size={16} color="#fff" />
             <Text style={styles.gpsRequiredText}>
-              GPS diperlukan - Radius maksimal: {gpsConfig.max_distance_meters || 50}m
-              {gpsConfig.location_name && ` di ${gpsConfig.location_name}`}
+              GPS diperlukan{isBimbelActivity && !gpsConfig?.require_gps ? ' (Aktivitas Bimbel)' : ''} - Radius maksimal: {gpsConfig?.max_distance_meters || 50}m
+              {gpsConfig?.location_name && ` di ${gpsConfig.location_name}`}
             </Text>
           </View>
         )}
@@ -547,8 +550,8 @@ const QrScannerScreen = ({ navigation, route }) => {
         }}
         onLocationSuccess={handleGpsLocationSuccess}
         onLocationError={handleGpsLocationError}
-        title="GPS Required for Attendance"
-        subtitle="We need to verify your location to record attendance"
+        title="GPS Diperlukan untuk Kehadiran"
+        subtitle="Kami perlu memverifikasi lokasi Anda untuk mencatat kehadiran"
         requiredAccuracy={20}
         autoCloseOnSuccess={true}
       />

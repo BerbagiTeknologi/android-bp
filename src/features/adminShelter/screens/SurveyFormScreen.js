@@ -151,7 +151,7 @@ const SurveyFormScreen = () => {
     const validation = validateStep(currentStepId, formData);
     
     if (!validation.isValid) {
-      Alert.alert('Validation Error', validation.errorMessage);
+      Alert.alert('Error Validasi', validation.errorMessage);
       return;
     }
     
@@ -181,7 +181,7 @@ const SurveyFormScreen = () => {
       // Validation check
       const validation = validateSubmission(formData);
       if (!validation.isValid) {
-        Alert.alert('Validation Error', validation.errorMessage);
+        Alert.alert('Error Validasi', validation.errorMessage);
         setSubmitting(false);
         return;
       }
@@ -189,7 +189,7 @@ const SurveyFormScreen = () => {
       // Check for family ID
       if (!familyId) {
         console.error('Family ID is missing.', 'Route params:', JSON.stringify(route.params));
-        Alert.alert('Error', 'Missing family ID. Please go back and select a family.');
+        Alert.alert('Error', 'ID keluarga tidak ditemukan. Silakan kembali dan pilih keluarga.');
         setSubmitting(false);
         return;
       }
@@ -199,7 +199,7 @@ const SurveyFormScreen = () => {
       
       if (response.data.success) {
         Alert.alert(
-          'Success',
+          'Berhasil',
           isEditMode ? 'Survey has been updated' : 'Survey has been saved',
           [
             {
@@ -209,10 +209,10 @@ const SurveyFormScreen = () => {
           ]
         );
       } else {
-        setError(response.data.message || 'Failed to save survey');
+        setError(response.data.message || 'Gagal menyimpan survei');
       }
     } catch (err) {
-      console.error('Error submitting survey:', err);
+      console.error('Error mengirim survei:', err);
       setError(formatApiError(err));
     } finally {
       setSubmitting(false);

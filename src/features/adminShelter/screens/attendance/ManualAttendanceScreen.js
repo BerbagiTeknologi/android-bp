@@ -252,7 +252,10 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
   };
 
   const requestGpsLocationForSubmit = async (submitData) => {
-    if (!activityDetails?.require_gps) {
+    // For Bimbel activities, GPS is always required if shelter has GPS config
+    const isGpsRequired = activityDetails?.require_gps || (isBimbel && activityDetails);
+    
+    if (!isGpsRequired) {
       // GPS not required, proceed directly
       return proceedWithSubmit(submitData, null);
     }
@@ -277,7 +280,7 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
         );
         
         if (!gpsValidation.valid) {
-          Alert.alert('GPS Error', gpsValidation.reason);
+          Alert.alert('Error GPS', gpsValidation.reason);
           setPendingSubmitData(null);
           return;
         }
@@ -293,7 +296,7 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
   const handleGpsLocationError = (error) => {
     setShowGpsModal(false);
     setPendingSubmitData(null);
-    Alert.alert('GPS Error', error);
+    Alert.alert('Error GPS', error);
   };
 
   const proceedWithSubmit = async (submitData, gpsData) => {
@@ -717,12 +720,12 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {activityDetails?.require_gps && (
+        {(activityDetails?.require_gps || (isBimbel && activityDetails)) && (
           <View style={styles.gpsRequiredIndicator}>
             <Ionicons name="location" size={18} color="#fff" />
             <Text style={styles.gpsRequiredText}>
-              GPS diperlukan - Radius maksimal: {activityDetails.max_distance_meters || 50}m
-              {activityDetails.location_name && ` di ${activityDetails.location_name}`}
+              GPS diperlukan{isBimbel && !activityDetails?.require_gps ? ' (Aktivitas Bimbel)' : ''} - Radius maksimal: {activityDetails?.max_distance_meters || 50}m
+              {activityDetails?.location_name && ` di ${activityDetails.location_name}`}
             </Text>
           </View>
         )}
@@ -783,8 +786,8 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           }}
           onLocationSuccess={handleGpsLocationSuccess}
           onLocationError={handleGpsLocationError}
-          title="GPS Required for Attendance"
-          subtitle="We need to verify your location to record attendance"
+          title="GPS Diperlukan untuk Kehadiran"
+          subtitle="Kami perlu memverifikasi lokasi Anda untuk mencatat kehadiran"
           requiredAccuracy={20}
           autoCloseOnSuccess={true}
         />

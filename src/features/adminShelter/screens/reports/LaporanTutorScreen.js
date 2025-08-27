@@ -131,7 +131,7 @@ const LaporanTutorScreen = () => {
       reader.readAsDataURL(pdfBlob);
       
     } catch (error) {
-      console.error('PDF download error:', error);
+      console.error('Error unduh PDF:', error);
       Alert.alert('Error', 'Gagal mendownload PDF');
     }
   };

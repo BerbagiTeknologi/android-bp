@@ -94,11 +94,11 @@ const KelompokManagementScreen = () => {
           setTotalPages(response.data.pagination.last_page);
         }
       } else {
-        setError(response.data.message || 'Failed to load data');
+        setError(response.data.message || 'Gagal memuat data');
       }
     } catch (err) {
-      console.error('Error fetching kelompok:', err);
-      setError('Failed to load kelompok. Please try again.');
+      console.error('Error mengambil kelompok:', err);
+      setError('Gagal memuat kelompok. Silakan coba lagi.');
     } finally {
       setLoading(false);
       setRefreshing(false);

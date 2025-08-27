@@ -124,7 +124,7 @@ const PengajuanAnakFormScreen = () => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true, aspect: [1, 1], quality: 0.7,
       });
 
@@ -132,7 +132,7 @@ const PengajuanAnakFormScreen = () => {
         handleChange('foto', result.assets[0]);
       }
     } catch (error) {
-      console.error('Error selecting image:', error);
+      console.error('Error memilih gambar:', error);
       Alert.alert('Error', 'Gagal memilih gambar');
     }
   };
@@ -194,7 +194,7 @@ const PengajuanAnakFormScreen = () => {
         setError(response.data.message || 'Gagal menambahkan anak');
       }
     } catch (err) {
-      console.error('Error submitting form:', err);
+      console.error('Error mengirim form:', err);
       
       if (err.response?.status === 422) {
         const validationErrors = err.response.data?.errors || {};

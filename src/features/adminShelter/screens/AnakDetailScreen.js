@@ -10,7 +10,7 @@ import {
   FlatList,
   Dimensions
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import Button from '../../../common/components/Button';
@@ -78,6 +78,15 @@ const AnakDetailScreen = () => {
       fetchAnakDetail();
     }
   }, [id, isNew]);
+
+  // Refresh data when screen comes into focus to get updated status_cpb
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isNew && id) {
+        fetchAnakDetail();
+      }
+    }, [id, isNew])
+  );
 
   useEffect(() => {
     let title = isNew 

@@ -36,7 +36,7 @@ import {
   resetAktivitasError
 } from '../../redux/aktivitasSlice';
 
-const ActivitiesListScreen = ({ navigation }) => {
+const ActivitiesListScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   
   // Redux state
@@ -46,13 +46,18 @@ const ActivitiesListScreen = ({ navigation }) => {
   const pagination = useSelector(selectAktivitasPagination);
   const isLoadingMore = useSelector(selectIsLoadingMore);
   
+  // Get navigation params
+  const { filterDate, filterType: navFilterType } = route?.params || {};
+  
   // Local state
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all'); // 'all', 'Bimbel', 'Kegiatan'
+  const [filterType, setFilterType] = useState(navFilterType || 'all'); // 'all', 'Bimbel', 'Kegiatan'
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [isDateFilterActive, setIsDateFilterActive] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(
+    filterDate ? new Date(filterDate) : new Date()
+  );
+  const [isDateFilterActive, setIsDateFilterActive] = useState(!!filterDate);
   
   // Load activities on mount
   useEffect(() => {
@@ -79,8 +84,15 @@ const ActivitiesListScreen = ({ navigation }) => {
     }
     
     if (isDateFilterActive) {
-      params.date_from = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
-      params.date_to = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+      if (filterDate) {
+        // If filtering by specific date, use exact date
+        params.date_from = filterDate;
+        params.date_to = filterDate;
+      } else {
+        // If filtering by month, use month range
+        params.date_from = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
+        params.date_to = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+      }
     }
     
     try {
@@ -121,8 +133,15 @@ const ActivitiesListScreen = ({ navigation }) => {
     }
     
     if (isDateFilterActive) {
-      params.date_from = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
-      params.date_to = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+      if (filterDate) {
+        // If filtering by specific date, use exact date
+        params.date_from = filterDate;
+        params.date_to = filterDate;
+      } else {
+        // If filtering by month, use month range
+        params.date_from = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
+        params.date_to = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
+      }
     }
     
     dispatch(fetchAllAktivitas(params))
@@ -172,20 +191,20 @@ const ActivitiesListScreen = ({ navigation }) => {
   // Handle delete activity
   const handleDeleteActivity = (id) => {
     Alert.alert(
-      'Delete Activity',
-      'Are you sure you want to delete this activity? This action cannot be undone.',
+      'Hapus Aktivitas',
+      'Apakah Anda yakin ingin menghapus aktivitas ini? Tindakan ini tidak dapat dibatalkan.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         { 
-          text: 'Delete', 
+          text: 'Hapus', 
           style: 'destructive',
           onPress: async () => {
             try {
               await dispatch(deleteAktivitas(id)).unwrap();
-              Alert.alert('Success', 'Activity deleted successfully');
+              Alert.alert('Berhasil', 'Aktivitas berhasil dihapus');
               handleRefresh();
             } catch (err) {
-              Alert.alert('Error', err || 'Failed to delete activity');
+              Alert.alert('Error', err || 'Gagal menghapus aktivitas');
             }
           }
         }
@@ -210,8 +229,8 @@ const ActivitiesListScreen = ({ navigation }) => {
       <Text style={styles.emptyText}>Tidak Ada Aktivitas Yang Ditemukan</Text>
       <Text style={styles.emptySubText}>
         {searchQuery || filterType !== 'all' || isDateFilterActive
-          ? 'Try changing your search or filters' 
-          : 'Tap the + button to create an activity'}
+          ? 'Coba ubah pencarian atau filter Anda' 
+          : 'Ketuk tombol + untuk membuat aktivitas'}
       </Text>
     </View>
   );
@@ -270,7 +289,10 @@ const ActivitiesListScreen = ({ navigation }) => {
         {isDateFilterActive && (
           <View style={styles.activeFilterContainer}>
             <Text style={styles.activeFilterText}>
-              Filter: {format(selectedMonth, 'MMMM yyyy', { locale: id })}
+              Filter: {filterDate ? 
+                format(new Date(filterDate), 'dd MMMM yyyy', { locale: id }) : 
+                format(selectedMonth, 'MMMM yyyy', { locale: id })
+              }
             </Text>
             <TouchableOpacity onPress={clearDateFilter}>
               <Ionicons name="close-circle" size={20} color="#e74c3c" />
@@ -291,7 +313,7 @@ const ActivitiesListScreen = ({ navigation }) => {
               styles.filterTabText,
               filterType === 'all' && styles.activeFilterTabText
             ]}>
-              All
+              Semua
             </Text>
           </TouchableOpacity>
           
@@ -381,7 +403,7 @@ const ActivitiesListScreen = ({ navigation }) => {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Filter by Month</Text>
+                <Text style={styles.modalTitle}>Filter Berdasarkan Bulan</Text>
                 <TouchableOpacity onPress={() => setShowDateFilter(false)}>
                   <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
@@ -417,14 +439,14 @@ const ActivitiesListScreen = ({ navigation }) => {
                   style={[styles.modalButton, styles.clearButton]}
                   onPress={clearDateFilter}
                 >
-                  <Text style={styles.clearButtonText}>Clear Filter</Text>
+                  <Text style={styles.clearButtonText}>Hapus Filter</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[styles.modalButton, styles.applyButton]}
                   onPress={applyDateFilter}
                 >
-                  <Text style={styles.applyButtonText}>Apply Filter</Text>
+                  <Text style={styles.applyButtonText}>Terapkan Filter</Text>
                 </TouchableOpacity>
               </View>
             </View>

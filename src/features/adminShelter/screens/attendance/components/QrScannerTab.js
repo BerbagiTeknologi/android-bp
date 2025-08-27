@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Alert, Animated, SafeAreaView, Vibration
+  View, Text, StyleSheet, Alert, Animated
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { Audio } from 'expo-av';
 import { format, startOfDay, isFuture, isPast } from 'date-fns';
+import { useFocusEffect } from '@react-navigation/native';
 
 import QrScanner from '../../../components/QrScanner';
 import {
@@ -25,10 +26,12 @@ import OfflineSync from '../../../utils/offlineSync';
 import { adminShelterKelompokApi } from '../../../api/adminShelterKelompokApi';
 import { tutorAttendanceApi } from '../../../api/tutorAttendanceApi';
 
-const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName }) => {
+const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, activityType, kelompokId, kelompokName, startTime, endTime }) => {
   const dispatch = useDispatch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const sound = useRef(null);
+  const toastTimeout = useRef(null);
+  const processingTimeout = useRef(null);
   
   const tokenLoading = useSelector(selectQrTokenLoading);
   const validationResult = useSelector(selectValidationResult);
@@ -43,147 +46,131 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
-  const [isBimbelActivity, setIsBimbelActivity] = useState(activityType === 'Bimbel');
-  const [kelompokStudentIds, setKelompokStudentIds] = useState([]);
-  const [loadingKelompokData, setLoadingKelompokData] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activityDateStatus, setActivityDateStatus] = useState('valid');
   
+  const isBimbelActivity = useMemo(() => activityType === 'Bimbel', [activityType]);
+  const isLoading = useMemo(() => 
+    tokenLoading || attendanceLoading || tutorAttendanceLoading || isProcessing,
+    [tokenLoading, attendanceLoading, tutorAttendanceLoading, isProcessing]
+  );
+
+  // Calculate activity date status
+  const activityDateStatus = useMemo(() => {
+    if (!activityDate) return 'valid';
+    const activityStartOfDay = startOfDay(new Date(activityDate));
+    const today = startOfDay(new Date());
+    
+    if (isFuture(activityStartOfDay)) return 'future';
+    if (isPast(activityStartOfDay) && activityStartOfDay < today) return 'past';
+    return 'valid';
+  }, [activityDate]);
+
+  // Sound cleanup
   useEffect(() => {
+    let isMounted = true;
+    
     const loadSound = async () => {
       try {
-        const { sound: cameraSound } = await Audio.Sound.createAsync(
-          require('../../../../../assets/sounds/camera-shutter.wav')
-        );
-        sound.current = cameraSound;
+        if (isMounted) {
+          const { sound: cameraSound } = await Audio.Sound.createAsync(
+            require('../../../../../assets/sounds/camera-shutter.wav')
+          );
+          sound.current = cameraSound;
+        }
       } catch (error) {
         console.error('Gagal memuat suara', error);
       }
     };
     
     loadSound();
-    return () => sound.current?.unloadAsync();
+    
+    return () => {
+      isMounted = false;
+      sound.current?.unloadAsync();
+    };
   }, []);
-  
+
+  // Network listener cleanup
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsConnected(state.isConnected && state.isInternetReachable);
     });
     return unsubscribe;
   }, []);
-  
-  useEffect(() => {
-    return () => {
-      dispatch(resetValidationResult());
-      dispatch(resetAttendanceError());
-      dispatch(resetTutorAttendanceError());
-    };
-  }, [dispatch]);
-  
-  useEffect(() => {
-    setIsBimbelActivity(activityType === 'Bimbel');
-    if (activityType === 'Bimbel' && kelompokId) {
-      fetchKelompokStudents(kelompokId);
-    }
-    validateActivityDate();
-  }, [activityType, kelompokId, activityDate]);
-  
-  useEffect(() => {
-    if (duplicateError || tutorDuplicateError) {
-      showToast(duplicateError || tutorDuplicateError, 'warning');
-    }
-  }, [duplicateError, tutorDuplicateError]);
-  
-  useEffect(() => {
-    if (validationResult?.valid && validationResult?.token && validationResult?.anak) {
-      if (isBimbelActivity && kelompokStudentIds.length > 0) {
-        const studentId = validationResult.anak.id_anak;
-        if (!kelompokStudentIds.includes(studentId)) {
-          showToast(`Siswa tidak dalam kelompok ${kelompokName || 'yang dipilih'}`, 'error');
-          return;
+
+  // Cleanup on unmount
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // Clear all timeouts
+        if (toastTimeout.current) {
+          clearTimeout(toastTimeout.current);
+          toastTimeout.current = null;
         }
-      }
-      handleAttendanceRecording(validationResult.token.token, validationResult.anak.id_anak);
-    }
-  }, [validationResult, isBimbelActivity, kelompokStudentIds]);
-  
-  const validateActivityDate = () => {
-    if (!activityDate) {
-      setActivityDateStatus('unknown');
-      return;
-    }
-    
-    const today = startOfDay(new Date());
-    const actDate = startOfDay(new Date(activityDate));
-    
-    if (isFuture(actDate)) {
-      setActivityDateStatus('future');
-    } else if (isPast(actDate)) {
-      setActivityDateStatus('past');
-    } else {
-      setActivityDateStatus('valid');
-    }
-  };
-  
-  const fetchKelompokStudents = async (kelompokId) => {
-    if (!kelompokId) return;
-    
-    setLoadingKelompokData(true);
-    try {
-      const response = await adminShelterKelompokApi.getGroupChildren(kelompokId);
-      if (response.data?.data) {
-        const studentIds = response.data.data
-          .filter(student => student.status_validasi === 'aktif')
-          .map(student => student.id_anak);
-        setKelompokStudentIds(studentIds);
-      }
-    } catch (error) {
-      console.error('Error mengambil siswa kelompok:', error);
-      setKelompokStudentIds([]);
-    } finally {
-      setLoadingKelompokData(false);
-    }
-  };
-  
+        if (processingTimeout.current) {
+          clearTimeout(processingTimeout.current);
+          processingTimeout.current = null;
+        }
+        // Reset states
+        dispatch(resetValidationResult());
+        dispatch(resetAttendanceError());
+        dispatch(resetTutorAttendanceError());
+        setIsProcessing(false);
+        setToastVisible(false);
+      };
+    }, [dispatch])
+  );
+
   const playSound = useCallback(async () => {
     try {
       if (sound.current) {
-        await sound.current.setPositionAsync(0);
-        await sound.current.playAsync();
-      } else {
-        Vibration.vibrate(100);
+        await sound.current.replayAsync();
       }
     } catch (error) {
-      console.error('Error memainkan suara', error);
-      Vibration.vibrate(100);
+      console.error('Error playing sound:', error);
     }
   }, []);
-  
+
   const showToast = useCallback((message, type = 'success') => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
     
     Animated.timing(fadeAnim, {
-      toValue: 1, duration: 300, useNativeDriver: true
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
     }).start();
     
-    setTimeout(hideToast, 2000);
-  }, [fadeAnim]);
-  
-  const hideToast = useCallback(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 0, duration: 300, useNativeDriver: true
-    }).start(() => setToastVisible(false));
-  }, [fadeAnim]);
-  
-  const handleScan = useCallback(async (qrData) => {
-    if (!id_aktivitas || isProcessing) return;
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
     
-    if (!id_aktivitas) {
-      Alert.alert('Error', 'Tidak ada aktivitas yang dipilih. Silakan kembali dan pilih aktivitas terlebih dahulu.');
+    toastTimeout.current = setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setToastVisible(false);
+      });
+      toastTimeout.current = null;
+    }, 3000);
+  }, [fadeAnim]);
+
+  const handleScan = useCallback(async (qrData) => {
+    console.log('🎯 QR SCAN RECEIVED:', { qrData, isProcessing, id_aktivitas });
+    
+    if (!qrData?.token || isProcessing) {
+      console.log('❌ QR SCAN REJECTED:', { hasToken: !!qrData?.token, isProcessing });
       return;
     }
+    
+    if (!id_aktivitas) {
+      console.log('❌ No activity selected');
+      Alert.alert('Aktivitas Tidak Dipilih', 'Silakan kembali dan pilih aktivitas terlebih dahulu.');
+      return;
+    }
+    
+    console.log('✅ QR SCAN VALID, checking activity date...');
     
     if (activityDateStatus === 'future') {
       Alert.alert('Aktivitas Belum Dimulai', 'Aktivitas ini belum dimulai. Silakan tunggu sampai tanggal aktivitas.');
@@ -204,27 +191,40 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
     
     proceedWithScan(qrData);
   }, [id_aktivitas, isProcessing, activityDateStatus]);
-  
+
   const proceedWithScan = useCallback(async (qrData) => {
+    console.log('🔄 PROCEEDING WITH SCAN:', qrData.token);
     setIsProcessing(true);
     
     try {
       const isTutorToken = await validateIfTutorToken(qrData.token);
-      setTimeout(() => {
+      console.log('👤 Token type check:', { isTutorToken });
+      
+      processingTimeout.current = setTimeout(() => {
         if (isTutorToken) {
+          console.log('📝 Processing tutor attendance...');
           handleTutorAttendanceRecording(qrData.token);
         } else {
+          console.log('📝 Processing student token validation...');
           dispatch(validateToken(qrData.token));
         }
+        processingTimeout.current = null;
       }, 100);
     } catch (error) {
-      console.error('Error menentukan jenis token:', error);
-      setTimeout(() => dispatch(validateToken(qrData.token)), 100);
+      console.error('❌ Error menentukan jenis token:', error);
+      processingTimeout.current = setTimeout(() => {
+        console.log('📝 Fallback to student token validation...');
+        dispatch(validateToken(qrData.token));
+        processingTimeout.current = null;
+      }, 100);
     } finally {
-      setTimeout(() => setIsProcessing(false), 1000);
+      setTimeout(() => {
+        console.log('✅ Processing complete, resetting isProcessing...');
+        setIsProcessing(false);
+      }, 1000);
     }
   }, [dispatch]);
-  
+
   const validateIfTutorToken = useCallback(async (token) => {
     try {
       const response = await tutorAttendanceApi.validateTutorToken(token);
@@ -233,109 +233,150 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
       return false;
     }
   }, []);
-  
+
+  const handleTutorAttendanceRecording = useCallback(async (token) => {
+    try {
+      const now = new Date();
+      const formattedArrivalTime = format(now, 'yyyy-MM-dd HH:mm:ss');
+      
+      const result = await dispatch(recordTutorAttendanceByQr({
+        token,
+        id_aktivitas,
+        arrival_time: formattedArrivalTime
+      })).unwrap();
+      
+      await playSound();
+      showToast(`Tutor berhasil hadir`, 'success');
+    } catch (error) {
+      if (tutorDuplicateError) {
+        showToast('Tutor sudah melakukan absen', 'warning');
+      } else {
+        showToast('Gagal mencatat kehadiran tutor', 'error');
+      }
+    }
+  }, [dispatch, id_aktivitas, playSound, showToast, tutorDuplicateError]);
+
+  // Effect for handling student attendance after validation
+  useEffect(() => {
+    console.log('🔍 VALIDATION RESULT CHANGED:', validationResult);
+    if (validationResult?.valid && validationResult?.anak?.id_anak) {
+      console.log('✅ Processing attendance for validated student:', validationResult.anak);
+      handleAttendanceRecording(validationResult.token.token, validationResult.anak.id_anak);
+    } else if (validationResult?.valid === false) {
+      console.log('❌ Validation failed:', validationResult.message);
+    }
+  }, [validationResult]);
+
   const handleAttendanceRecording = useCallback(async (token, id_anak) => {
+    console.log('📋 STARTING ATTENDANCE RECORDING:', { token, id_anak, id_aktivitas, isConnected });
     try {
       if (isConnected) {
         const now = new Date();
-        const formattedArrivalTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const formattedArrivalTime = format(now, 'yyyy-MM-dd HH:mm:ss');
+        
+        console.log('🚀 DISPATCHING recordAttendanceByQr:', {
+          id_anak, 
+          id_aktivitas, 
+          status: null, 
+          token, 
+          arrival_time: formattedArrivalTime
+        });
+        
         const result = await dispatch(recordAttendanceByQr({ 
-          id_anak, id_aktivitas, status: null, token, arrival_time: formattedArrivalTime
+          id_anak, 
+          id_aktivitas, 
+          status: null, 
+          token, 
+          arrival_time: formattedArrivalTime
         })).unwrap();
+        
+        console.log('✅ ATTENDANCE RECORDING SUCCESS:', result);
         
         await playSound();
         
         const studentName = validationResult?.anak?.full_name || 'Siswa';
-        let status = 'Hadir', toastType = 'success';
+        let status, toastType, message;
         
-        if (result.data?.absen) {
-          if (result.data.absen === 'Tidak') {
+        // Determine status and appropriate message based on backend response
+        switch (result.data?.absen) {
+          case 'Ya':
+            status = 'Hadir Tepat Waktu';
+            toastType = 'success';
+            message = `✅ ${studentName} - ${status}`;
+            break;
+          case 'Terlambat':
+            status = 'Hadir Terlambat';
+            toastType = 'warning';
+            message = `⏰ ${studentName} - ${status}`;
+            break;
+          case 'Tidak':
+          case 'Tidak Hadir':
             status = 'Tidak Hadir';
             toastType = 'error';
-          } else if (result.data.absen === 'Terlambat') {
-            status = 'Terlambat';
-            toastType = 'warning';
-          }
+            message = `❌ ${studentName} - ${status}`;
+            break;
+          default:
+            status = 'Hadir';
+            toastType = 'success';
+            message = `✅ ${studentName} - ${status}`;
         }
         
-        setTimeout(() => showToast(`${status}: ${studentName}`, toastType), 100);
+        console.log('🎉 SHOWING SUCCESS TOAST:', { studentName, status, absen: result.data?.absen });
+        showToast(message, toastType);
       } else {
-        const offlineNow = new Date();
-        const offlineFormattedTime = `${offlineNow.getFullYear()}-${String(offlineNow.getMonth() + 1).padStart(2, '0')}-${String(offlineNow.getDate()).padStart(2, '0')} ${String(offlineNow.getHours()).padStart(2, '0')}:${String(offlineNow.getMinutes()).padStart(2, '0')}:${String(offlineNow.getSeconds()).padStart(2, '0')}`;
-        const result = await OfflineSync.processAttendance({
-          id_anak, id_aktivitas, status: null, token,
-          arrival_time: offlineFormattedTime
-        }, 'qr');
+        console.log('📴 OFFLINE MODE - saving to offline queue');
+        // Offline handling
+        await OfflineSync.saveOfflineAttendance({
+          id_anak,
+          id_aktivitas,
+          token,
+          timestamp: new Date().toISOString()
+        });
         
         await playSound();
-        setTimeout(() => showToast('Disimpan untuk sinkronisasi saat online', 'warning'), 100);
+        showToast('Absensi disimpan offline', 'warning');
       }
     } catch (error) {
-      if (!error.isDuplicate) {
-        setTimeout(() => showToast(error.message || 'Gagal merekam', 'error'), 100);
-      }
-    }
-  }, [isConnected, dispatch, id_aktivitas, validationResult, playSound, showToast]);
-  
-  const handleTutorAttendanceRecording = useCallback(async (token) => {
-    try {
-      if (isConnected) {
-        const now = new Date();
-        const formattedArrivalTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        const result = await dispatch(recordTutorAttendanceByQr({ 
-          id_aktivitas, token, arrival_time: formattedArrivalTime
-        })).unwrap();
-        
-        await playSound();
-        
-        let status = 'Hadir', toastType = 'success';
-        
-        if (result.data?.absen) {
-          if (result.data.absen === 'Tidak') {
-            status = 'Tidak Hadir';
-            toastType = 'error';
-          } else if (result.data.absen === 'Terlambat') {
-            status = 'Terlambat';
-            toastType = 'warning';
-          }
-        }
-        
-        const tutorName = result.data?.absen_user?.tutor?.nama || 'Tutor';
-        setTimeout(() => showToast(`${status}: ${tutorName} (Tutor)`, toastType), 100);
+      console.error('❌ ATTENDANCE RECORDING FAILED:', error);
+      console.log('🔍 ERROR DETAILS:', { duplicateError, errorObject: error, isDuplicate: error.isDuplicate });
+      
+      // Handle specific error cases
+      const studentName = validationResult?.anak?.full_name || 'Siswa';
+      
+      if (error.isDuplicate || duplicateError) {
+        showToast(`⚠️ ${studentName} sudah melakukan absen`, 'warning');
+      } else if (error.message?.includes('Too early to attend')) {
+        showToast(`⏱️ Terlalu awal! Absen bisa dilakukan 15 menit sebelum aktivitas dimulai`, 'warning');
+      } else if (error.message?.includes('Activity has not started yet')) {
+        showToast(`📅 Aktivitas belum dimulai, silakan tunggu sampai tanggal aktivitas`, 'warning');
+      } else if (error.message?.includes('GPS')) {
+        showToast(`📍 Lokasi tidak sesuai dengan shelter`, 'error');
       } else {
-        const tutorOfflineNow = new Date();
-        const tutorOfflineFormattedTime = `${tutorOfflineNow.getFullYear()}-${String(tutorOfflineNow.getMonth() + 1).padStart(2, '0')}-${String(tutorOfflineNow.getDate()).padStart(2, '0')} ${String(tutorOfflineNow.getHours()).padStart(2, '0')}:${String(tutorOfflineNow.getMinutes()).padStart(2, '0')}:${String(tutorOfflineNow.getSeconds()).padStart(2, '0')}`;
-        await OfflineSync.processAttendance({
-          id_aktivitas, token, arrival_time: tutorOfflineFormattedTime,
-          type: 'tutor'
-        }, 'qr');
-        
-        await playSound();
-        setTimeout(() => showToast('Disimpan untuk sinkronisasi saat online', 'warning'), 100);
-      }
-    } catch (error) {
-      if (!error.isDuplicate) {
-        setTimeout(() => showToast(error.message || 'Gagal merekam kehadiran tutor', 'error'), 100);
+        showToast('❌ Gagal mencatat kehadiran', 'error');
       }
     }
-  }, [isConnected, dispatch, id_aktivitas, playSound, showToast]);
-  
-  const isLoading = tokenLoading || attendanceLoading || loadingKelompokData || tutorAttendanceLoading || isProcessing;
-  
-  const getToastStyle = () => ({
-    error: styles.errorToast,
-    warning: styles.warningToast,
-    success: styles.successToast
-  }[toastType] || styles.successToast);
-  
-  const getToastIcon = () => ({
-    error: 'close-circle',
-    warning: 'alert-circle',
-    success: 'checkmark-circle'
-  }[toastType] || 'checkmark-circle');
+  }, [dispatch, id_aktivitas, isConnected, validationResult, playSound, showToast, duplicateError]);
 
-  const getActivityStatusInfo = () => {
-    switch(activityDateStatus) {
+  const getToastStyle = useCallback(() => {
+    switch (toastType) {
+      case 'success': return styles.successToast;
+      case 'warning': return styles.warningToast;
+      case 'error': return styles.errorToast;
+      default: return styles.successToast;
+    }
+  }, [toastType]);
+
+  const getToastIcon = useCallback(() => {
+    switch (toastType) {
+      case 'success': return 'checkmark-circle';
+      case 'warning': return 'warning';
+      case 'error': return 'close-circle';
+      default: return 'checkmark-circle';
+    }
+  }, [toastType]);
+
+  const getActivityStatusInfo = useCallback(() => {
+    switch (activityDateStatus) {
       case 'future':
         return {
           show: true, color: '#f39c12', icon: 'time-outline',
@@ -349,7 +390,7 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
       default:
         return { show: false };
     }
-  };
+  }, [activityDateStatus]);
 
   const activityStatus = getActivityStatusInfo();
 
@@ -382,12 +423,24 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
         )}
         
         {activityDateStatus === 'valid' && (
-          <View style={styles.autoDetectionNote}>
-            <Ionicons name="time-outline" size={16} color="#fff" />
-            <Text style={styles.autoDetectionText}>
-              Status kehadiran akan ditentukan otomatis berdasarkan jadwal
-            </Text>
-          </View>
+          <>
+            <View style={styles.autoDetectionNote}>
+              <Ionicons name="time-outline" size={16} color="#fff" />
+              <Text style={styles.autoDetectionText}>
+                Status kehadiran akan ditentukan otomatis berdasarkan jadwal
+              </Text>
+            </View>
+            
+            {startTime && (
+              <View style={styles.timingInfoNote}>
+                <Ionicons name="information-circle-outline" size={14} color="#fff" />
+                <Text style={styles.timingInfoText}>
+                  Absen dapat dilakukan 15 menit sebelum jam {startTime}
+                  {endTime && ` hingga ${endTime}`}
+                </Text>
+              </View>
+            )}
+          </>
         )}
         
         {!isConnected && (
@@ -426,6 +479,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(52, 152, 219, 0.7)', padding: 10, borderRadius: 6, marginBottom: 10
   },
   autoDetectionText: { color: '#fff', marginLeft: 8, fontSize: 12, textAlign: 'center' },
+  timingInfoNote: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(46, 125, 50, 0.7)', padding: 8, borderRadius: 4, marginBottom: 8
+  },
+  timingInfoText: { color: '#fff', marginLeft: 6, fontSize: 11, textAlign: 'center', opacity: 0.9 },
   offlineIndicator: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#e74c3c', padding: 6, borderRadius: 4

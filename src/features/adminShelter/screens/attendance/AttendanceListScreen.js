@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert, RefreshControl
 } from 'react-native';
@@ -27,18 +27,45 @@ const AttendanceListScreen = ({ navigation, route }) => {
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   
+  // Ref untuk prevent multiple simultaneous requests
+  const fetchingRef = useRef(false);
+  const lastFetchTime = useRef(0);
+  
   useEffect(() => {
-    if (id_aktivitas) fetchAttendanceRecords();
+    if (id_aktivitas) {
+      // Debounce untuk prevent multiple calls saat navigation
+      const timeoutId = setTimeout(() => {
+        fetchAttendanceRecords();
+      }, 200);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        dispatch(resetAttendanceError());
+      };
+    }
+    
     return () => dispatch(resetAttendanceError());
   }, [id_aktivitas, dispatch]);
   
   const fetchAttendanceRecords = async () => {
     if (!id_aktivitas) return;
+    
+    // Prevent multiple simultaneous requests
+    if (fetchingRef.current) return;
+    
+    // Rate limiting - minimum 1 second between requests
+    const now = Date.now();
+    if (now - lastFetchTime.current < 1000) return;
+    
     try {
+      fetchingRef.current = true;
+      lastFetchTime.current = now;
+      
       await dispatch(getAttendanceByActivity({ id_aktivitas })).unwrap();
     } catch (err) {
       console.error('Gagal mengambil kehadiran:', err);
     } finally {
+      fetchingRef.current = false;
       setRefreshing(false);
     }
   };

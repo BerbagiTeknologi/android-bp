@@ -49,7 +49,7 @@ const AdminShelterProfileScreen = () => {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true, aspect: [1, 1], quality: 0.7,
       });
 
@@ -210,6 +210,7 @@ const AdminShelterProfileScreen = () => {
 
         <View style={styles.settingsContainer}>
           {[
+            { icon: 'location-outline', text: 'GPS Setting Shelter', route: 'ShelterGpsSettingScreen', color: '#3498db' },
             { icon: 'settings-outline', text: 'Setting', route: 'Settings', color: '#e74c3c' },
             { icon: 'log-out-outline', text: 'Keluar', onPress: handleLogout, color: '#e74c3c' }
           ].map((item, index) => (

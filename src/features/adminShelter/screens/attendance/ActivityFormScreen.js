@@ -9,13 +9,14 @@ import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 import Button from '../../../../common/components/Button';
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
 
 import {
-  createAktivitas, updateAktivitas, selectAktivitasLoading, selectAktivitasError,
+  createAktivitas, updateAktivitas, selectAktivitasLoading, selectAktivitasError, selectAktivitasConflicts,
   fetchAllMateri, setSelectedMateri, selectMateriCache, selectMateriCacheLoading,
   selectSelectedMateri, clearSelectedMateri
 } from '../../redux/aktivitasSlice';
@@ -31,6 +32,7 @@ const ActivityFormScreen = ({ navigation, route }) => {
   
   const loading = useSelector(selectAktivitasLoading);
   const error = useSelector(selectAktivitasError);
+  const conflicts = useSelector(selectAktivitasConflicts);
   
   // NEW: Kurikulum selectors
   const materiCache = useSelector(selectMateriCache);
@@ -39,8 +41,7 @@ const ActivityFormScreen = ({ navigation, route }) => {
   
   const [formData, setFormData] = useState({
     jenis_kegiatan: '', level: '', nama_kelompok: '', materi: '', id_materi: null,
-    tanggal: new Date(), foto_1: null, foto_2: null, foto_3: null,
-    selectedKelompokId: null, selectedKelompokObject: null, start_time: null,
+    tanggal: new Date(), selectedKelompokId: null, selectedKelompokObject: null, start_time: null,
     end_time: null, late_threshold: null, late_minutes_threshold: 15, id_tutor: null
   });
   
@@ -49,13 +50,13 @@ const ActivityFormScreen = ({ navigation, route }) => {
     showLateThresholdPicker: false, useCustomLateThreshold: false, useCustomMateri: false
   });
   
-  const [photos, setPhotos] = useState({ foto_1: null, foto_2: null, foto_3: null });
   const [kelompokList, setKelompokList] = useState([]);
   const [tutorList, setTutorList] = useState([]);
   const [loadingStates, setLoadingStates] = useState({
     kelompok: false, tutor: false
   });
   const [errors, setErrors] = useState({ kelompok: null, tutor: null });
+  const [conflictWarning, setConflictWarning] = useState(null);
   
   useEffect(() => {
     if (isEditing && activity) initializeEditForm();
@@ -94,7 +95,30 @@ const ActivityFormScreen = ({ navigation, route }) => {
   }, [isEditing, activity, materiCache, selectedMateriFromStore, dispatch]);
   
   const initializeEditForm = () => {
-    const parseTime = (timeStr) => timeStr ? new Date(`2000-01-01T${timeStr}`) : null;
+    const parseTime = (timeStr) => {
+      if (!timeStr || typeof timeStr !== 'string' || timeStr.trim() === '') {
+        return null;
+      }
+      
+      // Validate time format (H:mm, HH:mm or HH:mm:ss) - flexible for backend format
+      const timeRegex = /^([0-9]|[0-1][0-9]|2[0-3]):([0-5][0-9])(:([0-5][0-9]))?$/;
+      if (!timeRegex.test(timeStr.trim())) {
+        console.warn('Invalid time format:', timeStr);
+        return null;
+      }
+      
+      try {
+        const date = new Date(`2000-01-01T${timeStr.trim()}`);
+        if (isNaN(date.getTime())) {
+          console.warn('Invalid time value:', timeStr);
+          return null;
+        }
+        return date;
+      } catch (error) {
+        console.warn('Error parsing time:', timeStr, error);
+        return null;
+      }
+    };
     
     setFormData({
       ...formData,
@@ -111,11 +135,6 @@ const ActivityFormScreen = ({ navigation, route }) => {
       id_tutor: activity.tutor?.id_tutor || null
     });
     
-    setPhotos({
-      foto_1: activity.foto_1_url || null,
-      foto_2: activity.foto_2_url || null,
-      foto_3: activity.foto_3_url || null
-    });
     
     setUIState(prev => ({
       ...prev,
@@ -134,7 +153,7 @@ const ActivityFormScreen = ({ navigation, route }) => {
       const response = await apiCall();
       setData(response.data?.data || []);
     } catch (err) {
-      console.error(`Error fetching ${key}:`, err);
+      console.error(`Error mengambil ${key}:`, err);
       setErrors(prev => ({ ...prev, [key]: `Gagal memuat data ${key}` }));
     } finally {
       setLoadingStates(prev => ({ ...prev, [key]: false }));
@@ -195,9 +214,14 @@ const ActivityFormScreen = ({ navigation, route }) => {
       }));
       
       if (value !== 'Bimbel') {
-        setMateriList([]);
         setUIState(prev => ({ ...prev, useCustomMateri: false }));
       }
+      // Clear conflict warning when activity type changes
+      setConflictWarning(null);
+    } else if (name === 'id_tutor' || name === 'tanggal') {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      // Clear conflict warning when tutor or date changes
+      setConflictWarning(null);
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -218,6 +242,8 @@ const ActivityFormScreen = ({ navigation, route }) => {
     
     // Clear selected materi when kelompok changes
     dispatch(clearSelectedMateri());
+    // Clear conflict warning when kelompok changes
+    setConflictWarning(null);
   };
   
   // NEW: Handle materi selection from SmartMateriSelector
@@ -253,6 +279,8 @@ const ActivityFormScreen = ({ navigation, route }) => {
     setUIState(prev => ({ ...prev, [pickerField]: false }));
     if (selectedTime) {
       setFormData(prev => ({ ...prev, [field]: selectedTime }));
+      // Clear any existing conflict warning when time changes
+      setConflictWarning(null);
     }
   };
   
@@ -268,43 +296,45 @@ const ActivityFormScreen = ({ navigation, route }) => {
     }
   };
   
-  const handleSelectPhoto = async (photoKey) => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Izin Ditolak', 'Kami memerlukan izin galeri untuk memilih foto.');
+  
+  const formatTime = (time) => !time ? 'Belum diatur' : format(time, 'HH:mm');
+  
+  // Check conflicts when relevant form data changes
+  useEffect(() => {
+    const checkPotentialConflicts = () => {
+      // Clear warning if required fields are not complete
+      if (!formData.tanggal || !formData.start_time || !formData.end_time || !formData.id_tutor) {
+        setConflictWarning(null);
         return;
       }
       
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true, aspect: [4, 3], quality: 0.8
-      });
-      
-      if (!result.canceled && result.assets?.[0]) {
-        const image = result.assets[0];
-        setFormData(prev => ({
-          ...prev,
-          [photoKey]: {
-            uri: image.uri,
-            name: image.uri.split('/').pop(),
-            type: 'image/jpeg'
-          }
-        }));
-        setPhotos(prev => ({ ...prev, [photoKey]: image.uri }));
+      const isValidTimeRange = formData.start_time < formData.end_time;
+      if (!isValidTimeRange) {
+        setConflictWarning(null);
+        return;
       }
-    } catch (error) {
-      console.error('Error selecting photo:', error);
-      Alert.alert('Error', 'Gagal memilih foto');
-    }
-  };
-  
-  const handleRemovePhoto = (photoKey) => {
-    setFormData(prev => ({ ...prev, [photoKey]: null }));
-    setPhotos(prev => ({ ...prev, [photoKey]: null }));
-  };
-  
-  const formatTime = (time) => !time ? 'Belum diatur' : format(time, 'HH:mm');
+      
+      // Show advisory warning when all required data is present
+      const selectedTutor = tutorList.find(t => t.id_tutor === formData.id_tutor);
+      const tutorName = selectedTutor?.nama || 'Tutor terpilih';
+      const timeRange = `${formatTime(formData.start_time)} - ${formatTime(formData.end_time)}`;
+      const dateStr = format(formData.tanggal, 'dd/MM/yyyy', { locale: id });
+      
+      setConflictWarning(
+        `Pastikan tidak ada konflik: ${tutorName} pada ${dateStr} jam ${timeRange}${
+          formData.jenis_kegiatan === 'Bimbel' && formData.nama_kelompok 
+            ? ` untuk kelompok ${formData.nama_kelompok}` 
+            : ''
+        }`
+      );
+    };
+
+    const timeoutId = setTimeout(() => {
+      checkPotentialConflicts();
+    }, 1000); // Debounce to avoid too many checks
+    
+    return () => clearTimeout(timeoutId);
+  }, [formData.tanggal, formData.start_time, formData.end_time, formData.id_tutor, formData.nama_kelompok, formData.jenis_kegiatan, tutorList]);
   
   const validateForm = () => {
     if (!formData.jenis_kegiatan || !formData.tanggal) {
@@ -415,9 +445,6 @@ const ActivityFormScreen = ({ navigation, route }) => {
         data.append('late_minutes_threshold', formData.late_minutes_threshold.toString());
       }
       
-      ['foto_1', 'foto_2', 'foto_3'].forEach(key => {
-        if (formData[key]) data.append(key, formData[key]);
-      });
       
       return data;
     }
@@ -432,17 +459,46 @@ const ActivityFormScreen = ({ navigation, route }) => {
       if (isEditing) {
         await dispatch(updateAktivitas({ id: activity.id_aktivitas, aktivitasData: data })).unwrap();
         Alert.alert('Berhasil', 'Aktivitas berhasil diperbarui', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'Oke', onPress: () => navigation.goBack() }
         ]);
       } else {
         await dispatch(createAktivitas(data)).unwrap();
         Alert.alert('Berhasil', 'Aktivitas berhasil dibuat', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'Oke', onPress: () => navigation.goBack() }
         ]);
       }
     } catch (err) {
-      console.error('Error saving activity:', err);
-      Alert.alert('Error', err || 'Gagal menyimpan aktivitas');
+      console.error('Error menyimpan aktivitas:', err);
+      
+      // Handle conflict validation errors from backend (both from direct API and Redux)
+      // Priority: thrown payload > direct API response > Redux store (for race condition)
+      const errorConflicts = err?.conflicts || err?.response?.data?.conflicts || conflicts;
+      const errorMessage = err?.message || err?.response?.data?.message || error || 'Gagal menyimpan aktivitas';
+      
+      if (errorConflicts && errorConflicts.length > 0) {
+        // Format conflict messages with better structure
+        const conflictList = errorConflicts.map((conflict, index) => 
+          `${index + 1}. ${conflict}`
+        ).join('\n');
+        
+        const suggestions = [
+          '• Pilih waktu yang berbeda',
+          '• Pilih tutor lain yang tersedia', 
+          '• Untuk Bimbel, pilih kelompok yang berbeda'
+        ];
+        
+        Alert.alert(
+          'Jadwal Bentrok Ditemukan', 
+          `${errorMessage}\n\nDetail konflik:\n${conflictList}\n\nSaran penyelesaian:\n${suggestions.join('\n')}`,
+          [{ text: 'Mengerti', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          'Gagal Menyimpan', 
+          errorMessage,
+          [{ text: 'Oke' }]
+        );
+      }
     }
   };
 
@@ -464,23 +520,6 @@ const ActivityFormScreen = ({ navigation, route }) => {
     </TouchableOpacity>
   );
 
-  const PhotoBox = ({ photoKey, uri, onSelect, onRemove }) => (
-    <View style={styles.photoBox}>
-      {uri ? (
-        <View style={styles.photoPreviewContainer}>
-          <Image source={{ uri }} style={styles.photoPreview} />
-          <TouchableOpacity style={styles.removePhotoButton} onPress={() => onRemove(photoKey)}>
-            <Ionicons name="close-circle" size={24} color="#e74c3c" />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.addPhotoButton} onPress={() => onSelect(photoKey)}>
-          <Ionicons name="camera" size={32} color="#bdc3c7" />
-          <Text style={styles.addPhotoText}>{photoKey.replace('foto_', 'Foto ')}</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
 
   const LoadingIndicator = ({ loading, text }) => loading && (
     <View style={styles.loadingContainer}>
@@ -745,20 +784,15 @@ const ActivityFormScreen = ({ navigation, route }) => {
         )}
       </View>
       
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Foto</Text>
-        <View style={styles.photosContainer}>
-          {['foto_1', 'foto_2', 'foto_3'].map(key => (
-            <PhotoBox
-              key={key}
-              photoKey={key}
-              uri={photos[key]}
-              onSelect={handleSelectPhoto}
-              onRemove={handleRemovePhoto}
-            />
-          ))}
+      {/* NEW: Conflict warning display */}
+      {conflictWarning && (
+        <View style={styles.warningContainer}>
+          <View style={styles.warningIcon}>
+            <Ionicons name="warning" size={20} color="#f39c12" />
+          </View>
+          <Text style={styles.warningText}>{conflictWarning}</Text>
         </View>
-      </View>
+      )}
       
       <View style={styles.buttonContainer}>
         <Button
@@ -856,22 +890,6 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 12, color: '#95a5a6', marginTop: 6, fontStyle: 'italic'
   },
-  photosContainer: {
-    flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap'
-  },
-  photoBox: { width: '32%', aspectRatio: 1, marginBottom: 10, borderRadius: 8, overflow: 'hidden' },
-  addPhotoButton: {
-    backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd',
-    borderRadius: 8, width: '100%', height: '100%',
-    justifyContent: 'center', alignItems: 'center'
-  },
-  addPhotoText: { color: '#7f8c8d', marginTop: 4, fontSize: 12 },
-  photoPreviewContainer: { width: '100%', height: '100%', position: 'relative' },
-  photoPreview: { width: '100%', height: '100%', borderRadius: 8 },
-  removePhotoButton: {
-    position: 'absolute', top: 4, right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 12
-  },
   buttonContainer: { marginTop: 20 },
   cancelButton: { marginTop: 12 },
   loadingContainer: {
@@ -880,7 +898,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#ddd'
   },
   loadingText: { marginLeft: 8, color: '#7f8c8d' },
-  errorContainer: { marginVertical: 0 }
+  errorContainer: { marginVertical: 0 },
+  // NEW: Warning styles
+  warningContainer: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    backgroundColor: '#fff3cd', borderWidth: 1, borderColor: '#ffeaa7',
+    borderRadius: 8, padding: 12, marginBottom: 16
+  },
+  warningIcon: { marginRight: 8, marginTop: 2 },
+  warningText: {
+    flex: 1, fontSize: 14, color: '#856404',
+    lineHeight: 18
+  }
 });
 
 export default ActivityFormScreen;

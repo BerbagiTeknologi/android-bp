@@ -44,7 +44,7 @@ const AddChildrenToKelompokScreen = () => {
         setKelompokDetails(response.data.data);
       }
     } catch (err) {
-      console.error('Error fetching kelompok details:', err);
+      console.error('Error mengambil detail kelompok:', err);
     }
   };
   
@@ -59,11 +59,11 @@ const AddChildrenToKelompokScreen = () => {
         setAvailableChildren(children);
         setFilteredChildren(children);
       } else {
-        setError(response.data.message || 'Failed to load available children');
+        setError(response.data.message || 'Gagal memuat anak tersedia');
       }
     } catch (err) {
-      console.error('Error fetching available children:', err);
-      setError('Failed to load available children. Please try again.');
+      console.error('Error mengambil anak tersedia:', err);
+      setError('Gagal memuat anak tersedia. Silakan coba lagi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -190,17 +190,17 @@ const AddChildrenToKelompokScreen = () => {
                 
                 if (errors && errors.length > 0) {
                   Alert.alert(
-                    'Partial Success', 
+                    'Sukses Sebagian', 
                     `Added ${added_count} children, but ${errors.length} failed:\n${errors.join('\n')}`
                   );
                 } else {
-                  Alert.alert('Success', `Successfully added ${added_count} children to the group!`);
+                  Alert.alert('Berhasil', `Berhasil menambahkan ${added_count} anak ke kelompok!`);
                 }
                 
                 // Navigate back with refresh flag
                 navigation.navigate('KelompokDetail', { id: kelompokId, refresh: true });
               } else {
-                Alert.alert('Error', response.data.message || 'Failed to add children');
+                Alert.alert('Error', response.data.message || 'Gagal menambahkan anak');
               }
             } catch (err) {
               console.error('Gagal masukkan anak:', err);

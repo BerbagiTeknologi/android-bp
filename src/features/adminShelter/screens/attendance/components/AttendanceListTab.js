@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert, RefreshControl
 } from 'react-native';
@@ -25,18 +25,46 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   
+  // Ref untuk prevent multiple simultaneous requests
+  const fetchingRef = useRef(false);
+  const lastFetchTime = useRef(0);
+  
   useEffect(() => {
-    if (id_aktivitas) fetchAttendanceRecords();
+    if (id_aktivitas) {
+      // Debounce untuk prevent multiple calls saat tab switching
+      const timeoutId = setTimeout(() => {
+        fetchAttendanceRecords();
+      }, 200);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        dispatch(resetAttendanceError());
+      };
+    }
+    
     return () => dispatch(resetAttendanceError());
   }, [id_aktivitas, dispatch]);
   
   const fetchAttendanceRecords = async () => {
     if (!id_aktivitas) return;
+    
+    // Prevent multiple simultaneous requests
+    if (fetchingRef.current) return;
+    
+    // Rate limiting - minimum 1 second between requests
+    const now = Date.now();
+    if (now - lastFetchTime.current < 1000) return;
+    
     try {
-      await dispatch(getAttendanceByActivity({ id_aktivitas })).unwrap();
+      fetchingRef.current = true;
+      lastFetchTime.current = now;
+      
+      // Use old endpoint that shows attendance records only
+      await dispatch(getAttendanceByActivity({ id_aktivitas, type: 'student' })).unwrap();
     } catch (err) {
       console.error('Gagal mengambil kehadiran:', err);
     } finally {
+      fetchingRef.current = false;
       setRefreshing(false);
     }
   };
@@ -46,27 +74,18 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
     fetchAttendanceRecords();
   };
   
-  const getPersonName = (record) => {
-    if (record.absen_user?.anak) {
-      return record.absen_user.anak.full_name || record.absen_user.anak.name || 'Siswa Tidak Dikenal';
-    }
-    if (record.absen_user?.tutor) {
-      return record.absen_user.tutor.nama || 'Tutor Tidak Dikenal';
-    }
-    return 'Orang Tidak Dikenal';
-  };
-  
-  const getPersonType = (record) => record.absen_user?.anak ? 'Siswa' : 'Tutor';
-  
+  // Filter attendance records based on search and status filter
   const filteredRecords = attendanceRecords.filter(record => {
-    const personName = getPersonName(record);
-    const matchesSearch = personName.toLowerCase().includes(searchQuery.toLowerCase());
+    const studentName = record.absen_user?.anak?.name || record.student_name || record.full_name || '';
+    const matchesSearch = studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         record.absen_user?.anak?.nis?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         record.nis?.toLowerCase().includes(searchQuery.toLowerCase());
     
     let matchesFilter = true;
-    if (filterStatus === 'verified') {
-      matchesFilter = record.is_verified;
-    } else if (filterStatus === 'pending') {
-      matchesFilter = !record.is_verified && record.verification_status === 'pending';
+    if (filterStatus === 'pending') {
+      matchesFilter = record.verification_status === 'pending';
+    } else if (filterStatus === 'verified') {
+      matchesFilter = record.verification_status === 'verified';
     } else if (filterStatus === 'rejected') {
       matchesFilter = record.verification_status === 'rejected';
     }
@@ -75,11 +94,11 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
   });
   
   const getFilterCounts = () => {
-    const verified = attendanceRecords.filter(r => r.is_verified).length;
-    const pending = attendanceRecords.filter(r => !r.is_verified && r.verification_status === 'pending').length;
+    const pending = attendanceRecords.filter(r => r.verification_status === 'pending').length;
+    const verified = attendanceRecords.filter(r => r.verification_status === 'verified').length;
     const rejected = attendanceRecords.filter(r => r.verification_status === 'rejected').length;
     
-    return { verified, pending, rejected, all: attendanceRecords.length };
+    return { pending, verified, rejected, all: attendanceRecords.length };
   };
   
   const counts = getFilterCounts();
@@ -159,6 +178,19 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
     if (record.is_verified) return 'Terverifikasi';
     return record.verification_status === 'rejected' ? 'Ditolak' : 'Menunggu';
   };
+
+  const getPersonName = (item) => {
+    return item.absen_user?.anak?.name || item.student_name || item.full_name || item.tutor_name || 'Unknown';
+  };
+
+  const getPersonType = (item) => {
+    if (item.absen_user?.anak) return 'Siswa';
+    if (item.absen_user?.tutor) return 'Tutor';
+    if (item.student_name || item.full_name) return 'Siswa';
+    if (item.tutor_name) return 'Tutor';
+    return 'Unknown';
+  };
+  
   
   const renderAttendanceCard = ({ item }) => (
     <View style={styles.attendanceCard}>
@@ -193,16 +225,32 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
       {expandedCardId === item.id_absen && (
         <View style={styles.cardContent}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Waktu Tiba:</Text>
+            <Text style={styles.detailLabel}>Waktu Absen:</Text>
             <Text style={styles.detailValue}>
-              {item.time_arrived ? new Date(item.time_arrived).toLocaleTimeString() : 'Tidak tercatat'}
+              {item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : 'Tidak tercatat'}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Status:</Text>
+            <Text style={[styles.detailValue, { color: getStatusColor(item.absen) }]}>
+              {getStatusText(item.absen)}
             </Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Verifikasi:</Text>
-            <Text style={styles.detailValue}>{item.verification_status}</Text>
+            <Text style={[styles.detailValue, { color: getVerificationColor(item) }]}>
+              {getVerificationText(item)}
+            </Text>
           </View>
+
+          {item.latest_verification?.verification_notes && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Catatan:</Text>
+              <Text style={styles.detailValue}>{item.latest_verification.verification_notes}</Text>
+            </View>
+          )}
           
           {!item.is_verified && item.verification_status === 'pending' && (
             <View style={styles.actionButtons}>
@@ -286,18 +334,18 @@ const AttendanceListTab = ({ navigation, id_aktivitas, activityName, activityDat
           onPress={() => setFilterStatus('all')}
         />
         <FilterTab
-          status="verified"
-          label="Terverifikasi"
-          count={counts.verified}
-          active={filterStatus === 'verified'}
-          onPress={() => setFilterStatus('verified')}
-        />
-        <FilterTab
           status="pending"
           label="Menunggu"
           count={counts.pending}
           active={filterStatus === 'pending'}
           onPress={() => setFilterStatus('pending')}
+        />
+        <FilterTab
+          status="verified"
+          label="Terverifikasi"
+          count={counts.verified}
+          active={filterStatus === 'verified'}
+          onPress={() => setFilterStatus('verified')}
         />
         <FilterTab
           status="rejected"
@@ -366,6 +414,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1, shadowRadius: 2, elevation: 2
   },
+  memberCard: {
+    backgroundColor: '#fff', borderRadius: 8, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1, shadowRadius: 2, elevation: 2
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   personInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   personDetails: { flex: 1 },
@@ -404,7 +457,24 @@ const styles = StyleSheet.create({
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center', alignItems: 'center'
-  }
+  },
+  cardLeft: { flex: 1 },
+  cardRight: { flexDirection: 'row', alignItems: 'center' },
+  studentName: { fontSize: 16, fontWeight: '500', color: '#2c3e50' },
+  studentNis: { fontSize: 12, color: '#7f8c8d', marginTop: 2 },
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 12, marginRight: 12
+  },
+  statusText: { color: '#fff', fontSize: 12, fontWeight: '500', marginLeft: 4 },
+  cardDetails: {
+    padding: 16, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0'
+  },
+  noRecordNote: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa',
+    padding: 12, borderRadius: 6, marginTop: 8
+  },
+  noRecordText: { flex: 1, fontSize: 12, color: '#6c757d', marginLeft: 8 }
 });
 
 export default AttendanceListTab;
