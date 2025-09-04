@@ -97,6 +97,7 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
     Alert.alert('Berhasil', 'Lokasi saat ini berhasil terdeteksi');
   };
 
+
   const handleLocationError = (error) => {
     setShowGpsModal(false);
     Alert.alert('Error GPS', error);
@@ -188,30 +189,31 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
     }
   };
 
-  const renderGpsCoordinateCard = () => {
+  const renderGpsLocationSection = () => {
     if (!gpsConfig.require_gps) return null;
-    
-    const hasCoordinates = gpsConfig.latitude && gpsConfig.longitude;
     
     return (
       <View style={styles.coordinateCard}>
         <View style={styles.coordinateHeader}>
           <Ionicons name="location" size={20} color="#3498db" />
-          <Text style={styles.coordinateTitle}>Koordinat Shelter</Text>
+          <Text style={styles.coordinateTitle}>Lokasi GPS Shelter</Text>
         </View>
         
-        {hasCoordinates ? (
+        {gpsConfig.latitude && gpsConfig.longitude ? (
           <View style={styles.coordinateDisplay}>
             <Text style={styles.coordinateText}>
-              {parseFloat(gpsConfig.latitude).toFixed(7)}, {parseFloat(gpsConfig.longitude).toFixed(7)}
+              Lat: {parseFloat(gpsConfig.latitude).toFixed(6)}
+            </Text>
+            <Text style={styles.coordinateText}>
+              Lng: {parseFloat(gpsConfig.longitude).toFixed(6)}
             </Text>
             <Text style={styles.coordinateSubtext}>
-              Radius: {gpsConfig.max_distance_meters}m
+              Koordinat saat ini aktif
             </Text>
           </View>
         ) : (
           <Text style={styles.noCoordinateText}>
-            Belum ada koordinat yang diatur
+            Belum ada koordinat GPS yang diatur
           </Text>
         )}
         
@@ -230,6 +232,79 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
             {isDetectingLocation ? 'Mendeteksi...' : 'Deteksi Lokasi Saat Ini'}
           </Text>
         </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderApprovalStatus = () => {
+    if (!gpsConfig.require_gps) return null;
+    
+    const status = profile?.shelter?.gps_approval_status || 'draft';
+    
+    const getStatusInfo = (status) => {
+      switch (status) {
+        case 'pending':
+          return {
+            label: 'Menunggu Persetujuan Admin Cabang',
+            color: '#f39c12',
+            bgColor: '#fef9e7',
+            icon: 'time-outline',
+            description: 'GPS setting yang Anda kirim sedang menunggu persetujuan dari Admin Cabang. Setting GPS saat ini masih tetap aktif.'
+          };
+        case 'approved':
+          return {
+            label: 'Disetujui Admin Cabang',
+            color: '#27ae60',
+            bgColor: '#eafaf1',
+            icon: 'checkmark-circle-outline',
+            description: 'GPS setting telah disetujui dan aktif. Perubahan akan berlaku untuk semua aktivitas di shelter.'
+          };
+        case 'rejected':
+          return {
+            label: 'Ditolak Admin Cabang',
+            color: '#e74c3c',
+            bgColor: '#fadbd8',
+            icon: 'close-circle-outline',
+            description: profile?.shelter?.gps_rejection_reason || 'GPS setting ditolak oleh Admin Cabang. Silakan perbaiki dan kirim ulang.'
+          };
+        default:
+          return {
+            label: 'Belum Dikirim',
+            color: '#95a5a6',
+            bgColor: '#f8f9fa',
+            icon: 'document-outline',
+            description: 'GPS setting belum dikirim untuk persetujuan. Klik "Kirim untuk Persetujuan" untuk mengirim ke Admin Cabang.'
+          };
+      }
+    };
+    
+    const statusInfo = getStatusInfo(status);
+    
+    return (
+      <View style={styles.approvalStatusContainer}>
+        <View style={[styles.approvalStatusCard, { backgroundColor: statusInfo.bgColor }]}>
+          <View style={styles.approvalStatusHeader}>
+            <Ionicons name={statusInfo.icon} size={20} color={statusInfo.color} />
+            <Text style={[styles.approvalStatusLabel, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+          <Text style={styles.approvalStatusDescription}>
+            {statusInfo.description}
+          </Text>
+          
+          {status === 'pending' && profile?.shelter?.gps_submitted_at && (
+            <Text style={styles.approvalStatusDate}>
+              Dikirim: {new Date(profile.shelter.gps_submitted_at).toLocaleString('id-ID')}
+            </Text>
+          )}
+          
+          {status === 'approved' && profile?.shelter?.gps_approved_at && (
+            <Text style={styles.approvalStatusDate}>
+              Disetujui: {new Date(profile.shelter.gps_approved_at).toLocaleString('id-ID')}
+            </Text>
+          )}
+        </View>
       </View>
     );
   };
@@ -263,8 +338,11 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
           />
         </View>
         
-        {/* GPS Coordinate Card */}
-        {renderGpsCoordinateCard()}
+        {/* GPS Approval Status */}
+        {renderApprovalStatus()}
+        
+        {/* GPS Location Section */}
+        {renderGpsLocationSection()}
         
         {gpsConfig.require_gps && (
           <View style={styles.formContainer}>
@@ -278,28 +356,35 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
               style={styles.input}
             />
             
+            {/* Manual Coordinate Input */}
             <View style={styles.coordinateInputs}>
-              <View style={styles.coordinateInputContainer}>
+              <View style={[styles.coordinateInputContainer, styles.coordinateInput]}>
                 <TextInput
                   label="Latitude"
                   value={gpsConfig.latitude}
                   onChangeText={(value) => handleInputChange('latitude', value)}
-                  placeholder="-6.4058959"
+                  placeholder="-6.208800"
                   keyboardType="numeric"
-                  style={styles.coordinateInput}
+                  style={styles.input}
                 />
               </View>
-              
-              <View style={styles.coordinateInputContainer}>
+              <View style={[styles.coordinateInputContainer, styles.coordinateInput]}>
                 <TextInput
                   label="Longitude"
                   value={gpsConfig.longitude}
                   onChangeText={(value) => handleInputChange('longitude', value)}
-                  placeholder="108.1687360"
+                  placeholder="106.845600"
                   keyboardType="numeric"
-                  style={styles.coordinateInput}
+                  style={styles.input}
                 />
               </View>
+            </View>
+            
+            <View style={styles.helpContainer}>
+              <Ionicons name="information-circle-outline" size={16} color="#7f8c8d" />
+              <Text style={styles.helpText}>
+                Masukkan koordinat GPS manual atau gunakan tombol "Deteksi Lokasi Saat Ini" di atas
+              </Text>
             </View>
             
             <View style={styles.advancedSettings}>
@@ -336,10 +421,10 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
         
         <View style={styles.buttonContainer}>
           <Button
-            title="Simpan GPS Setting"
+            title="Kirim untuk Persetujuan"
             onPress={handleSave}
             loading={loading}
-            disabled={loading}
+            disabled={loading || profile?.shelter?.gps_approval_status === 'pending'}
             fullWidth
           />
           
@@ -356,8 +441,8 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
         <View style={styles.infoContainer}>
           <Ionicons name="information-circle" size={20} color="#3498db" />
           <Text style={styles.infoText}>
-            GPS setting ini akan berlaku untuk semua aktivitas di shelter Anda. 
-            Admin shelter dapat mengaktifkan/menonaktifkan GPS sesuai kebutuhan.
+            GPS setting yang Anda kirim akan direview oleh Admin Cabang sebelum diterapkan. 
+            Setting GPS saat ini akan tetap aktif sampai perubahan disetujui.
           </Text>
         </View>
       </View>
@@ -578,7 +663,7 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     lineHeight: 20,
     marginLeft: 10
-  }
+  },
 });
 
 export default ShelterGpsSettingScreen;

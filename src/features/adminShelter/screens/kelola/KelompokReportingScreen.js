@@ -424,7 +424,7 @@ const KelompokReportingScreen = () => {
               </View>
               <Text style={styles.challengeDescription}>{challenge.description}</Text>
               <Text style={styles.suggestedAction}>
-                💡 {challenge.suggested_action}
+                {challenge.suggested_action}
               </Text>
             </View>
           ))}

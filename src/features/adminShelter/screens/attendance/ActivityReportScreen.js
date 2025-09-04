@@ -12,6 +12,7 @@ import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
 
 import { createActivityReport, fetchActivityReport } from '../../redux/aktivitasSlice';
+import CampaignShareModal from '../../components/CampaignShareModal';
 
 const ActivityReportScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
@@ -23,6 +24,18 @@ const ActivityReportScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
+  
+  // Campaign share validation states
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [hasSharedCampaign, setHasSharedCampaign] = useState(false);
+  const [sharedCampaign, setSharedCampaign] = useState(null);
+  
+  // Debug logging
+  console.log('ActivityReportScreen state:', { 
+    showCampaignModal, 
+    hasSharedCampaign, 
+    sharedCampaign: !!sharedCampaign 
+  });
   
   // Check if report already exists when component mounts
   useEffect(() => {
@@ -97,6 +110,15 @@ const ActivityReportScreen = ({ navigation, route }) => {
   };
   
   const handleSubmit = async () => {
+    console.log('handleSubmit called, hasSharedCampaign:', hasSharedCampaign);
+    
+    // Check campaign share validation first
+    if (!hasSharedCampaign) {
+      console.log('Opening campaign modal...');
+      setShowCampaignModal(true);
+      return;
+    }
+    
     if (!validateForm()) return;
     
     setLoading(true);
@@ -129,6 +151,28 @@ const ActivityReportScreen = ({ navigation, route }) => {
     }
   };
 
+  // Handle campaign share completion
+  const handleCampaignShareComplete = (campaign) => {
+    setHasSharedCampaign(true);
+    setSharedCampaign(campaign);
+    setShowCampaignModal(false);
+    
+    // Show success message and let user manually submit
+    Alert.alert(
+      'Berhasil!',
+      `Terima kasih telah membagikan kampanye "${campaign.title}". Sekarang Anda dapat melanjutkan dengan mengirim laporan aktivitas.`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Just close the alert, user can now submit the form manually
+            console.log('Campaign shared successfully:', campaign.title);
+          }
+        }
+      ]
+    );
+  };
+
   const PhotoBox = ({ photoKey, uri, onTakePhoto, onRemove }) => (
     <View style={styles.photoBox}>
       {uri ? (
@@ -148,7 +192,8 @@ const ActivityReportScreen = ({ navigation, route }) => {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
       
       <View style={styles.header}>
@@ -162,6 +207,26 @@ const ActivityReportScreen = ({ navigation, route }) => {
         <Text style={styles.instructionText}>
           Ambil foto dokumentasi kegiatan menggunakan kamera. Minimal 1 foto, maksimal 3 foto.
         </Text>
+      </View>
+
+      {/* Campaign Share Status */}
+      <View style={styles.campaignShareSection}>
+        <Text style={styles.campaignShareTitle}>Status Berbagi Kampanye</Text>
+        {hasSharedCampaign && sharedCampaign ? (
+          <View style={styles.campaignSharedContainer}>
+            <Ionicons name="checkmark-circle" size={20} color="#27ae60" />
+            <Text style={styles.campaignSharedText}>
+              Sudah berbagi: {sharedCampaign.title}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.campaignNotSharedContainer}>
+            <Ionicons name="alert-circle" size={20} color="#e74c3c" />
+            <Text style={styles.campaignNotSharedText}>
+              Wajib berbagi kampanye sebelum mengirim laporan
+            </Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.inputGroup}>
@@ -182,7 +247,10 @@ const ActivityReportScreen = ({ navigation, route }) => {
       <View style={styles.buttonContainer}>
         <Button
           title="Kirim Laporan"
-          onPress={handleSubmit}
+          onPress={() => {
+            console.log('Button clicked, disabled:', loading);
+            handleSubmit();
+          }}
           loading={loading}
           disabled={loading}
           fullWidth
@@ -204,12 +272,21 @@ const ActivityReportScreen = ({ navigation, route }) => {
           message="Mengirim laporan kegiatan..."
         />
       )}
-    </ScrollView>
+      </ScrollView>
+      
+      {/* Campaign Share Modal - Outside ScrollView */}
+      <CampaignShareModal
+        visible={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        onShareComplete={handleCampaignShareComplete}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  scrollContainer: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
   checkingContainer: { 
     flex: 1, 
@@ -246,7 +323,54 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.7)', borderRadius: 12
   },
   buttonContainer: { marginTop: 20 },
-  cancelButton: { marginTop: 12 }
+  cancelButton: { marginTop: 12 },
+  // Campaign share styles
+  campaignShareSection: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+  },
+  campaignShareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 12,
+  },
+  campaignSharedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d4edda',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#c3e6cb',
+  },
+  campaignSharedText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#155724',
+    fontWeight: '500',
+  },
+  campaignNotSharedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8d7da',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f5c6cb',
+  },
+  campaignNotSharedText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#721c24',
+    fontWeight: '500',
+  }
 });
 
 export default ActivityReportScreen;

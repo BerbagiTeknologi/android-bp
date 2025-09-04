@@ -210,7 +210,7 @@ const AdminShelterProfileScreen = () => {
 
         <View style={styles.settingsContainer}>
           {[
-            { icon: 'location-outline', text: 'GPS Setting Shelter', route: 'ShelterGpsSettingScreen', color: '#3498db' },
+            { icon: 'location-outline', text: 'GPS Setting Shelter', route: 'ShelterGpsSetting', color: '#3498db' },
             { icon: 'settings-outline', text: 'Setting', route: 'Settings', color: '#e74c3c' },
             { icon: 'log-out-outline', text: 'Keluar', onPress: handleLogout, color: '#e74c3c' }
           ].map((item, index) => (

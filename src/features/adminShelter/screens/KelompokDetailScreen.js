@@ -424,7 +424,7 @@ const KelompokDetailScreen = () => {
               </Text>
               <Button
                 title="Lihat Materi Tersedia"
-                onPress={() => navigation.navigate('Home', { screen: 'KurikulumBrowser' })}
+                onPress={() => navigation.navigate('KurikulumBrowser')}
                 type="outline"
                 size="small"
                 style={styles.viewMateriButton}

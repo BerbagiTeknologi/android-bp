@@ -157,20 +157,20 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
   }, [fadeAnim]);
 
   const handleScan = useCallback(async (qrData) => {
-    console.log('🎯 QR SCAN RECEIVED:', { qrData, isProcessing, id_aktivitas });
+    console.log('QR SCAN RECEIVED:', { qrData, isProcessing, id_aktivitas });
     
     if (!qrData?.token || isProcessing) {
-      console.log('❌ QR SCAN REJECTED:', { hasToken: !!qrData?.token, isProcessing });
+      console.log('QR SCAN REJECTED:', { hasToken: !!qrData?.token, isProcessing });
       return;
     }
     
     if (!id_aktivitas) {
-      console.log('❌ No activity selected');
+      console.log('No activity selected');
       Alert.alert('Aktivitas Tidak Dipilih', 'Silakan kembali dan pilih aktivitas terlebih dahulu.');
       return;
     }
     
-    console.log('✅ QR SCAN VALID, checking activity date...');
+    console.log('QR SCAN VALID, checking activity date...');
     
     if (activityDateStatus === 'future') {
       Alert.alert('Aktivitas Belum Dimulai', 'Aktivitas ini belum dimulai. Silakan tunggu sampai tanggal aktivitas.');
@@ -193,33 +193,33 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
   }, [id_aktivitas, isProcessing, activityDateStatus]);
 
   const proceedWithScan = useCallback(async (qrData) => {
-    console.log('🔄 PROCEEDING WITH SCAN:', qrData.token);
+    console.log('PROCEEDING WITH SCAN:', qrData.token);
     setIsProcessing(true);
     
     try {
       const isTutorToken = await validateIfTutorToken(qrData.token);
-      console.log('👤 Token type check:', { isTutorToken });
+      console.log('Token type check:', { isTutorToken });
       
       processingTimeout.current = setTimeout(() => {
         if (isTutorToken) {
-          console.log('📝 Processing tutor attendance...');
+          console.log('Processing tutor attendance...');
           handleTutorAttendanceRecording(qrData.token);
         } else {
-          console.log('📝 Processing student token validation...');
+          console.log('Processing student token validation...');
           dispatch(validateToken(qrData.token));
         }
         processingTimeout.current = null;
       }, 100);
     } catch (error) {
-      console.error('❌ Error menentukan jenis token:', error);
+      console.error('Error menentukan jenis token:', error);
       processingTimeout.current = setTimeout(() => {
-        console.log('📝 Fallback to student token validation...');
+        console.log('Fallback to student token validation...');
         dispatch(validateToken(qrData.token));
         processingTimeout.current = null;
       }, 100);
     } finally {
       setTimeout(() => {
-        console.log('✅ Processing complete, resetting isProcessing...');
+        console.log('Processing complete, resetting isProcessing...');
         setIsProcessing(false);
       }, 1000);
     }
@@ -258,23 +258,23 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
 
   // Effect for handling student attendance after validation
   useEffect(() => {
-    console.log('🔍 VALIDATION RESULT CHANGED:', validationResult);
+    console.log('VALIDATION RESULT CHANGED:', validationResult);
     if (validationResult?.valid && validationResult?.anak?.id_anak) {
-      console.log('✅ Processing attendance for validated student:', validationResult.anak);
+      console.log('Processing attendance for validated student:', validationResult.anak);
       handleAttendanceRecording(validationResult.token.token, validationResult.anak.id_anak);
     } else if (validationResult?.valid === false) {
-      console.log('❌ Validation failed:', validationResult.message);
+      console.log('Validation failed:', validationResult.message);
     }
   }, [validationResult]);
 
   const handleAttendanceRecording = useCallback(async (token, id_anak) => {
-    console.log('📋 STARTING ATTENDANCE RECORDING:', { token, id_anak, id_aktivitas, isConnected });
+    console.log('STARTING ATTENDANCE RECORDING:', { token, id_anak, id_aktivitas, isConnected });
     try {
       if (isConnected) {
         const now = new Date();
         const formattedArrivalTime = format(now, 'yyyy-MM-dd HH:mm:ss');
         
-        console.log('🚀 DISPATCHING recordAttendanceByQr:', {
+        console.log('DISPATCHING recordAttendanceByQr:', {
           id_anak, 
           id_aktivitas, 
           status: null, 
@@ -290,7 +290,7 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
           arrival_time: formattedArrivalTime
         })).unwrap();
         
-        console.log('✅ ATTENDANCE RECORDING SUCCESS:', result);
+        console.log('ATTENDANCE RECORDING SUCCESS:', result);
         
         await playSound();
         
@@ -302,29 +302,29 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
           case 'Ya':
             status = 'Hadir Tepat Waktu';
             toastType = 'success';
-            message = `✅ ${studentName} - ${status}`;
+            message = `${studentName} - ${status}`;
             break;
           case 'Terlambat':
             status = 'Hadir Terlambat';
             toastType = 'warning';
-            message = `⏰ ${studentName} - ${status}`;
+            message = `${studentName} - ${status}`;
             break;
           case 'Tidak':
           case 'Tidak Hadir':
             status = 'Tidak Hadir';
             toastType = 'error';
-            message = `❌ ${studentName} - ${status}`;
+            message = `${studentName} - ${status}`;
             break;
           default:
             status = 'Hadir';
             toastType = 'success';
-            message = `✅ ${studentName} - ${status}`;
+            message = `${studentName} - ${status}`;
         }
         
-        console.log('🎉 SHOWING SUCCESS TOAST:', { studentName, status, absen: result.data?.absen });
+        console.log('SHOWING SUCCESS TOAST:', { studentName, status, absen: result.data?.absen });
         showToast(message, toastType);
       } else {
-        console.log('📴 OFFLINE MODE - saving to offline queue');
+        console.log('OFFLINE MODE - saving to offline queue');
         // Offline handling
         await OfflineSync.saveOfflineAttendance({
           id_anak,
@@ -337,22 +337,22 @@ const QrScannerTab = ({ navigation, id_aktivitas, activityName, activityDate, ac
         showToast('Absensi disimpan offline', 'warning');
       }
     } catch (error) {
-      console.error('❌ ATTENDANCE RECORDING FAILED:', error);
-      console.log('🔍 ERROR DETAILS:', { duplicateError, errorObject: error, isDuplicate: error.isDuplicate });
+      console.error('ATTENDANCE RECORDING FAILED:', error);
+      console.log('ERROR DETAILS:', { duplicateError, errorObject: error, isDuplicate: error.isDuplicate });
       
       // Handle specific error cases
       const studentName = validationResult?.anak?.full_name || 'Siswa';
       
       if (error.isDuplicate || duplicateError) {
-        showToast(`⚠️ ${studentName} sudah melakukan absen`, 'warning');
+        showToast(`${studentName} sudah melakukan absen`, 'warning');
       } else if (error.message?.includes('Too early to attend')) {
-        showToast(`⏱️ Terlalu awal! Absen bisa dilakukan 15 menit sebelum aktivitas dimulai`, 'warning');
+        showToast(`Terlalu awal! Absen bisa dilakukan 15 menit sebelum aktivitas dimulai`, 'warning');
       } else if (error.message?.includes('Activity has not started yet')) {
-        showToast(`📅 Aktivitas belum dimulai, silakan tunggu sampai tanggal aktivitas`, 'warning');
+        showToast(`Aktivitas belum dimulai, silakan tunggu sampai tanggal aktivitas`, 'warning');
       } else if (error.message?.includes('GPS')) {
-        showToast(`📍 Lokasi tidak sesuai dengan shelter`, 'error');
+        showToast(`Lokasi tidak sesuai dengan shelter`, 'error');
       } else {
-        showToast('❌ Gagal mencatat kehadiran', 'error');
+        showToast('Gagal mencatat kehadiran', 'error');
       }
     }
   }, [dispatch, id_aktivitas, isConnected, validationResult, playSound, showToast, duplicateError]);

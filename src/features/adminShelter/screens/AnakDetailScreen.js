@@ -34,42 +34,42 @@ const AnakDetailScreen = () => {
     {
       title: 'Edit Data',
       screen: 'AnakForm',
-      icon: '✏️'
+      icon: 'create-outline'
     },
     {
       title: 'Prestasi',
       screen: 'Prestasi',
-      icon: '🏆'
+      icon: 'trophy-outline'
     },
     {
       title: 'Surat',
       screen: 'Surat',
-      icon: '✉️'
+      icon: 'mail-outline'
     },
     {
       title: 'Riwayat',
       screen: 'Riwayat',
-      icon: '📖'
+      icon: 'book-outline'
     },
     {
       title: 'Informasi Anak',
       screen: 'InformasiAnak',
-      icon: '📋'
+      icon: 'clipboard-outline'
     },
     {
       title: 'Penilaian',
       screen: 'PenilaianList',
-      icon: '📝'
+      icon: 'document-text-outline'
     },
     {
       title: 'Raport Shelter',
       screen: 'Raport',
-      icon: '📚'
+      icon: 'library-outline'
     },
     {
       title: 'Raport Formal',
       screen: 'RaportFormal',
-      icon: '🎓'
+      icon: 'school-outline'
     }
   ];
 
@@ -202,7 +202,7 @@ const AnakDetailScreen = () => {
       style={styles.menuItem}
       onPress={() => navigateToScreen(item.screen)}
     >
-      <Text style={styles.menuIcon}>{item.icon}</Text>
+      <Ionicons name={item.icon} size={32} color="#e74c3c" style={styles.menuIcon} />
       <Text style={styles.menuTitle}>{item.title}</Text>
     </TouchableOpacity>
   );
@@ -397,7 +397,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   menuIcon: {
-    fontSize: 32,
     marginBottom: 12,
   },
   menuTitle: {

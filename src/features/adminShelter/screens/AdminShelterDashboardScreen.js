@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../common/components/ErrorMessage';
 import TodayActivitiesCard from '../components/TodayActivitiesCard';
-import CalendarWidget from '../components/CalendarWidget';
 import { adminShelterApi } from '../api/adminShelterApi';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const AdminShelterDashboardScreen = () => {
   const navigation = useNavigation();
@@ -50,49 +49,82 @@ const AdminShelterDashboardScreen = () => {
   if (loading && !refreshing) return <LoadingSpinner fullScreen message="Loading dashboard..." />;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
-      {error && <ErrorMessage message={error} onRetry={fetchDashboardData} />}
-      
-      {/* Today's Activities Card */}
-      <TodayActivitiesCard />
-      
-      {/* Calendar Widget */}
-      <CalendarWidget />
-      
-      {/* Menu Items */}
-      <View style={styles.menuContainer}>
-        {menuItems.map(({ title, icon, color, onPress }, index) => (
-          <TouchableOpacity key={index} style={styles.menuItem} onPress={onPress}>
-            <View style={[styles.menuIcon, { backgroundColor: color }]}>
-              <Ionicons name={icon} size={32} color="#ffffff" />
-            </View>
-            <Text style={styles.menuText}>{title}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+    <SafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.content} 
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {error && <ErrorMessage message={error} onRetry={fetchDashboardData} />}
+        
+        {/* Today's Activities Card */}
+        <TodayActivitiesCard />
+        
+        {/* Menu Items */}
+        <View style={styles.menuContainer}>
+          {menuItems.map(({ title, icon, color, onPress }, index) => (
+            <TouchableOpacity key={index} style={styles.menuItem} onPress={onPress}>
+              <View style={[styles.menuIcon, { backgroundColor: color }]}>
+                <Ionicons name={icon} size={28} color="#ffffff" />
+              </View>
+              <Text style={styles.menuText}>{title}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  content: { padding: 16, paddingBottom: 32 },
-  menuContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f5f5f5' 
+  },
+  scrollView: {
+    flex: 1
+  },
+  content: { 
+    flexGrow: 1,
+    padding: 12,
+    paddingBottom: 20
+  },
+  menuContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between',
+    marginTop: 8
+  },
   menuItem: {
     width: '48%',
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 2,
-    elevation: 3
+    elevation: 2,
+    minHeight: 100
   },
-  menuIcon: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  menuText: { fontSize: 14, fontWeight: '600', color: '#333', textAlign: 'center' }
+  menuIcon: { 
+    width: 50, 
+    height: 50, 
+    borderRadius: 25, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  menuText: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: '#333', 
+    textAlign: 'center',
+    lineHeight: 16
+  }
 });
 
 export default AdminShelterDashboardScreen;

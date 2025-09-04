@@ -39,7 +39,7 @@ const PenilaianFormScreen = () => {
     id_semester: semesterId || penilaian?.id_semester || '',
     nilai: penilaian?.nilai?.toString() || '',
     deskripsi_tugas: penilaian?.deskripsi_tugas || '',
-    tanggal_penilaian: penilaian ? new Date(penilaian.tanggal_penilaian) : new Date(),
+    tanggal_penilaian: penilaian && penilaian.tanggal_penilaian ? new Date(penilaian.tanggal_penilaian) : new Date(),
     catatan: penilaian?.catatan || ''
   });
 
@@ -55,8 +55,15 @@ const PenilaianFormScreen = () => {
     navigation.setOptions({
       title: isEdit ? 'Edit Penilaian' : 'Tambah Penilaian'
     });
+    
+    if (!anakId) {
+      setError('Data anak tidak tersedia');
+      setLoadingData(false);
+      return;
+    }
+    
     fetchInitialData();
-  }, []);
+  }, [anakId]);
 
   // Auto-populate materi when aktivitas is selected
   useEffect(() => {
@@ -75,48 +82,64 @@ const PenilaianFormScreen = () => {
   }, [formData.id_aktivitas, aktivitasList]);
 
   const fetchInitialData = async () => {
-  try {
-    setLoadingData(true);
-    setError(null);
+    try {
+      setLoadingData(true);
+      setError(null);
 
-    // Fetch aktivitas with kelompok filter
-    const aktivitasParams = { 
-      jenis_kegiatan: 'Bimbel',
-      limit: 100 
-    };
-    
-    // Add nama_kelompok filter if anak has kelompok
-    if (anakData?.kelompok?.nama_kelompok) {
-      aktivitasParams.nama_kelompok = anakData.kelompok.nama_kelompok;
-    }
-    
-    const aktivitasResponse = await aktivitasApi.getAllAktivitas(aktivitasParams);
-    
-    if (aktivitasResponse.data.success) {
-      setAktivitasList(aktivitasResponse.data.data || []);
-    }
+      // Use Promise.all for concurrent API calls
+      const promises = [];
 
-    // Fetch jenis penilaian
-    const jenisPenilaianResponse = await penilaianApi.getJenisPenilaian();
-    if (jenisPenilaianResponse.data.success) {
-      setJenisPenilaianList(jenisPenilaianResponse.data.data || []);
-    }
-
-    // If anak has level, fetch materi
-    if (anakData?.id_level_anak_binaan) {
-      const materiResponse = await materiApi.getMateriByLevel(anakData.id_level_anak_binaan);
-      if (materiResponse.data.success) {
-        setMateriList(materiResponse.data.data || []);
+      // Fetch aktivitas with kelompok filter
+      const aktivitasParams = { 
+        jenis_kegiatan: 'Bimbel',
+        limit: 100 
+      };
+      
+      // Add nama_kelompok filter if anak has kelompok
+      if (anakData?.kelompok?.nama_kelompok) {
+        aktivitasParams.nama_kelompok = anakData.kelompok.nama_kelompok;
       }
-    }
+      
+      promises.push(aktivitasApi.getAllAktivitas(aktivitasParams));
 
-  } catch (err) {
-    console.error('Error fetching initial data:', err);
-    setError('Gagal memuat data. Silakan coba lagi.');
-  } finally {
-    setLoadingData(false);
-  }
-};
+      // Fetch jenis penilaian
+      promises.push(penilaianApi.getJenisPenilaian());
+
+      // Fetch materi from kurikulum
+      promises.push(materiApi.getAllMateri());
+
+      const [aktivitasResponse, jenisPenilaianResponse, materiResponse] = await Promise.all(promises);
+      
+      // Handle aktivitas response
+      if (aktivitasResponse?.data?.success) {
+        setAktivitasList(aktivitasResponse.data.data || []);
+      } else {
+        console.warn('Failed to fetch aktivitas:', aktivitasResponse?.data?.message);
+      }
+
+      // Handle jenis penilaian response
+      if (jenisPenilaianResponse?.data?.success) {
+        setJenisPenilaianList(jenisPenilaianResponse.data.data || []);
+      } else {
+        console.warn('Failed to fetch jenis penilaian:', jenisPenilaianResponse?.data?.message);
+      }
+
+      // Handle materi response - extract from hierarchy structure
+      if (materiResponse?.data?.success && materiResponse?.data?.data?.hierarchy?.materi_list) {
+        setMateriList(materiResponse.data.data.hierarchy.materi_list || []);
+      } else {
+        console.warn('Failed to fetch materi:', materiResponse?.data?.message);
+        setMateriList([]);
+      }
+
+    } catch (err) {
+      console.error('Error fetching initial data:', err);
+      const errorMessage = err?.response?.data?.message || err?.message || 'Gagal memuat data. Silakan coba lagi.';
+      setError(errorMessage);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -144,11 +167,27 @@ const PenilaianFormScreen = () => {
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       } else {
-        setError(response.data.message || 'Gagal menyimpan penilaian');
+        const errorMessage = response.data.message || 'Gagal menyimpan penilaian';
+        setError(errorMessage);
       }
     } catch (err) {
       console.error('Error submitting penilaian:', err);
-      setError('Gagal menyimpan penilaian. Silakan coba lagi.');
+      
+      let errorMessage = 'Gagal menyimpan penilaian. Silakan coba lagi.';
+      
+      if (err?.response?.data) {
+        if (err.response.data.errors) {
+          // Handle validation errors
+          const validationErrors = Object.values(err.response.data.errors).flat();
+          errorMessage = validationErrors.join('\n');
+        } else if (err.response.data.message) {
+          errorMessage = err.response.data.message;
+        }
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -217,7 +256,7 @@ const PenilaianFormScreen = () => {
               {aktivitasList.map(aktivitas => (
                 <Picker.Item
                   key={aktivitas.id_aktivitas}
-                  label={`${aktivitas.nama_kelompok} - ${aktivitas.materi} (${new Date(aktivitas.tanggal).toLocaleDateString('id-ID')})`}
+                  label={`${aktivitas.nama_kelompok || 'Kelompok'} - ${aktivitas.materi || 'Materi'} (${aktivitas.tanggal ? new Date(aktivitas.tanggal).toLocaleDateString('id-ID') : 'Tanggal tidak tersedia'})`}
                   value={aktivitas.id_aktivitas}
                 />
               ))}
@@ -238,7 +277,7 @@ const PenilaianFormScreen = () => {
               {materiList.map(materi => (
                 <Picker.Item
                   key={materi.id_materi}
-                  label={`${materi.mata_pelajaran} - ${materi.nama_materi}`}
+                  label={`${materi.mata_pelajaran?.nama_mata_pelajaran || 'Mata Pelajaran'} - ${materi.nama_materi} (${materi.kelas?.nama_kelas || 'Kelas'})`}
                   value={materi.id_materi}
                 />
               ))}

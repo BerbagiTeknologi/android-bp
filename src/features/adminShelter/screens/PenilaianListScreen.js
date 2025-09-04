@@ -34,8 +34,14 @@ const PenilaianListScreen = () => {
   const [selectedSemester, setSelectedSemester] = useState(null);
 
   useEffect(() => {
+    if (!anakId) {
+      setError('Data anak tidak tersedia');
+      setLoading(false);
+      return;
+    }
+    
     fetchActiveSemester();
-  }, []);
+  }, [anakId]);
 
   useEffect(() => {
     if (selectedSemester) {
@@ -45,28 +51,56 @@ const PenilaianListScreen = () => {
 
   const fetchActiveSemester = async () => {
     try {
+      console.log('🔍 [PenilaianList] Fetching active semester...');
       const response = await semesterApi.getActive();
+      console.log('📅 [PenilaianList] Semester API response:', JSON.stringify(response.data, null, 2));
+      
       if (response.data.success) {
+        console.log('✅ [PenilaianList] Active semester found:', response.data.data);
         setActiveSemester(response.data.data);
         setSelectedSemester(response.data.data);
+      } else {
+        console.warn('⚠️ [PenilaianList] Semester API failed:', response.data.message);
+        setError('Gagal memuat semester aktif');
       }
     } catch (err) {
-      console.error('Error fetching active semester:', err);
+      console.error('❌ [PenilaianList] Error fetching active semester:', err);
+      console.error('❌ [PenilaianList] Error details:', err?.response?.data);
+      setError('Gagal memuat semester aktif');
     }
   };
 
   const fetchPenilaian = async () => {
     try {
       setError(null);
-      const response = await penilaianApi.getByAnakSemester(anakId, selectedSemester.id_semester);
+      
+      console.log('📋 [PenilaianList] Selected semester:', selectedSemester);
+      console.log('👤 [PenilaianList] Anak ID:', anakId);
+      
+      // Semester API returns 'id' field, not 'id_semester'
+      const semesterId = selectedSemester?.id_semester || selectedSemester?.id;
+      
+      if (!semesterId) {
+        console.warn('⚠️ [PenilaianList] No semester ID available');
+        console.log('🔍 [PenilaianList] Selected semester object:', JSON.stringify(selectedSemester, null, 2));
+        setError('Semester tidak tersedia');
+        return;
+      }
+      
+      console.log('🔄 [PenilaianList] Fetching penilaian for anak:', anakId, 'semester:', semesterId);
+      const response = await penilaianApi.getByAnakSemester(anakId, semesterId);
+      console.log('📊 [PenilaianList] Penilaian API response:', JSON.stringify(response.data, null, 2));
       
       if (response.data.success) {
+        console.log('✅ [PenilaianList] Penilaian data loaded:', response.data.data);
         setPenilaianList(response.data.data);
       } else {
+        console.warn('⚠️ [PenilaianList] Penilaian API failed:', response.data.message);
         setError(response.data.message || 'Gagal memuat data penilaian');
       }
     } catch (err) {
-      console.error('Error fetching penilaian:', err);
+      console.error('❌ [PenilaianList] Error fetching penilaian:', err);
+      console.error('❌ [PenilaianList] Error details:', err?.response?.data);
       setError('Gagal memuat data penilaian. Silakan coba lagi.');
     } finally {
       setLoading(false);
@@ -80,11 +114,14 @@ const PenilaianListScreen = () => {
   };
 
   const navigateToForm = (penilaian = null) => {
+    // Semester API returns 'id' field, not 'id_semester'
+    const semesterId = selectedSemester?.id_semester || selectedSemester?.id;
+    
     navigation.navigate('PenilaianForm', {
       anakId,
       anakData,
       penilaian,
-      semesterId: selectedSemester?.id_semester
+      semesterId: semesterId
     });
   };
 
@@ -117,16 +154,29 @@ const PenilaianListScreen = () => {
       onPress={() => navigateToForm(item)}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.materi?.nama_materi || 'Unknown'}</Text>
+        <Text style={styles.cardTitle}>
+          {item.materi?.nama_materi || 'Tanpa Materi'}
+        </Text>
         <Text style={[styles.nilaiHuruf, { color: getNilaiColor(item.nilai) }]}>
-          {item.nilai_huruf}
+          {item.nilai_huruf || 'N/A'}
         </Text>
       </View>
+      
+      {/* Show mata pelajaran and kelas info if available */}
+      {item.materi && (
+        <View style={styles.materiInfo}>
+          <Text style={styles.materiText}>
+            {item.materi.mataPelajaran?.nama_mata_pelajaran || 'Mata Pelajaran'} • {item.materi.kelas?.nama_kelas || 'Kelas'}
+          </Text>
+        </View>
+      )}
       
       <View style={styles.cardBody}>
         <View style={styles.infoRow}>
           <Ionicons name="document-text-outline" size={16} color="#7f8c8d" />
-          <Text style={styles.infoText}>{item.jenisPenilaian?.nama_jenis}</Text>
+          <Text style={styles.infoText}>
+            {item.jenisPenilaian?.nama_jenis || 'Jenis tidak diketahui'}
+          </Text>
         </View>
         
         <View style={styles.infoRow}>
@@ -136,7 +186,7 @@ const PenilaianListScreen = () => {
 
         <View style={styles.infoRow}>
           <Ionicons name="star-outline" size={16} color="#7f8c8d" />
-          <Text style={styles.infoText}>Nilai: {item.nilai}</Text>
+          <Text style={styles.infoText}>Nilai: {item.nilai || '0'}</Text>
         </View>
       </View>
 
@@ -185,7 +235,7 @@ const PenilaianListScreen = () => {
         <View style={styles.semesterInfo}>
           <Ionicons name="school-outline" size={20} color="#3498db" />
           <Text style={styles.semesterText}>
-            {selectedSemester.nama_semester} - {selectedSemester.tahun_ajaran}
+            {selectedSemester.nama || selectedSemester.nama_semester} - {selectedSemester.tahun_ajaran}
           </Text>
         </View>
       )}
@@ -198,15 +248,17 @@ const PenilaianListScreen = () => {
       )}
 
       <FlatList
-        data={Object.entries(penilaianList)}
+        data={penilaianList && typeof penilaianList === 'object' && !Array.isArray(penilaianList) ? Object.entries(penilaianList) : []}
         renderItem={({ item: [mapel, penilaianGroup] }) => (
           <View key={mapel}>
-            <Text style={styles.sectionHeader}>{mapel}</Text>
-           {penilaianGroup.map(penilaian => (
-  <View key={penilaian.id_penilaian}>
-    {renderPenilaianCard({ item: penilaian })}
-  </View>
-))}
+            <Text style={styles.sectionHeader}>
+              {mapel === 'Tanpa Mata Pelajaran' ? 'Tanpa Mata Pelajaran' : mapel}
+            </Text>
+            {Array.isArray(penilaianGroup) && penilaianGroup.map(penilaian => (
+              <View key={penilaian.id_penilaian}>
+                {renderPenilaianCard({ item: penilaian })}
+              </View>
+            ))}
           </View>
         )}
         keyExtractor={(item) => item[0]}
@@ -291,6 +343,14 @@ const styles = StyleSheet.create({
   nilaiHuruf: {
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  materiInfo: {
+    marginBottom: 8,
+  },
+  materiText: {
+    fontSize: 12,
+    color: '#95a5a6',
+    fontStyle: 'italic',
   },
   cardBody: {
     marginBottom: 12,

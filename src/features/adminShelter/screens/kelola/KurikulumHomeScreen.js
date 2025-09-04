@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
+import { adminShelterKurikulumApi } from '../../api/adminShelterKurikulumApi';
 
 const { width } = Dimensions.get('window');
 
@@ -24,28 +25,21 @@ const KurikulumHomeScreen = () => {
       icon: 'people-circle', 
       color: '#9b59b6', 
       description: 'Kelola kelompok belajar',
-      onPress: () => navigation.navigate('Management', { screen: 'KelompokManagement' }) 
+      onPress: () => navigation.navigate('KelompokManagement') 
     },
     { 
       title: 'Aktivitas', 
       icon: 'calendar', 
       color: '#3498db', 
       description: 'Buat & kelola aktivitas',
-      onPress: () => navigation.navigate('Attendance', { screen: 'ActivitiesList' }) 
-    },
-    { 
-      title: 'Absensi', 
-      icon: 'checkmark-circle', 
-      color: '#2ecc71', 
-      description: 'Pantau kehadiran siswa',
-      onPress: () => navigation.navigate('Attendance', { screen: 'AttendanceList' }) 
+      onPress: () => navigation.navigate('ActivitiesList') 
     },
     { 
       title: 'Semester', 
       icon: 'time', 
       color: '#8e44ad', 
       description: 'Info semester aktif',
-      onPress: () => navigation.navigate('Management', { screen: 'SemesterManagement' }) 
+      onPress: () => navigation.navigate('SemesterManagement') 
     },
     { 
       title: 'Materi Kurikulum', 
@@ -67,29 +61,19 @@ const KurikulumHomeScreen = () => {
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      // Mock data for now - will be replaced with actual API call
-      const mockData = {
-        semesterAktif: {
-          nama: 'Semester Ganjil 2024/2025',
-          periode: 'Agustus 2024 - Januari 2025',
-          progress: 65
-        },
-        todayStats: {
-          totalKelompok: 12,
-          aktivitasHariIni: 8,
-          siswaAktif: 145,
-          tutorAktif: 18
-        },
-        recentActivity: [
-          { time: '09:00', activity: 'Bimbel Matematika - Kelas 5', tutor: 'Bu Sari' },
-          { time: '10:30', activity: 'Kegiatan Seni - Kelompok A', tutor: 'Pak Joko' },
-          { time: '13:00', activity: 'Bimbel Bahasa Indonesia - Kelas 4', tutor: 'Bu Ani' }
-        ]
-      };
-      setDashboardData(mockData);
+      
+      // Call real API to get dashboard data
+      const response = await adminShelterKurikulumApi.getDashboard();
+      
+      if (response.data && response.data.success) {
+        setDashboardData(response.data.data);
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch dashboard data');
+      }
     } catch (err) {
       console.error('Error fetching kurikulum dashboard data:', err);
-      setError('Gagal memuat data dashboard. Silakan coba lagi.');
+      const errorMessage = err.response?.data?.message || err.message || 'Gagal memuat data dashboard. Silakan coba lagi.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -115,6 +99,7 @@ const KurikulumHomeScreen = () => {
         <Ionicons name="school" size={24} color="#fff" />
         <View style={styles.semesterInfo}>
           <Text style={styles.semesterTitle}>{semesterData?.nama || 'Semester Aktif'}</Text>
+          <Text style={styles.semesterType}>{semesterData?.nama?.includes('Genap') ? 'Semester Genap' : 'Semester Ganjil'}</Text>
           <Text style={styles.semesterPeriod}>{semesterData?.periode || 'Periode tidak tersedia'}</Text>
         </View>
         <View style={styles.progressContainer}>
@@ -164,17 +149,34 @@ const KurikulumHomeScreen = () => {
         <Text style={styles.cardTitle}>Jadwal Hari Ini</Text>
       </View>
       {activities?.length ? (
-        activities.map((item, index) => (
-          <View key={index} style={styles.scheduleItem}>
-            <View style={styles.scheduleTime}>
-              <Text style={styles.timeText}>{item.time}</Text>
+        activities.map((item, index) => {
+          // Create "Mata Pelajaran - Nama Materi" format
+          let displayTitle = '';
+          if (item.mata_pelajaran && item.nama_materi) {
+            displayTitle = `${item.mata_pelajaran} - ${item.nama_materi}`;
+          } else if (item.mata_pelajaran) {
+            displayTitle = item.mata_pelajaran;
+          } else if (item.nama_materi) {
+            displayTitle = item.nama_materi;
+          } else {
+            // Fallback to cleaned activity name
+            let cleanActivity = item.activity || 'Aktivitas tidak diketahui';
+            displayTitle = cleanActivity.replace(/\s*\([0-9]{1,2}\/[0-9]{1,2}\)\s*$/, '');
+          }
+          
+          return (
+            <View key={index} style={styles.scheduleItem}>
+              <View style={styles.scheduleTime}>
+                <Text style={styles.timeText}>{item.time}</Text>
+              </View>
+              <View style={styles.scheduleContent}>
+                <Text style={styles.activityText}>{displayTitle}</Text>
+                <Text style={styles.tutorText}>Tutor: {item.tutor}</Text>
+                <Text style={styles.groupText}>Kelompok: {item.kelompok}</Text>
+              </View>
             </View>
-            <View style={styles.scheduleContent}>
-              <Text style={styles.activityText}>{item.activity}</Text>
-              <Text style={styles.tutorText}>Tutor: {item.tutor}</Text>
-            </View>
-          </View>
-        ))
+          );
+        })
       ) : (
         <View style={styles.emptySchedule}>
           <Ionicons name="calendar-outline" size={48} color="#bdc3c7" />
@@ -262,9 +264,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff'
   },
-  semesterPeriod: {
+  semesterType: {
     fontSize: 14,
     color: '#ecf0f1',
+    fontWeight: '500',
+    marginTop: 2
+  },
+  semesterPeriod: {
+    fontSize: 12,
+    color: '#bdc3c7',
     marginTop: 2
   },
   progressContainer: {
@@ -367,13 +375,29 @@ const styles = StyleSheet.create({
   },
   activityText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#2c3e50'
+  },
+  subjectText: {
+    fontSize: 12,
+    color: '#3498db',
+    marginTop: 2
   },
   tutorText: {
     fontSize: 12,
     color: '#7f8c8d',
     marginTop: 2
+  },
+  groupText: {
+    fontSize: 11,
+    color: '#8e44ad',
+    marginTop: 2
+  },
+  categoryText: {
+    fontSize: 11,
+    color: '#e67e22',
+    marginTop: 2,
+    fontStyle: 'italic'
   },
   emptySchedule: {
     alignItems: 'center',
