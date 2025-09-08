@@ -8,6 +8,9 @@ import AdminPusatDashboardScreen from '../features/adminPusat/screens/AdminPusat
 import AdminPusatProfileScreen from '../features/adminPusat/screens/AdminPusatProfileScreen';
 import TutorHonorSettingsScreen from '../features/adminPusat/screens/TutorHonorSettingsScreen';
 
+// User Management Screens (baru)
+import UserManagementScreen from '../features/adminPusat/screens/user/UserManagementScreen';
+import UserFormScreen from '../features/adminPusat/screens/user/UserFormScreen';
 
 // Template Screens
 import TemplateHomeScreen from '../features/adminPusat/screens/template/TemplateHomeScreen';
@@ -40,6 +43,18 @@ const HomeStackNavigator = () => {
         name="TutorHonorSettings" 
         component={TutorHonorSettingsScreen} 
         options={{ headerTitle: 'Setting Honor Tutor' }}
+      />
+
+      {/* User Management (baru) */}
+      <Stack.Screen
+        name="UserManagement"
+        component={UserManagementScreen}
+        options={{ headerTitle: 'Manajemen User' }}
+      />
+      <Stack.Screen
+        name="UserForm"
+        component={UserFormScreen}
+        options={{ headerTitle: 'Form User' }}
       />
     </Stack.Navigator>
   );
@@ -101,8 +116,6 @@ const TemplateStackNavigator = () => {
     </Stack.Navigator>
   );
 };
-
-
 
 // Profile Stack Navigator
 const ProfileStackNavigator = () => {

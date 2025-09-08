@@ -15,6 +15,8 @@ import AdminCabangDonaturListScreen from '../features/adminCabang/screens/AdminC
 import AdminCabangDonaturFormScreen from '../features/adminCabang/screens/AdminCabangDonaturFormScreen';
 import AdminCabangDonaturDetailScreen from '../features/adminCabang/screens/AdminCabangDonaturDetailScreen';
 import DonaturFilterScreen from '../features/adminCabang/screens/DonaturFilterScreen';
+import GpsApprovalScreen from '../features/adminCabang/screens/GpsApprovalScreen';
+import GpsApprovalDetailScreen from '../features/adminCabang/screens/GpsApprovalDetailScreen';
 
 // Kurikulum screens
 import KurikulumHomeScreen from '../features/adminCabang/screens/kurikulum/KurikulumHomeScreen';
@@ -85,6 +87,16 @@ const DashboardStackNavigator = () => (
       name="DonaturFilter"
       component={DonaturFilterScreen}
       options={{ headerTitle: 'Filter Donatur' }}
+    />
+    <DashboardStack.Screen
+      name="GpsApprovalScreen"
+      component={GpsApprovalScreen}
+      options={{ headerTitle: 'Persetujuan GPS' }}
+    />
+    <DashboardStack.Screen
+      name="GpsApprovalDetailScreen"
+      component={GpsApprovalDetailScreen}
+      options={{ headerTitle: 'Detail Persetujuan GPS' }}
     />
   </DashboardStack.Navigator>
 );
