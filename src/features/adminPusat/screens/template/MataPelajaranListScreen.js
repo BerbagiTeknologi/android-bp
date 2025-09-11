@@ -65,8 +65,18 @@ const MataPelajaranListScreen = ({ navigation, route }) => {
       mataPelajaranId: mataPelajaran.id_mata_pelajaran 
     }));
     
-    // Navigate ke TemplateMateriManagement (akan dibuat di Week 2)
-    Alert.alert('Info', `Template untuk ${mataPelajaran.nama_mata_pelajaran} akan tersedia di fase selanjutnya`);
+    // Navigate ke TemplateMateriManagement
+    navigation.navigate('TemplateMateriManagement', {
+      jenjang,
+      jenjangId,
+      jenjangName,
+      kelas,
+      kelasId,
+      kelasName,
+      mataPelajaran,
+      mataPelajaranId: mataPelajaran.id_mata_pelajaran,
+      mataPelajaranName: mataPelajaran.nama_mata_pelajaran
+    });
   };
 
   const handleNavigateBack = () => {

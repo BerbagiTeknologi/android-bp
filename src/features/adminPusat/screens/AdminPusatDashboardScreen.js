@@ -56,12 +56,10 @@ const AdminPusatDashboardScreen = () => {
   };
 
   // Navigation handlers
-  const navigateToUsers = () => navigation.navigate('Management', { screen: 'UserManagement' });
-  const navigateToKacab = () => navigation.navigate('Management', { screen: 'KacabManagement' });
-  const navigateToKeluarga = () => navigation.navigate('Management', { screen: 'KeluargaManagement' });
-  const navigateToAnak = () => navigation.navigate('Management', { screen: 'AnakManagement' });
-  const navigateToTutorHonorSettings = () => navigation.navigate('Management', { screen: 'TutorHonorSettings' });
+  const navigateToTemplates = () => navigation.navigate('Template');
   const navigateToProfile = () => navigation.navigate('ProfileTab');
+  const navigateToTutorHonorSettings = () => navigation.navigate('TutorHonorSettings');
+  const navigateToUserManagement = () => navigation.navigate('UserManagement');
 
   // Show loading indicator
   if (loading && !refreshing) {
@@ -111,38 +109,38 @@ const AdminPusatDashboardScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Template Focus */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Ionicons name="business-outline" size={24} color="#3498db" />
+          <Ionicons name="library-outline" size={24} color="#3498db" />
           <Text style={styles.statNumber}>
-            {dashboardData?.kacab_count || 0}
+            {dashboardData?.template_count || 0}
           </Text>
-          <Text style={styles.statLabel}>Cabang</Text>
+          <Text style={styles.statLabel}>Template</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="home-outline" size={24} color="#e74c3c" />
+          <Ionicons name="send-outline" size={24} color="#e74c3c" />
           <Text style={styles.statNumber}>
-            {dashboardData?.shelter_count || 0}
+            {dashboardData?.distribution_count || 0}
           </Text>
-          <Text style={styles.statLabel}>Shelter</Text>
+          <Text style={styles.statLabel}>Distribusi</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="people-outline" size={24} color="#2ecc71" />
+          <Ionicons name="checkmark-circle-outline" size={24} color="#2ecc71" />
           <Text style={styles.statNumber}>
-            {dashboardData?.children_count || 0}
+            {dashboardData?.adoption_count || 0}
           </Text>
-          <Text style={styles.statLabel}>Anak</Text>
+          <Text style={styles.statLabel}>Adopsi</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Ionicons name="heart-outline" size={24} color="#9b59b6" />
+          <Ionicons name="business-outline" size={24} color="#9b59b6" />
           <Text style={styles.statNumber}>
-            {dashboardData?.donatur_count || 0}
+            {dashboardData?.active_cabang || 0}
           </Text>
-          <Text style={styles.statLabel}>Donatur</Text>
+          <Text style={styles.statLabel}>Cabang Aktif</Text>
         </View>
       </View>
 
@@ -152,84 +150,40 @@ const AdminPusatDashboardScreen = () => {
         <View style={styles.quickAccessGrid}>
           <TouchableOpacity 
             style={styles.quickAccessItem} 
-            onPress={navigateToUsers}
+            onPress={navigateToTemplates}
           >
             <View style={[styles.iconContainer, { backgroundColor: '#3498db' }]}>
-              <Ionicons name="people" size={24} color="#fff" />
+              <Ionicons name="library" size={24} color="#fff" />
             </View>
-            <Text style={styles.quickAccessText}>Pengguna</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.quickAccessItem} 
-            onPress={navigateToKacab}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: '#2ecc71' }]}>
-              <Ionicons name="business" size={24} color="#fff" />
-            </View>
-            <Text style={styles.quickAccessText}>Cabang</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.quickAccessItem}
-            onPress={navigateToKeluarga}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: '#e67e22' }]}>
-              <Ionicons name="people-circle" size={24} color="#fff" />
-            </View>
-            <Text style={styles.quickAccessText}>Keluarga</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.quickAccessItem}
-            onPress={navigateToAnak}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: '#9b59b6' }]}>
-              <Ionicons name="person" size={24} color="#fff" />
-            </View>
-            <Text style={styles.quickAccessText}>Anak</Text>
+            <Text style={styles.quickAccessText}>Template Kurikulum</Text>
+            <Text style={styles.quickAccessSubtext}>Kelola template dan distribusi</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={styles.quickAccessItem}
+            style={styles.quickAccessItem} 
             onPress={navigateToTutorHonorSettings}
           >
-            <View style={[styles.iconContainer, { backgroundColor: '#e67e22' }]}>
-              <Ionicons name="calculator" size={24} color="#fff" />
+            <View style={[styles.iconContainer, { backgroundColor: '#e74c3c' }]}>
+              <Ionicons name="card" size={24} color="#fff" />
             </View>
-            <Text style={styles.quickAccessText}>Honor Tutor</Text>
+            <Text style={styles.quickAccessText}>Setting Honor</Text>
+            <Text style={styles.quickAccessSubtext}>Atur honor tutor</Text>
           </TouchableOpacity>
 
+          {/* NEW: Manajemen User */}
           <TouchableOpacity 
             style={styles.quickAccessItem}
+            onPress={navigateToUserManagement}
           >
-            <View style={[styles.iconContainer, { backgroundColor: '#1abc9c' }]}>
-              <Ionicons name="settings" size={24} color="#fff" />
+            <View style={[styles.iconContainer, { backgroundColor: '#2ecc71' }]}>
+              <Ionicons name="people" size={24} color="#fff" />
             </View>
-            <Text style={styles.quickAccessText}>Pengaturan</Text>
+            <Text style={styles.quickAccessText}>Manajemen User</Text>
+            <Text style={styles.quickAccessSubtext}>Kelola user pusat/cabang/shelter</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Recent Activities */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Aktivitas Terbaru</Text>
-        {dashboardData?.recent_activities?.length > 0 ? (
-          dashboardData.recent_activities.map((activity, index) => (
-            <View key={index} style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Ionicons name="time-outline" size={20} color="#3498db" />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityText}>{activity.description}</Text>
-                <Text style={styles.activityTime}>{activity.time}</Text>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>Tidak ada aktivitas terbaru</Text>
-        )}
-      </View>
     </ScrollView>
   );
 };
@@ -354,6 +308,20 @@ const styles = StyleSheet.create({
   quickAccessText: {
     fontWeight: '500',
     color: '#333',
+  },
+  singleItem: {
+    width: '100%',
+    marginBottom: 16,
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+  },
+  quickAccessSubtext: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
   activityItem: {
     flexDirection: 'row',

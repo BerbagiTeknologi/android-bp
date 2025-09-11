@@ -43,7 +43,7 @@ export const fetchSettings = createAsyncThunk(
       const response = await tutorHonorSettingsApi.getSettings(params);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch settings');
+      return rejectWithValue(error.response?.data?.message || 'Gagal memuat pengaturan');
     }
   }
 );
@@ -55,7 +55,7 @@ export const fetchActiveSetting = createAsyncThunk(
       const response = await tutorHonorSettingsApi.getActiveSetting();
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch active setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal memuat pengaturan aktif');
     }
   }
 );
@@ -67,7 +67,7 @@ export const fetchSetting = createAsyncThunk(
       const response = await tutorHonorSettingsApi.getSetting(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal memuat pengaturan');
     }
   }
 );
@@ -79,7 +79,7 @@ export const createSetting = createAsyncThunk(
       const response = await tutorHonorSettingsApi.createSetting(data);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal membuat pengaturan');
     }
   }
 );
@@ -91,7 +91,7 @@ export const updateSetting = createAsyncThunk(
       const response = await tutorHonorSettingsApi.updateSetting(id, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal memperbarui pengaturan');
     }
   }
 );
@@ -103,7 +103,7 @@ export const setActiveSetting = createAsyncThunk(
       const response = await tutorHonorSettingsApi.setActive(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to set active setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal mengaktifkan pengaturan');
     }
   }
 );
@@ -115,7 +115,7 @@ export const deleteSetting = createAsyncThunk(
       await tutorHonorSettingsApi.deleteSetting(id);
       return id;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete setting');
+      return rejectWithValue(error.response?.data?.message || 'Gagal menghapus pengaturan');
     }
   }
 );
@@ -127,7 +127,7 @@ export const calculatePreview = createAsyncThunk(
       const response = await tutorHonorSettingsApi.calculatePreview(data);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to calculate preview');
+      return rejectWithValue(error.response?.data?.message || 'Gagal menghitung pratinjau');
     }
   }
 );
@@ -139,7 +139,7 @@ export const fetchStatistics = createAsyncThunk(
       const response = await tutorHonorSettingsApi.getStatistics();
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
+      return rejectWithValue(error.response?.data?.message || 'Gagal memuat statistik');
     }
   }
 );

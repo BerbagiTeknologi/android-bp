@@ -67,7 +67,7 @@ const AdminPusatProfileScreen = () => {
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
@@ -208,13 +208,13 @@ const AdminPusatProfileScreen = () => {
           ) : (
             <View style={styles.editButtonsRow}>
               <Button
-                title="Cancel"
+                title="Batal"
                 onPress={() => setIsEditing(false)}
                 type="outline"
                 style={styles.cancelButton}
               />
               <Button
-                title="Save"
+                title="Simpan"
                 onPress={handleUpdateProfile}
                 loading={loading}
                 disabled={loading}

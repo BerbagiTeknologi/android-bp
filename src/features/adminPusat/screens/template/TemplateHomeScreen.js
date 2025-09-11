@@ -110,13 +110,11 @@ const TemplateHomeScreen = ({ navigation }) => {
   };
 
   const handleNavigateToDistribution = () => {
-    // Akan diimplementasi di Week 3
-    Alert.alert('Info', 'Fitur distribusi akan tersedia di fase selanjutnya');
+    navigation.navigate('DistributionHistory');
   };
 
   const handleNavigateToMonitoring = () => {
-    // Akan diimplementasi di Week 4
-    Alert.alert('Info', 'Fitur monitoring akan tersedia di fase selanjutnya');
+    navigation.navigate('MonitoringDashboard');
   };
 
   if (loading.struktur && !struktur.length) {
