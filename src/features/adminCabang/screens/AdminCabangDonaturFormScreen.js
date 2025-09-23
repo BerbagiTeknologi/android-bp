@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -61,6 +61,14 @@ const AdminCabangDonaturFormScreen = () => {
 
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+
+  // Enhanced form validation hook
+  
+  // Create refs for key form fields
+  const emailRef = useRef('email');
+  const passwordRef = useRef('password');
+  const namaLengkapRef = useRef('nama_lengkap');
+  const noHandphoneRef = useRef('no_handphone');
 
   useEffect(() => {
     fetchFilterOptions();
@@ -221,7 +229,7 @@ const AdminCabangDonaturFormScreen = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -398,22 +406,24 @@ const AdminCabangDonaturFormScreen = () => {
 
           <Text style={styles.sectionTitle}>Data Akun</Text>
           <TextInput
+            ref={emailRef}
             label="Email *"
             value={formData.email}
             onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
             placeholder="Masukkan email"
             keyboardType="email-address"
             autoCapitalize="none"
-            error={errors.email}
+            // fieldStatus={getFieldStatus('email', formData.email)}
           />
 
           <TextInput
+            ref={passwordRef}
             label={isEdit ? "Password (kosongkan jika tidak ingin mengubah)" : "Password *"}
             value={formData.password}
             onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
             placeholder={isEdit ? "Kosongkan jika tidak ingin mengubah" : "Masukkan password"}
             secureTextEntry={!showPassword}
-            error={errors.password}
+            // fieldStatus={getFieldStatus('password', formData.password)}
             rightIcon={
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#666" />
@@ -423,11 +433,12 @@ const AdminCabangDonaturFormScreen = () => {
 
           <Text style={styles.sectionTitle}>Data Pribadi</Text>
           <TextInput
+            ref={namaLengkapRef}
             label="Nama Lengkap *"
             value={formData.nama_lengkap}
             onChangeText={(text) => setFormData(prev => ({ ...prev, nama_lengkap: text }))}
             placeholder="Masukkan nama lengkap"
-            error={errors.nama_lengkap}
+            // fieldStatus={getFieldStatus('nama_lengkap', formData.nama_lengkap)}
           />
 
           <TextInput
@@ -440,12 +451,13 @@ const AdminCabangDonaturFormScreen = () => {
           />
 
           <TextInput
+            ref={noHandphoneRef}
             label="Nomor HP *"
             value={formData.no_hp}
             onChangeText={(text) => setFormData(prev => ({ ...prev, no_hp: text }))}
             placeholder="Masukkan nomor HP"
             keyboardType="phone-pad"
-            error={errors.no_hp}
+            // fieldStatus={getFieldStatus('no_hp', formData.no_hp)}
           />
 
           <Text style={styles.sectionTitle}>Penempatan</Text>

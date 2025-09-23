@@ -105,11 +105,7 @@ export const adminPusatApi = {
    * @returns {Promise} - API response
    */
   createKacab: async (kacabData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.KACAB, kacabData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return await api.post(MANAGEMENT_ENDPOINTS.KACAB, kacabData);
   },
 
   /**
@@ -119,11 +115,7 @@ export const adminPusatApi = {
    * @returns {Promise} - API response
    */
   updateKacab: async (kacabId, kacabData) => {
-    return await api.post(MANAGEMENT_ENDPOINTS.KACAB_DETAIL(kacabId), kacabData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    return await api.put(MANAGEMENT_ENDPOINTS.KACAB_DETAIL(kacabId), kacabData);
   },
 
   /**
@@ -133,5 +125,110 @@ export const adminPusatApi = {
    */
   deleteKacab: async (kacabId) => {
     return await api.delete(MANAGEMENT_ENDPOINTS.KACAB_DETAIL(kacabId));
+  },
+
+  /**
+   * Get list of wilbin
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response with wilbin data
+   */
+  getWilbin: async (params = {}) => {
+    return await api.get(ADMIN_PUSAT_ENDPOINTS.WILBIN, { params });
+  },
+
+  /**
+   * Get wilbin details
+   * @param {number|string} wilbinId - Wilbin ID
+   * @returns {Promise} - API response with wilbin details
+   */
+  getWilbinDetail: async (wilbinId) => {
+    return await api.get(ADMIN_PUSAT_ENDPOINTS.WILBIN_DETAIL(wilbinId));
+  },
+
+  /**
+   * Create new wilbin
+   * @param {Object} wilbinData - Wilbin data
+   * @param {number|string} wilbinData.id_kacab - Kacab ID associated with wilbin
+   * @param {string} wilbinData.nama_wilbin - Wilbin name
+   * @returns {Promise} - API response
+   */
+  createWilbin: async ({ id_kacab, nama_wilbin }) => {
+    return await api.post(ADMIN_PUSAT_ENDPOINTS.WILBIN, { id_kacab, nama_wilbin });
+  },
+
+  /**
+   * Update wilbin
+   * @param {number|string} wilbinId - Wilbin ID
+   * @param {Object} wilbinData - Wilbin data
+   * @param {number|string} wilbinData.id_kacab - Kacab ID associated with wilbin
+   * @param {string} wilbinData.nama_wilbin - Wilbin name
+   * @returns {Promise} - API response
+   */
+  updateWilbin: async (wilbinId, { id_kacab, nama_wilbin }) => {
+    return await api.put(ADMIN_PUSAT_ENDPOINTS.WILBIN_DETAIL(wilbinId), { id_kacab, nama_wilbin });
+  },
+
+  /**
+   * Delete wilbin
+   * @param {number|string} wilbinId - Wilbin ID
+   * @returns {Promise} - API response
+   */
+  deleteWilbin: async (wilbinId) => {
+    return await api.delete(ADMIN_PUSAT_ENDPOINTS.WILBIN_DETAIL(wilbinId));
+  },
+
+  /**
+   * Get list of shelters
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response with shelter data
+   */
+  getShelter: async (params = {}) => {
+    return await api.get(ADMIN_PUSAT_ENDPOINTS.SHELTER.LIST, { params });
+  },
+
+  /**
+   * Get shelter details
+   * @param {number|string} shelterId - Shelter ID
+   * @returns {Promise} - API response with shelter details
+   */
+  getShelterDetail: async (shelterId) => {
+    return await api.get(ADMIN_PUSAT_ENDPOINTS.SHELTER.DETAIL(shelterId));
+  },
+
+  /**
+   * Create new shelter
+   * @param {Object} shelterData - Shelter data
+   * @returns {Promise} - API response
+   */
+  createShelter: async (shelterData) => {
+    return await api.post(ADMIN_PUSAT_ENDPOINTS.SHELTER.LIST, shelterData);
+  },
+
+  /**
+   * Update shelter
+   * @param {number|string} shelterId - Shelter ID
+   * @param {Object} shelterData - Shelter data
+   * @returns {Promise} - API response
+   */
+  updateShelter: async (shelterId, shelterData) => {
+    return await api.put(ADMIN_PUSAT_ENDPOINTS.SHELTER.DETAIL(shelterId), shelterData);
+  },
+
+  /**
+   * Delete shelter
+   * @param {number|string} shelterId - Shelter ID
+   * @returns {Promise} - API response
+   */
+  deleteShelter: async (shelterId) => {
+    return await api.delete(ADMIN_PUSAT_ENDPOINTS.SHELTER.DETAIL(shelterId));
+  },
+
+  /**
+   * Get shelter dropdown data by wilbin
+   * @param {number|string} wilbinId - Wilbin ID
+   * @returns {Promise} - API response with shelter dropdown data
+   */
+  getShelterDropdownByWilbin: async (wilbinId) => {
+    return await api.get(ADMIN_PUSAT_ENDPOINTS.SHELTER.DROPDOWN.BY_WILBIN(wilbinId));
   }
 };

@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Image,
+  Dimensions,
+  Platform,
+  Alert
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
@@ -44,9 +55,13 @@ const AdminCabangDashboardScreen = () => {
   useEffect(() => { fetchDashboardData(); }, []);
 
   const handleRefresh = () => { setRefreshing(true); fetchDashboardData(); };
-  const navigateToSurveyManagement = () => navigation.navigate('Management');
-  const navigateToDonaturManagement = () => navigation.navigate('DonaturManagement');
+  const navigateToSurveyManagement = () => navigation.navigate('SurveyStatusFilter');
+  const navigateToDonaturManagement = () => navigation.navigate('DonaturList');
+  const navigateToKurikulum = () => navigation.navigate('Kurikulum', { screen: 'KurikulumHome' });
+  const navigateToGpsApproval = () => navigation.navigate('GpsApprovalScreen');
   const navigateToProfile = () => navigation.navigate('Profile');
+  const navigateToUserManagement = () =>
+    Alert.alert('Segera Hadir', 'Fitur Manajemen Pengguna sedang dalam pengembangan.');
 
   if (loading && !refreshing) return <LoadingSpinner fullScreen message="Memuat dashboard..." />;
 
@@ -59,13 +74,37 @@ const AdminCabangDashboardScreen = () => {
       onPress: navigateToSurveyManagement, 
       badge: surveyStats.pending 
     },
+    {
+      title: 'Manajemen Donatur',
+      description: 'Kelola data donatur cabang',
+      icon: 'people',
+      color: '#3498db',
+      onPress: navigateToDonaturManagement,
+      badge: donaturStats.total_donatur
+    },
+    {
+      title: 'Manajemen Pengguna',
+      description: 'Kelola akses admin cabang & shelter',
+      icon: 'people-circle',
+      color: '#2980b9',
+      onPress: navigateToUserManagement,
+      badge: null
+    },
+    {
+      title: 'Kurikulum',
+      description: 'Kelola materi pembelajaran cabang',
+      icon: 'library',
+      color: '#9b59b6', 
+      onPress: navigateToKurikulum, 
+      badge: null 
+    },
     { 
-      title: 'Manajemen Donatur', 
-      description: 'Kelola data donatur cabang', 
-      icon: 'people', 
-      color: '#3498db', 
-      onPress: navigateToDonaturManagement, 
-      badge: donaturStats.total_donatur 
+      title: 'Persetujuan GPS', 
+      description: 'Kelola persetujuan GPS shelter', 
+      icon: 'location', 
+      color: '#e74c3c', 
+      onPress: navigateToGpsApproval, 
+      badge: dashboardData?.pending_gps_requests || null 
     }
   ];
 
@@ -212,13 +251,14 @@ const styles = StyleSheet.create({
     }) 
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, color: '#333' },
-  quickActionsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   actionCard: { 
     width: (width - 64) / 2, 
     backgroundColor: '#f8f8f8', 
     borderRadius: 12, 
     padding: 16, 
-    position: 'relative' 
+    position: 'relative',
+    marginBottom: 12
   },
   actionIconContainer: { 
     width: 50, 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,10 +57,15 @@ const AdminPusatDashboardScreen = () => {
   };
 
   // Navigation handlers
-  const navigateToTemplates = () => navigation.navigate('Template');
+  const navigateToTemplates = () =>
+    Alert.alert(
+      'Maintenance',
+      'Fitur ini sedang dalam perbaikan / maintenance.'
+    );
   const navigateToProfile = () => navigation.navigate('ProfileTab');
   const navigateToTutorHonorSettings = () => navigation.navigate('TutorHonorSettings');
   const navigateToUserManagement = () => navigation.navigate('UserManagement');
+  const navigateToDataWilayah = () => navigation.navigate('DataWilayah');
 
   // Show loading indicator
   if (loading && !refreshing) {
@@ -98,7 +104,7 @@ const AdminPusatDashboardScreen = () => {
         >
           {profile?.foto ? (
             <Image
-              source={{ uri: `http://192.168.8.105:8000/storage/AdminPusat/${profile.id_admin_pusat}/${profile.foto}` }}
+              source={{ uri: `https://bp.berbagipendidikan.org/storage/AdminPusat/${profile.id_admin_pusat}/${profile.foto}` }}
               style={styles.profileImage}
             />
           ) : (
@@ -156,11 +162,11 @@ const AdminPusatDashboardScreen = () => {
               <Ionicons name="library" size={24} color="#fff" />
             </View>
             <Text style={styles.quickAccessText}>Template Kurikulum</Text>
-            <Text style={styles.quickAccessSubtext}>Kelola template dan distribusi</Text>
+            <Text style={styles.quickAccessSubtext}>Fitur ini sedang dalam perbaikan / maintenance</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.quickAccessItem} 
+          <TouchableOpacity
+            style={styles.quickAccessItem}
             onPress={navigateToTutorHonorSettings}
           >
             <View style={[styles.iconContainer, { backgroundColor: '#e74c3c' }]}>
@@ -171,7 +177,7 @@ const AdminPusatDashboardScreen = () => {
           </TouchableOpacity>
 
           {/* NEW: Manajemen User */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.quickAccessItem}
             onPress={navigateToUserManagement}
           >
@@ -180,6 +186,17 @@ const AdminPusatDashboardScreen = () => {
             </View>
             <Text style={styles.quickAccessText}>Manajemen User</Text>
             <Text style={styles.quickAccessSubtext}>Kelola user pusat/cabang/shelter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAccessItem}
+            onPress={navigateToDataWilayah}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: '#9b59b6' }]}>
+              <Ionicons name="map" size={24} color="#fff" />
+            </View>
+            <Text style={styles.quickAccessText}>Data Wilayah</Text>
+            <Text style={styles.quickAccessSubtext}>Lihat kantor cabang & shelter</Text>
           </TouchableOpacity>
         </View>
       </View>

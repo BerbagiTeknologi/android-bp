@@ -6,6 +6,22 @@ import { ADMIN_CABANG_ENDPOINTS, MANAGEMENT_ENDPOINTS } from '../../../constants
  * Organized by sections: Core, Master Data, Akademik
  */
 export const adminCabangApi = {
+  // GPS Approval Management
+  getGpsApprovalList: async (params = {}) => {
+    return await api.get(ADMIN_CABANG_ENDPOINTS.GPS_APPROVAL.LIST, { params });
+  },
+  
+  getGpsApprovalDetail: async (shelterId) => {
+    return await api.get(ADMIN_CABANG_ENDPOINTS.GPS_APPROVAL.DETAIL.replace(':id', shelterId));
+  },
+  
+  approveGpsRequest: async (shelterId, data) => {
+    return await api.post(ADMIN_CABANG_ENDPOINTS.GPS_APPROVAL.APPROVE.replace(':id', shelterId), data);
+  },
+  
+  rejectGpsRequest: async (shelterId, data) => {
+    return await api.post(ADMIN_CABANG_ENDPOINTS.GPS_APPROVAL.REJECT.replace(':id', shelterId), data);
+  },
   // ==================== CORE ADMIN CABANG ====================
   
   /**
