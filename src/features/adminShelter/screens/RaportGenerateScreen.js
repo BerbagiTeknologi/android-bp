@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,28 @@ const RaportGenerateScreen = () => {
   const [previewData, setPreviewData] = useState(null);
   const [existingRaport, setExistingRaport] = useState(null);
 
+  const refreshPreviewData = useCallback(async () => {
+    if (!selectedSemester) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await raportApi.getPreviewData(anakId, selectedSemester);
+
+      if (response.data.success) {
+        setPreviewData(response.data.data);
+        setError(null);
+      } else {
+        setError(response.data.message || 'Gagal memuat preview raport');
+      }
+    } catch (err) {
+      console.error('Error refreshing preview data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [anakId, selectedSemester]);
+
   useEffect(() => {
     fetchSemesters();
   }, []);
@@ -43,22 +65,21 @@ const RaportGenerateScreen = () => {
     try {
       setLoadingData(true);
       const response = await semesterApi.getAllSemesters();
-      
+
       if (response.data.success) {
-        setSemesters(response.data.data.data || []);
-        
-        const activeSemester = response.data.data.data.find(s => s.is_active);
-        if (activeSemester) {
-          setSelectedSemester(activeSemester.id_semester);
-        }
+        const list = response.data.data || [];
+        setSemesters(list);
+        const activeSemester = list.find(s => s.aktif);
+        if (activeSemester) setSelectedSemester(activeSemester.id);
       }
-    } catch (err) {
-      console.error('Error fetching semesters:', err);
-      setError('Gagal memuat data semester');
-    } finally {
-      setLoadingData(false);
-    }
-  };
+  } catch (err) {
+    console.error('Error fetching semesters:', err);
+    if (err.response) console.log('API response:', err.response.data);
+    setError('Gagal memuat data semester');
+  } finally {
+    setLoadingData(false);
+  }
+};
 
   const checkExistingRaport = async () => {
     try {
@@ -105,18 +126,43 @@ const RaportGenerateScreen = () => {
       }
 
       const response = await raportApi.getPreviewData(anakId, selectedSemester);
-      
+
       if (response.data.success) {
         setPreviewData(response.data.data);
       } else {
-        setError(response.data.message || 'Gagal memuat preview raport');
+        setError(
+          response.data.message ||
+            'Kurikulum untuk semester ini belum tersedia.'
+        );
       }
     } catch (err) {
       console.error('Error getting preview:', err);
-      setError('Gagal memuat preview. Silakan coba lagi.');
+      const apiMessage = err.response?.data?.message;
+      setError(
+        apiMessage ||
+          'Kurikulum untuk semester ini belum tersedia. Silakan hubungi admin.'
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManageNilaiSikap = () => {
+    if (!selectedSemester) {
+      return;
+    }
+
+    const selectedOption = semesters.find(
+      semester => String(semester.id ?? semester.id_semester) === String(selectedSemester)
+    );
+
+    navigation.navigate('NilaiSikap', {
+      anakId,
+      anakData,
+      semesterId: selectedSemester,
+      semesterName: selectedOption?.nama || selectedOption?.nama_semester,
+      onNilaiSikapUpdated: refreshPreviewData
+    });
   };
 
   const handleGenerate = async () => {
@@ -184,18 +230,6 @@ const RaportGenerateScreen = () => {
               </Text>
             </View>
             
-            <Text style={styles.materiHeader}>Materi:</Text>
-            {subject.materi_list.map((materi, mIndex) => (
-              <View key={mIndex} style={styles.materiItem}>
-                <View style={styles.materiRow}>
-                  <Text style={styles.materiName}>{materi.nama_materi}</Text>
-                  <Text style={styles.materiAverage}>{materi.rata_rata}</Text>
-                </View>
-                <Text style={styles.materiCount}>
-                  {materi.total_penilaian} penilaian
-                </Text>
-              </View>
-            ))}
           </View>
         ))}
       </View>
@@ -236,9 +270,9 @@ const RaportGenerateScreen = () => {
               <Picker.Item label="Pilih Semester" value="" />
               {semesters.map(semester => (
                 <Picker.Item
-                  key={semester.id_semester}
-                  label={`${semester.nama_semester} - ${semester.tahun_ajaran} ${semester.is_active ? '(Aktif)' : ''}`}
-                  value={semester.id_semester}
+                  key={semester.id}
+                  label={`${semester.nama || semester.nama_semester} - ${semester.tahun_ajaran} ${semester.aktif ? '(Aktif)' : ''}`}
+                  value={semester.id}
                 />
               ))}
             </Picker>
@@ -302,19 +336,6 @@ const RaportGenerateScreen = () => {
                 <Text style={styles.previewLabel}>Rata-rata Keseluruhan:</Text>
                 <Text style={styles.previewValue}>{previewData.grades.overall_average}</Text>
               </View>
-              <View style={styles.previewRow}>
-                <Text style={styles.previewLabel}>Total Penilaian:</Text>
-                <Text style={styles.previewValue}>{previewData.grades.total_assessments}</Text>
-              </View>
-              <View style={styles.previewRow}>
-                <Text style={styles.previewLabel}>Kelengkapan Data:</Text>
-                <Text style={[
-                  styles.previewValue,
-                  { color: previewData.grades.completeness === 100 ? '#2ecc71' : '#e74c3c' }
-                ]}>
-                  {previewData.grades.completeness}%
-                </Text>
-              </View>
             </View>
 
             {/* Detailed Academic Preview */}
@@ -339,6 +360,14 @@ const RaportGenerateScreen = () => {
                       Rata-rata: {previewData.nilaiSikap.data.rata_rata.toFixed(1)}
                     </Text>
                   </View>
+                )}
+                {!previewData.nilaiSikap.exists && (
+                  <Button
+                    title="Kelola Nilai Sikap"
+                    onPress={handleManageNilaiSikap}
+                    type="outline"
+                    style={styles.manageNilaiSikapButton}
+                  />
                 )}
               </View>
             )}
@@ -527,35 +556,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#7f8c8d',
   },
-  materiHeader: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#34495e',
-    marginBottom: 4,
-  },
-  materiItem: {
-    paddingLeft: 12,
-    marginBottom: 4,
-  },
-  materiRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  materiName: {
-    fontSize: 13,
-    color: '#2c3e50',
-    flex: 1,
-  },
-  materiAverage: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#27ae60',
-  },
-  materiCount: {
-    fontSize: 11,
-    color: '#95a5a6',
-  },
   nilaiSikapDetail: {
     marginTop: 8,
   },
@@ -594,6 +594,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#2ecc71',
   },
   cancelButton: {
+    marginTop: 12,
+  },
+  manageNilaiSikapButton: {
     marginTop: 12,
   },
 });

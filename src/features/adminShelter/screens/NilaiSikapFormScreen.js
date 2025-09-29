@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  Alert,
-  Slider
+  Alert
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -55,10 +55,11 @@ const NilaiSikapFormScreen = () => {
     try {
       const response = await semesterApi.getActive();
       if (response.data.success) {
-        setActiveSemester(response.data.data);
+        const activeSemesterData = response.data.data;
+        setActiveSemester(activeSemesterData);
         setFormData(prev => ({
           ...prev,
-          id_semester: response.data.data.id_semester
+          id_semester: (activeSemesterData?.id ?? activeSemesterData?.id_semester) ?? ''
         }));
       }
     } catch (err) {
@@ -179,7 +180,9 @@ const NilaiSikapFormScreen = () => {
               <Ionicons name="school-outline" size={20} color="#3498db" />
               <Text style={styles.infoLabel}>Semester:</Text>
               <Text style={styles.infoText}>
-                {activeSemester?.nama_semester || nilaiSikap?.semester?.nama_semester}
+                {activeSemester
+                  ? activeSemester?.nama || activeSemester?.nama_semester
+                  : nilaiSikap?.semester?.nama || nilaiSikap?.semester?.nama_semester}
               </Text>
             </View>
           )}
@@ -388,3 +391,5 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 });
+
+export default NilaiSikapFormScreen;

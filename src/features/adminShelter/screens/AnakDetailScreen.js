@@ -62,8 +62,13 @@ const AnakDetailScreen = () => {
       icon: 'document-text-outline'
     },
     {
+      title: 'Nilai Sikap',
+      screen: 'NilaiSikap',
+      icon: 'happy-outline'
+    },
+    {
       title: 'Raport Shelter',
-      screen: 'Raport',
+      screen: 'RaporShelter',
       icon: 'library-outline'
     },
     {
