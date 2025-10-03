@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,213 @@ import {
   useDeleteKelasCustomMutation,
   useGetMasterDataDropdownQuery,
 } from '../../../api/kurikulumApi';
+
+const DEFAULT_TINGKAT_RANGE = {
+  min: 1,
+  max: 12,
+  list: Array.from({ length: 12 }, (_, index) => index + 1),
+};
+
+const cloneDefaultRange = () => ({
+  min: DEFAULT_TINGKAT_RANGE.min,
+  max: DEFAULT_TINGKAT_RANGE.max,
+  list: [...DEFAULT_TINGKAT_RANGE.list],
+});
+
+const parseNumber = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseNumberArray = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map(parseNumber)
+      .filter((item) => item !== null)
+      .sort((a, b) => a - b);
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parseNumberArray(parsed);
+    } catch (error) {
+      return value
+        .split(',')
+        .map((item) => parseNumber(item.trim()))
+        .filter((item) => item !== null)
+        .sort((a, b) => a - b);
+    }
+  }
+
+  return [];
+};
+
+const parseObject = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parseObject(parsed);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+
+  return null;
+};
+
+const collectRangeObjects = (metadata) => {
+  if (!metadata || typeof metadata !== 'object') {
+    return [];
+  }
+
+  const keys = [
+    'tingkat',
+    'tingkat_range',
+    'range_tingkat',
+    'rentang_tingkat',
+    'tingkatRange',
+    'rangeTingkat',
+    'rentangTingkat',
+  ];
+
+  return keys
+    .map((key) => parseObject(metadata[key]))
+    .filter((candidate) => candidate !== null);
+};
+
+const extractRangeFromMetadata = (metadata = {}) => {
+  const normalizedMetadata = parseObject(metadata) || {};
+  const rangeObjects = collectRangeObjects(normalizedMetadata);
+
+  const allowedCandidates = [
+    normalizedMetadata.allowed_tingkat,
+    normalizedMetadata.allowedTingkat,
+  ];
+
+  rangeObjects.forEach((range) => {
+    allowedCandidates.push(
+      range.allowed,
+      range.allowed_tingkat,
+      range.allowedTingkat,
+      range.list,
+      range.daftar
+    );
+  });
+
+  const allowedList = allowedCandidates
+    .map((candidate) => parseNumberArray(candidate))
+    .find((candidate) => candidate.length > 0) || [];
+
+  const minCandidates = [
+    normalizedMetadata.min_tingkat,
+    normalizedMetadata.minTingkat,
+    normalizedMetadata.tingkat_min,
+    normalizedMetadata.tingkatMin,
+  ];
+
+  const maxCandidates = [
+    normalizedMetadata.max_tingkat,
+    normalizedMetadata.maxTingkat,
+    normalizedMetadata.tingkat_max,
+    normalizedMetadata.tingkatMax,
+  ];
+
+  rangeObjects.forEach((range) => {
+    minCandidates.push(range.min, range.minimum, range.start, range.from, range.lowest);
+    maxCandidates.push(range.max, range.maximum, range.end, range.to, range.highest);
+  });
+
+  let min = minCandidates
+    .map(parseNumber)
+    .find((candidate) => candidate !== null);
+  let max = maxCandidates
+    .map(parseNumber)
+    .find((candidate) => candidate !== null);
+
+  if ((min === null || max === null) && allowedList.length > 0) {
+    min = min ?? allowedList[0];
+    max = max ?? allowedList[allowedList.length - 1];
+  }
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+    return {
+      min: null,
+      max: null,
+      list: allowedList,
+    };
+  }
+
+  const finalAllowedList = allowedList.length > 0
+    ? allowedList.filter((value) => value >= min && value <= max)
+    : Array.from({ length: max - min + 1 }, (_, index) => min + index);
+
+  return {
+    min,
+    max,
+    list: [...new Set(finalAllowedList)].sort((a, b) => a - b),
+  };
+};
+
+const getAllowedTingkat = (jenjang) => {
+  if (!jenjang) {
+    return cloneDefaultRange();
+  }
+
+  const metadata = parseObject(jenjang.metadata) || {};
+  const combinedMetadata = {
+    ...metadata,
+  };
+
+  if (jenjang.min_tingkat !== undefined && jenjang.min_tingkat !== null) {
+    combinedMetadata.min_tingkat = jenjang.min_tingkat;
+  }
+  if (jenjang.max_tingkat !== undefined && jenjang.max_tingkat !== null) {
+    combinedMetadata.max_tingkat = jenjang.max_tingkat;
+  }
+  if (jenjang.allowed_tingkat !== undefined && jenjang.allowed_tingkat !== null) {
+    combinedMetadata.allowed_tingkat = jenjang.allowed_tingkat;
+  }
+  if (jenjang.minTingkat !== undefined && jenjang.minTingkat !== null) {
+    combinedMetadata.minTingkat = jenjang.minTingkat;
+  }
+  if (jenjang.maxTingkat !== undefined && jenjang.maxTingkat !== null) {
+    combinedMetadata.maxTingkat = jenjang.maxTingkat;
+  }
+  if (jenjang.allowedTingkat !== undefined && jenjang.allowedTingkat !== null) {
+    combinedMetadata.allowedTingkat = jenjang.allowedTingkat;
+  }
+
+  const range = extractRangeFromMetadata(combinedMetadata);
+
+  if (range.min === null || range.max === null) {
+    return cloneDefaultRange();
+  }
+
+  const clampedList = range.list.length > 0
+    ? range.list
+    : Array.from({ length: range.max - range.min + 1 }, (_, index) => range.min + index);
+
+  const normalizedList = [...new Set(clampedList.map((value) => Math.floor(value)))].sort((a, b) => a - b);
+
+  return {
+    min: Math.floor(range.min),
+    max: Math.floor(range.max),
+    list: normalizedList,
+  };
+};
 
 const KelasCustomTab = ({ refreshing, onRefresh }) => {
   const [showModal, setShowModal] = useState(false);
@@ -45,6 +252,13 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
   const [createKelas, { isLoading: isCreating }] = useCreateKelasCustomMutation();
   const [updateKelas, { isLoading: isUpdating }] = useUpdateKelasCustomMutation();
   const [deleteKelas] = useDeleteKelasCustomMutation();
+
+  const jenjangOptions = useMemo(() => dropdownData?.data?.jenjang || [], [dropdownData]);
+  const selectedJenjangOption = useMemo(
+    () => jenjangOptions.find((jenjang) => jenjang.id_jenjang?.toString() === formData.id_jenjang),
+    [jenjangOptions, formData.id_jenjang]
+  );
+  const allowedTingkat = useMemo(() => getAllowedTingkat(selectedJenjangOption), [selectedJenjangOption]);
 
   // Refresh when tab refreshing prop changes
   useEffect(() => {
@@ -121,11 +335,30 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
       return;
     }
 
+    const tingkatNumber = formData.tingkat ? parseInt(formData.tingkat, 10) : null;
+    if (tingkatNumber !== null) {
+      if (Number.isNaN(tingkatNumber)) {
+        Alert.alert('Error', 'Tingkat tidak valid');
+        return;
+      }
+
+      if (allowedTingkat.min !== null && allowedTingkat.max !== null) {
+        if (tingkatNumber < allowedTingkat.min || tingkatNumber > allowedTingkat.max) {
+          const jenjangName = selectedJenjangOption?.nama_jenjang || 'jenjang ini';
+          Alert.alert(
+            'Error',
+            `Tingkat harus berada dalam rentang ${allowedTingkat.min}-${allowedTingkat.max} untuk ${jenjangName}.`
+          );
+          return;
+        }
+      }
+    }
+
     try {
       const submitData = {
         id_jenjang: parseInt(formData.id_jenjang),
         nama_kelas: formData.nama_kelas,
-        tingkat: formData.tingkat ? parseInt(formData.tingkat) : null,
+        tingkat: tingkatNumber,
         deskripsi: formData.deskripsi,
         is_global: formData.is_global,
         target_jenjang: formData.target_jenjang,
@@ -193,8 +426,6 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
   );
 
   const renderJenjangPicker = () => {
-    const jenjangOptions = dropdownData?.data?.jenjang || [];
-    
     return (
       <View style={styles.formGroup}>
         <Text style={styles.formLabel}>Jenjang *</Text>
@@ -206,10 +437,12 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
                 styles.pickerOption,
                 formData.id_jenjang === jenjang.id_jenjang.toString() && styles.pickerOptionActive
               ]}
-              onPress={() => setFormData(prev => ({ 
-                ...prev, 
-                id_jenjang: jenjang.id_jenjang.toString() 
-              }))}
+              onPress={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  id_jenjang: jenjang.id_jenjang.toString(),
+                }))
+              }
             >
               <Text style={[
                 styles.pickerOptionText,
@@ -219,6 +452,108 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+      </View>
+    );
+  };
+
+  useEffect(() => {
+    if (!formData.id_jenjang || !formData.tingkat) {
+      return;
+    }
+
+    if (allowedTingkat.min === null || allowedTingkat.max === null) {
+      return;
+    }
+
+    const numericTingkat = parseInt(formData.tingkat, 10);
+    if (
+      Number.isNaN(numericTingkat) ||
+      numericTingkat < allowedTingkat.min ||
+      numericTingkat > allowedTingkat.max
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        tingkat: '',
+      }));
+    }
+  }, [formData.id_jenjang, formData.tingkat, allowedTingkat.min, allowedTingkat.max]);
+
+  const renderTingkatPicker = () => {
+    const hasRange =
+      allowedTingkat.list.length > 0 &&
+      allowedTingkat.min !== null &&
+      allowedTingkat.max !== null;
+    const min = hasRange ? allowedTingkat.min : DEFAULT_TINGKAT_RANGE.min;
+    const max = hasRange ? allowedTingkat.max : DEFAULT_TINGKAT_RANGE.max;
+    const jenjangName = selectedJenjangOption?.nama_jenjang;
+    const placeholder = formData.id_jenjang
+      ? hasRange
+        ? `Pilih tingkat (${min}-${max})`
+        : 'Rentang tingkat belum tersedia'
+      : 'Pilih tingkat setelah memilih jenjang';
+
+    return (
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Tingkat</Text>
+        <Text style={styles.helperText}>
+          {formData.id_jenjang
+            ? hasRange
+              ? `Rentang tingkat valid${jenjangName ? ` untuk ${jenjangName}` : ''}: ${min}-${max}`
+              : `Rentang tingkat${jenjangName ? ` untuk ${jenjangName}` : ''} belum tersedia.`
+            : 'Silakan pilih jenjang terlebih dahulu untuk melihat pilihan tingkat.'}
+        </Text>
+        {!formData.tingkat && (
+          <Text style={styles.placeholderText}>{placeholder}</Text>
+        )}
+        <View style={[styles.pickerContainer, styles.tingkatPickerContainer]}>
+          <TouchableOpacity
+            style={[
+              styles.pickerOption,
+              formData.tingkat === '' && styles.pickerOptionActive,
+            ]}
+            onPress={() =>
+              setFormData((prev) => ({
+                ...prev,
+                tingkat: '',
+              }))
+            }
+          >
+            <Text
+              style={[
+                styles.pickerOptionText,
+                formData.tingkat === '' && styles.pickerOptionTextActive,
+              ]}
+            >
+              Kosong
+            </Text>
+          </TouchableOpacity>
+
+          {hasRange &&
+            allowedTingkat.list.map((tingkat) => (
+              <TouchableOpacity
+                key={tingkat}
+                style={[
+                  styles.pickerOption,
+                  formData.tingkat === tingkat.toString() && styles.pickerOptionActive,
+                ]}
+                onPress={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    tingkat: tingkat.toString(),
+                  }))
+                }
+              >
+                <Text
+                  style={[
+                    styles.pickerOptionText,
+                    formData.tingkat === tingkat.toString() && styles.pickerOptionTextActive,
+                  ]}
+                >
+                  {tingkat}
+                </Text>
+              </TouchableOpacity>
+            ))}
         </View>
       </View>
     );
@@ -256,16 +591,7 @@ const KelasCustomTab = ({ refreshing, onRefresh }) => {
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Tingkat</Text>
-            <TextInput
-              style={styles.formInput}
-              value={formData.tingkat}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, tingkat: text }))}
-              placeholder="Masukkan tingkat (1-12)"
-              keyboardType="numeric"
-            />
-          </View>
+          {renderTingkatPicker()}
 
           <View style={styles.formGroup}>
             <Text style={styles.formLabel}>Deskripsi</Text>
@@ -587,6 +913,17 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginBottom: 4,
+  },
+  placeholderText: {
+    fontSize: 12,
+    color: '#adb5bd',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
   formInput: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -602,6 +939,9 @@ const styles = StyleSheet.create({
   pickerContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  tingkatPickerContainer: {
+    marginTop: 8,
   },
   pickerOption: {
     paddingHorizontal: 16,

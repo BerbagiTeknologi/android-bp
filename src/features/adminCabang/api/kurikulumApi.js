@@ -80,6 +80,17 @@ export const kurikulumApi = createApi({
       invalidatesTags: [{ type: 'Kurikulum', id: 'LIST' }, 'Statistics'],
     }),
 
+    setKurikulumActive: builder.mutation({
+      query: ({ kurikulumId }) => ({
+        url: `/kurikulum/${kurikulumId}/set-active`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, { kurikulumId }) => [
+        { type: 'Kurikulum', id: kurikulumId },
+        { type: 'Kurikulum', id: 'LIST' },
+      ],
+    }),
+
     getMataPelajaran: builder.query({
       query: (params) => ({
         url: '/kurikulum/mata-pelajaran',
@@ -335,7 +346,7 @@ export const kurikulumApi = createApi({
         const data = result?.data;
         if (Array.isArray(data)) {
           return [
-            ...data.map(({ id_semester }) => ({ type: 'Semester', id: id_semester })),
+            ...data.map(({ id_semester, id }) => ({ type: 'Semester', id: id_semester ?? id })),
             { type: 'Semester', id: 'LIST' },
           ];
         }
@@ -549,6 +560,7 @@ export const {
   useGetKurikulumStrukturQuery,
   useGetKurikulumListQuery,
   useCreateKurikulumMutation,
+  useSetKurikulumActiveMutation,
   useGetMataPelajaranQuery,
   useGetKurikulumDropdownDataQuery,
   useGetKelasByJenjangQuery,

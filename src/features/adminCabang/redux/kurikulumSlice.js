@@ -1,5 +1,12 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const resolveKurikulumId = (kurikulum) => (
+  kurikulum?.id_kurikulum
+  ?? kurikulum?.kurikulum_id
+  ?? kurikulum?.id
+  ?? null
+);
+
 /**
  * Kurikulum slice for Admin Cabang
  * Manages kurikulum hierarchy navigation state and structure data
@@ -10,6 +17,8 @@ const kurikulumSlice = createSlice({
     // Navigation state
     selectedKurikulumId: null,
     selectedKurikulum: null,
+    activeKurikulumId: null,
+    activeKurikulum: null,
     currentJenjang: null,
     currentKelas: null,
     currentMataPelajaran: null,
@@ -50,6 +59,38 @@ const kurikulumSlice = createSlice({
     setSelectedKurikulum: (state, action) => {
       state.selectedKurikulum = action.payload || null;
       state.selectedKurikulumId = action.payload?.id_kurikulum ?? action.payload?.id ?? null;
+    },
+
+    setActiveKurikulum: (state, action) => {
+      const payload = action.payload || null;
+      const resolvedActiveId = resolveKurikulumId(payload);
+      const previousActiveId = state.activeKurikulumId
+        ?? resolveKurikulumId(state.activeKurikulum);
+      const selectedId = state.selectedKurikulumId
+        ?? resolveKurikulumId(state.selectedKurikulum);
+
+      state.activeKurikulum = payload;
+      state.activeKurikulumId = resolvedActiveId;
+
+      if (!selectedId || (previousActiveId && selectedId === previousActiveId)) {
+        state.selectedKurikulum = payload;
+        state.selectedKurikulumId = resolvedActiveId;
+      }
+    },
+
+    clearActiveKurikulum: (state) => {
+      const previousActiveId = state.activeKurikulumId
+        ?? resolveKurikulumId(state.activeKurikulum);
+      const selectedId = state.selectedKurikulumId
+        ?? resolveKurikulumId(state.selectedKurikulum);
+
+      state.activeKurikulum = null;
+      state.activeKurikulumId = null;
+
+      if (!selectedId || (previousActiveId && selectedId === previousActiveId)) {
+        state.selectedKurikulum = null;
+        state.selectedKurikulumId = null;
+      }
     },
 
     clearSelectedKurikulum: (state) => {
@@ -165,6 +206,8 @@ const kurikulumSlice = createSlice({
     clearKurikulumData: (state) => {
       state.selectedKurikulum = null;
       state.selectedKurikulumId = null;
+      state.activeKurikulum = null;
+      state.activeKurikulumId = null;
       state.struktur = [];
       state.kelasList = [];
       state.mataPelajaranList = [];
@@ -211,10 +254,16 @@ export const {
   setStatisticsLoading,
   setStatisticsSuccess,
   setStatisticsError,
-  clearKurikulumData
+  clearKurikulumData,
+  setActiveKurikulum,
+  clearActiveKurikulum
 } = kurikulumSlice.actions;
 
 // Selectors
+export const selectSelectedKurikulum = (state) => state.kurikulum.selectedKurikulum;
+export const selectSelectedKurikulumId = (state) => state.kurikulum.selectedKurikulumId;
+export const selectActiveKurikulum = (state) => state.kurikulum.activeKurikulum;
+export const selectActiveKurikulumId = (state) => state.kurikulum.activeKurikulumId;
 export const selectCurrentJenjang = (state) => state.kurikulum.currentJenjang;
 export const selectCurrentKelas = (state) => state.kurikulum.currentKelas;
 export const selectCurrentMataPelajaran = (state) => state.kurikulum.currentMataPelajaran;
@@ -226,6 +275,23 @@ export const selectKurikulumLoading = (state) => state.kurikulum.loading;
 export const selectKurikulumError = (state) => state.kurikulum.error;
 
 // Combined selectors
+export const selectEffectiveKurikulum = (state) => (
+  state.kurikulum.selectedKurikulum || state.kurikulum.activeKurikulum
+);
+
+export const selectEffectiveKurikulumId = (state) => {
+  const selectedId = state.kurikulum.selectedKurikulumId
+    ?? resolveKurikulumId(state.kurikulum.selectedKurikulum);
+
+  if (selectedId) {
+    return selectedId;
+  }
+
+  return state.kurikulum.activeKurikulumId
+    ?? resolveKurikulumId(state.kurikulum.activeKurikulum)
+    ?? null;
+};
+
 export const selectNavigationState = (state) => ({
   jenjang: state.kurikulum.currentJenjang,
   kelas: state.kurikulum.currentKelas,
