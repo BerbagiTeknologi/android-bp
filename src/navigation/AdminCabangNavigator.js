@@ -17,6 +17,13 @@ import AdminCabangDonaturDetailScreen from '../features/adminCabang/screens/Admi
 import DonaturFilterScreen from '../features/adminCabang/screens/DonaturFilterScreen';
 import GpsApprovalScreen from '../features/adminCabang/screens/GpsApprovalScreen';
 import GpsApprovalDetailScreen from '../features/adminCabang/screens/GpsApprovalDetailScreen';
+import AdminCabangUserManagementScreen from '../features/adminCabang/screens/user/UserManagementScreen';
+import AdminCabangUserFormScreen from '../features/adminCabang/screens/user/UserFormScreen';
+import AdminCabangUserDetailScreen from '../features/adminCabang/screens/user/UserDetailScreen';
+import AdminCabangReportHomeScreen from '../features/adminCabang/screens/reports/AdminCabangReportHomeScreen';
+import AdminCabangChildReportScreen from '../features/adminCabang/screens/reports/AdminCabangChildReportScreen';
+import AdminCabangChildDetailScreen from '../features/adminCabang/screens/reports/AdminCabangChildDetailScreen';
+import AdminCabangTutorReportScreen from '../features/adminCabang/screens/reports/AdminCabangTutorReportScreen';
 
 // Kurikulum screens
 import KurikulumHomeScreen from '../features/adminCabang/screens/kurikulum/KurikulumHomeScreen';
@@ -25,7 +32,10 @@ import KelasSelectionScreen from '../features/adminCabang/screens/kurikulum/Kela
 import MataPelajaranListScreen from '../features/adminCabang/screens/kurikulum/MataPelajaranListScreen';
 import MateriManagementScreen from '../features/adminCabang/screens/kurikulum/MateriManagementScreen';
 import MateriFormScreen from '../features/adminCabang/screens/kurikulum/MateriFormScreen';
+import SelectKurikulumScreen from '../features/adminCabang/screens/kurikulum/SelectKurikulumScreen';
+import CreateKurikulumScreen from '../features/adminCabang/screens/kurikulum/CreateKurikulumScreen';
 import SemesterManagementScreen from '../features/adminCabang/screens/kurikulum/SemesterManagementScreen';
+import SemesterFormScreen from '../features/adminCabang/screens/kurikulum/SemesterFormScreen';
 import TemplateAdoptionScreen from '../features/adminCabang/screens/kurikulum/TemplateAdoptionScreen';
 import MasterDataScreen from '../features/adminCabang/screens/kurikulum/MasterDataScreen';
 
@@ -33,6 +43,7 @@ import MasterDataScreen from '../features/adminCabang/screens/kurikulum/MasterDa
 const Tab = createBottomTabNavigator();
 const DashboardStack = createStackNavigator();
 const KurikulumStack = createStackNavigator();
+const ReportsStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
 // Dashboard Stack Navigator
@@ -98,6 +109,21 @@ const DashboardStackNavigator = () => (
       component={GpsApprovalDetailScreen}
       options={{ headerTitle: 'Detail Persetujuan GPS' }}
     />
+    <DashboardStack.Screen
+      name="AdminCabangUserManagement"
+      component={AdminCabangUserManagementScreen}
+      options={{ headerTitle: 'Manajemen User Cabang' }}
+    />
+    <DashboardStack.Screen
+      name="AdminCabangUserForm"
+      component={AdminCabangUserFormScreen}
+      options={{ headerTitle: 'Form User Cabang' }}
+    />
+    <DashboardStack.Screen
+      name="AdminCabangUserDetail"
+      component={AdminCabangUserDetailScreen}
+      options={{ headerTitle: 'Detail User Cabang' }}
+    />
   </DashboardStack.Navigator>
 );
 
@@ -108,6 +134,16 @@ const KurikulumStackNavigator = () => (
       name="KurikulumHome"
       component={KurikulumHomeScreen}
       options={{ headerTitle: 'Kurikulum' }}
+    />
+    <KurikulumStack.Screen
+      name="SelectKurikulum"
+      component={SelectKurikulumScreen}
+      options={{ headerTitle: 'Pilih Kurikulum' }}
+    />
+    <KurikulumStack.Screen
+      name="CreateKurikulum"
+      component={CreateKurikulumScreen}
+      options={{ headerTitle: 'Buat Kurikulum' }}
     />
     <KurikulumStack.Screen
       name="JenjangSelection"
@@ -142,6 +178,13 @@ const KurikulumStackNavigator = () => (
       options={{ headerTitle: 'Kelola Semester' }}
     />
     <KurikulumStack.Screen
+      name="SemesterForm"
+      component={SemesterFormScreen}
+      options={({ route }) => ({
+        headerTitle: route.params?.mode === 'edit' ? 'Edit Semester' : 'Tambah Semester'
+      })}
+    />
+    <KurikulumStack.Screen
       name="TemplateAdoption"
       component={TemplateAdoptionScreen}
       options={{ headerTitle: 'Adopsi Template' }}
@@ -152,6 +195,32 @@ const KurikulumStackNavigator = () => (
       options={{ headerTitle: 'Master Data' }}
     />
   </KurikulumStack.Navigator>
+);
+
+// Reports Stack Navigator
+const ReportsStackNavigator = () => (
+  <ReportsStack.Navigator>
+    <ReportsStack.Screen
+      name="AdminCabangReportHome"
+      component={AdminCabangReportHomeScreen}
+      options={{ headerTitle: 'Laporan' }}
+    />
+    <ReportsStack.Screen
+      name="AdminCabangChildReport"
+      component={AdminCabangChildReportScreen}
+      options={{ headerTitle: 'Laporan Anak Binaan' }}
+    />
+    <ReportsStack.Screen
+      name="AdminCabangChildDetail"
+      component={AdminCabangChildDetailScreen}
+      options={{ headerTitle: 'Detail Anak' }}
+    />
+    <ReportsStack.Screen
+      name="AdminCabangTutorReport"
+      component={AdminCabangTutorReportScreen}
+      options={{ headerTitle: 'Laporan Tutor' }}
+    />
+  </ReportsStack.Navigator>
 );
 
 // Profile Stack Navigator
@@ -172,6 +241,7 @@ const AdminCabangNavigator = () => (
         let iconName;
         if (route.name === 'Home') iconName = focused ? 'grid' : 'grid-outline';
         else if (route.name === 'Kurikulum') iconName = focused ? 'library' : 'library-outline';
+        else if (route.name === 'Reports') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
         else if (route.name === 'Profile') iconName = focused ? 'person-circle' : 'person-circle-outline';
         return <Ionicons name={iconName} size={size} color={color} />;
       },
@@ -189,6 +259,11 @@ const AdminCabangNavigator = () => (
       name="Kurikulum"
       component={KurikulumStackNavigator}
       options={{ tabBarLabel: 'Kurikulum' }}
+    />
+    <Tab.Screen
+      name="Reports"
+      component={ReportsStackNavigator}
+      options={{ tabBarLabel: 'Laporan' }}
     />
     <Tab.Screen
       name="Profile"

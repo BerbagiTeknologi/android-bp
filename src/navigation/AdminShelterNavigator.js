@@ -2,11 +2,16 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSelector } from 'react-redux';
 
 // Core screens
 import AdminShelterDashboardScreen from '../features/adminShelter/screens/AdminShelterDashboardScreen';
 import AdminShelterProfileScreen from '../features/adminShelter/screens/AdminShelterProfileScreen';
+import AdminShelterSettingsScreen from '../features/adminShelter/screens/AdminShelterSettingsScreen';
 import ShelterGpsSettingScreen from '../features/adminShelter/screens/ShelterGpsSettingScreen';
+import NotificationsScreen from '../features/adminShelter/screens/NotificationsScreen';
+import { selectUnreadNotificationCount } from '../features/adminShelter/redux/notificationSlice';
 
 // Primary feature screens  
 import QrScannerScreen from '../features/adminShelter/screens/attendance/QrScannerScreen';
@@ -37,9 +42,6 @@ import AttendanceManagementScreen from '../features/adminShelter/screens/attenda
 
 // AnakDetail module screens
 import InformasiAnakScreen from '../features/adminShelter/screens/anakDetail/InformasiAnakScreen';
-import RaportScreen from '../features/adminShelter/screens/anakDetail/RaportScreen';
-import AddRaportScreen from '../features/adminShelter/screens/anakDetail/AddRaportScreen';
-import RaportDetailScreen from '../features/adminShelter/screens/anakDetail/RaportDetailScreen';
 import PrestasiScreen from '../features/adminShelter/screens/anakDetail/PrestasiScreen';
 import PrestasiDetailScreen from '../features/adminShelter/screens/anakDetail/PrestasiDetailScreen';
 import PrestasiFormScreen from '../features/adminShelter/screens/anakDetail/PrestasiFormScreen';
@@ -79,6 +81,8 @@ import LaporanAktivitasScreen from '../features/adminShelter/screens/reports/Lap
 import PenilaianListScreen from '../features/adminShelter/screens/PenilaianListScreen';
 import PenilaianFormScreen from '../features/adminShelter/screens/PenilaianFormScreen';
 import SemesterManagementScreen from '../features/adminShelter/screens/SemesterManagementScreen';
+import NilaiSikapScreen from '../features/adminShelter/screens/NilaiSikapScreen';
+import NilaiSikapFormScreen from '../features/adminShelter/screens/NilaiSikapFormScreen';
 
 // Management & Utility screens
 import PengajuanAnakSearchScreen from '../features/adminShelter/screens/PengajuanAnakSearchScreen';
@@ -104,10 +108,76 @@ const HomeStack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 const ManagementStack = createStackNavigator();
 
-const HomeStackNavigator = () => (
-  <HomeStack.Navigator>
-    <HomeStack.Screen name="Dashboard" component={AdminShelterDashboardScreen} options={{ headerTitle: 'Dashboard Admin Shelter' }} />
-    
+const headerStyles = StyleSheet.create({
+  headerButton: {
+    marginRight: 12,
+    padding: 4,
+  },
+  headerRightContainer: {
+    marginRight: 12,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#e53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+});
+
+const NotificationBell = ({ onPress, unreadCount }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={headerStyles.headerButton}
+    accessibilityRole="button"
+    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+  >
+    <View>
+      <Ionicons name="notifications-outline" size={24} color="#1f2933" />
+      {unreadCount > 0 && (
+        <View style={headerStyles.badgeContainer}>
+          <Text style={headerStyles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+        </View>
+      )}
+    </View>
+  </TouchableOpacity>
+);
+
+const HomeStackNavigator = () => {
+  const unreadCount = useSelector(selectUnreadNotificationCount);
+
+  return (
+    <HomeStack.Navigator>
+      <HomeStack.Screen
+        name="Dashboard"
+        component={AdminShelterDashboardScreen}
+        options={({ navigation }) => ({
+          headerTitle: 'Dashboard Admin Shelter',
+          headerRight: () => (
+            <NotificationBell
+              onPress={() => navigation.navigate('Notifications')}
+              unreadCount={unreadCount}
+            />
+          ),
+          headerRightContainerStyle: headerStyles.headerRightContainer,
+        })}
+      />
+      <HomeStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerTitle: 'Notifikasi', headerBackTitleVisible: false }}
+      />
+
     {/* Core feature screens */}
     <HomeStack.Screen name="QrScanner" component={QrScannerScreen} options={{ headerTitle: 'Scan QR Code' }} />
     <HomeStack.Screen name="ViewReportScreen" component={ViewReportScreen} options={{ headerTitle: 'View Report' }} />
@@ -139,8 +209,6 @@ const HomeStackNavigator = () => (
     <HomeStack.Screen name="AddChildrenToKelompok" component={AddChildrenToKelompokScreen} options={{ headerTitle: 'Tambah Anak ke Kelompok' }} />
     <HomeStack.Screen name="KelompokReporting" component={KelompokReportingScreen} options={{ headerTitle: 'Laporan Kelompok' }} />
     <HomeStack.Screen name="LaporanAktivitas" component={LaporanAktivitasScreen} options={{ headerTitle: 'Laporan Aktivitas' }} />
-    <HomeStack.Screen name="PenilaianList" component={PenilaianListScreen} options={{ headerTitle: 'Daftar Penilaian' }} />
-    <HomeStack.Screen name="PenilaianForm" component={PenilaianFormScreen} options={{ headerTitle: 'Form Penilaian' }} />
     <HomeStack.Screen name="SemesterManagement" component={SemesterManagementScreen} options={{ headerTitle: 'Kelola Semester' }} />
     
     {/* Management & Utility screens */}
@@ -156,18 +224,24 @@ const HomeStackNavigator = () => (
    
   </HomeStack.Navigator>
 );
+};
 
 const ProfileStackNavigator = () => (
   <ProfileStack.Navigator>
-    <ProfileStack.Screen 
-      name="Profile" 
-      component={AdminShelterProfileScreen} 
-      options={{ headerTitle: 'Profil Admin Shelter' }} 
+    <ProfileStack.Screen
+      name="ProfileHome"
+      component={AdminShelterProfileScreen}
+      options={{ headerTitle: 'Profil Admin Shelter' }}
     />
-    <ProfileStack.Screen 
-      name="ShelterGpsSetting" 
-      component={ShelterGpsSettingScreen} 
-      options={{ headerTitle: 'Setting GPS Shelter' }} 
+    <ProfileStack.Screen
+      name="ShelterGpsSetting"
+      component={ShelterGpsSettingScreen}
+      options={{ headerTitle: 'Setting GPS Shelter' }}
+    />
+    <ProfileStack.Screen
+      name="AdminShelterSettings"
+      component={AdminShelterSettingsScreen}
+      options={{ headerTitle: 'Pengaturan' }}
     />
   </ProfileStack.Navigator>
 );
@@ -179,7 +253,15 @@ const ManagementStackNavigator = () => (
     <ManagementStack.Screen name="TutorManagement" component={TutorManagementScreen} options={{ headerTitle: 'Tutor Management' }} />
     <ManagementStack.Screen name="KeuanganList" component={KeuanganListScreen} options={{ headerTitle: 'Daftar Keuangan' }} />
     <ManagementStack.Screen name="LaporanKegiatanMain" component={LaporanKegiatanMainScreen} options={{ headerTitle: 'Laporan Kegiatan' }} />
+    <ManagementStack.Screen name="LaporanAnakBinaan" component={LaporanAnakBinaanScreen} options={{ headerTitle: 'Laporan Anak Binaan' }} />
+    <ManagementStack.Screen name="LaporanRaportAnak" component={LaporanRaportAnakScreen} options={{ headerTitle: 'Laporan Raport Anak' }} />
+    <ManagementStack.Screen name="LaporanHistoriAnak" component={LaporanHistoriAnakScreen} options={{ headerTitle: 'Laporan Histori Anak' }} />
+    <ManagementStack.Screen name="LaporanAktivitas" component={LaporanAktivitasScreen} options={{ headerTitle: 'Laporan Aktivitas' }} />
+    <ManagementStack.Screen name="LaporanSuratAnak" component={LaporanSuratAnakScreen} options={{ headerTitle: 'Laporan Surat Anak' }} />
+    <ManagementStack.Screen name="ShelterReport" component={ShelterReportScreen} options={{ headerTitle: 'Shelter Report' }} />
+    <ManagementStack.Screen name="CPBReport" component={CPBReportScreen} options={{ headerTitle: 'CPB Report' }} />
     <ManagementStack.Screen name="RaportGenerate" component={RaportGenerateScreen} options={{ headerTitle: 'Generate Raport' }} />
+    <ManagementStack.Screen name="RaportView" component={RaportViewScreen} options={{ headerTitle: 'View Raport' }} />
 
     {/* Keluarga related screens */}
     <ManagementStack.Screen name="KeluargaDetail" component={KeluargaDetailScreen} options={{ headerTitle: 'Detail Keluarga' }} />
@@ -191,9 +273,6 @@ const ManagementStackNavigator = () => (
 
   {/* AnakDetail module */}
   <ManagementStack.Screen name="InformasiAnak" component={InformasiAnakScreen} options={{ headerTitle: 'Informasi Anak' }} />
-  <ManagementStack.Screen name="Raport" component={RaportScreen} options={{ headerTitle: 'Raport' }} />
-  <ManagementStack.Screen name="AddRaport" component={AddRaportScreen} options={{ headerTitle: 'Tambah Raport' }} />
-  <ManagementStack.Screen name="RaportDetail" component={RaportDetailScreen} options={{ headerTitle: 'Detail Raport' }} />
   <ManagementStack.Screen name="Prestasi" component={PrestasiScreen} options={{ headerTitle: 'Prestasi' }} />
   <ManagementStack.Screen name="PrestasiDetail" component={PrestasiDetailScreen} options={{ headerTitle: 'Detail Prestasi' }} />
   <ManagementStack.Screen name="PrestasiForm" component={PrestasiFormScreen} options={{ headerTitle: 'Form Prestasi' }} />
@@ -205,10 +284,14 @@ const ManagementStackNavigator = () => (
   <ManagementStack.Screen name="RiwayatDetail" component={RiwayatDetailScreen} options={{ headerTitle: 'Detail Riwayat' }} />
   <ManagementStack.Screen name="RiwayatForm" component={RiwayatFormScreen} options={{ headerTitle: 'Form Riwayat' }} />
   <ManagementStack.Screen name="NilaiAnak" component={NilaiAnakScreen} options={{ headerTitle: 'Nilai Anak' }} />
+  <ManagementStack.Screen name="NilaiSikap" component={NilaiSikapScreen} options={{ headerTitle: 'Nilai Sikap' }} />
+  <ManagementStack.Screen name="NilaiSikapForm" component={NilaiSikapFormScreen} options={{ headerTitle: 'Form Nilai Sikap' }} />
   <ManagementStack.Screen name="RaporShelter" component={RaporShelterScreen} options={{ headerTitle: 'Rapor Shelter' }} />
   <ManagementStack.Screen name="RaportFormal" component={RaportFormalScreen} options={{ headerTitle: 'Raport Formal' }} />
   <ManagementStack.Screen name="RaportFormalDetail" component={RaportFormalDetailScreen} options={{ headerTitle: 'Detail Raport Formal' }} />
   <ManagementStack.Screen name="RaportFormalForm" component={RaportFormalFormScreen} options={{ headerTitle: 'Form Raport Formal' }} />
+  <ManagementStack.Screen name="PenilaianList" component={PenilaianListScreen} options={{ headerTitle: 'Daftar Penilaian' }} />
+  <ManagementStack.Screen name="PenilaianForm" component={PenilaianFormScreen} options={{ headerTitle: 'Form Penilaian' }} />
 
     {/* Tutor related screens */}
     <ManagementStack.Screen name="TutorDetail" component={TutorDetailScreen} options={{ headerTitle: 'Detail Tutor' }} />
@@ -237,7 +320,7 @@ const AdminShelterNavigator = () => (
           iconName = focused ? 'home' : 'home-outline';
         } else if (route.name === 'Management') {
           iconName = focused ? 'settings' : 'settings-outline';
-        } else if (route.name === 'Profile') {
+        } else if (route.name === 'ProfileTab') {
           iconName = focused ? 'person' : 'person-outline';
         }
         return <Ionicons name={iconName} size={size} color={color} />;
@@ -257,8 +340,8 @@ const AdminShelterNavigator = () => (
       component={ManagementStackNavigator}
       options={{ tabBarLabel: 'Management' }}
     />
-    <Tab.Screen 
-      name="Profile" 
+    <Tab.Screen
+      name="ProfileTab"
       component={ProfileStackNavigator}
       options={{ tabBarLabel: 'Profile' }}
     />

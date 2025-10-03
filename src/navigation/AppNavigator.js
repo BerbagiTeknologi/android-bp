@@ -11,8 +11,8 @@ import AdminShelterNavigator from './AdminShelterNavigator';
 import DonaturNavigator from './DonaturNavigator';
 
 // Import auth selectors and hooks
-import { 
-  selectIsAuthenticated, 
+import {
+  selectIsAuthenticated,
   selectUserLevel,
   selectIsInitializing
 } from '../features/auth/redux/authSlice';
