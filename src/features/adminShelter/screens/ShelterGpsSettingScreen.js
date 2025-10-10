@@ -12,6 +12,21 @@ import { useAuth } from '../../../common/hooks/useAuth';
 import { adminShelterApi } from '../api/adminShelterApi';
 import GpsPermissionModal from '../../../common/components/GpsPermissionModal';
 
+const logAxiosError = (context, err) => {
+  const status = err.response?.status;
+  const data = err.response?.data;
+  const headers = err.response?.headers;
+
+  console.error(
+    `${context} (status: ${status ?? 'unknown'}, message: ${err.message})`,
+    {
+      data,
+      headers,
+      stack: err.stack
+    }
+  );
+};
+
 const ShelterGpsSettingScreen = ({ navigation }) => {
   const { profile, refreshUser } = useAuth();
   
@@ -67,7 +82,15 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
         });
       }
     } catch (error) {
-      console.error('Error loading GPS config:', error);
+      logAxiosError('Error loading GPS config', error);
+
+      const backendMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        (typeof error.response?.data === 'string' ? error.response?.data : null);
+      const status = error.response?.status;
+      const fallbackMessage = backendMessage || 'Gagal memuat konfigurasi GPS';
+      setError(status ? `${fallbackMessage} (HTTP ${status})` : fallbackMessage);
       // Fallback to profile data if API fails
       if (profile?.shelter) {
         const requireGps = profile.shelter.require_gps;
@@ -193,8 +216,16 @@ const ShelterGpsSettingScreen = ({ navigation }) => {
       ]);
       
     } catch (err) {
-      console.error('Error updating GPS config:', err);
-      setError(err.response?.data?.message || 'Gagal menyimpan GPS setting');
+      logAxiosError('Error updating GPS config', err);
+
+      const backendMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (typeof err.response?.data === 'string' ? err.response?.data : null);
+      const status = err.response?.status;
+      const fallbackMessage = backendMessage || 'Gagal menyimpan GPS setting';
+
+      setError(status ? `${fallbackMessage} (HTTP ${status})` : fallbackMessage);
     } finally {
       setLoading(false);
     }

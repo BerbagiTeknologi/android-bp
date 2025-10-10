@@ -72,7 +72,6 @@ const ActivityDetailScreen = ({ navigation, route }) => {
 
   const shelterGpsConfig = getShelterGpsConfig();
   const [reportExists, setReportExists] = useState(false);
-  const [checkingReport, setCheckingReport] = useState(false);
   const [dynamicGpsConfig, setDynamicGpsConfig] = useState(null);
   const [loadingGpsConfig, setLoadingGpsConfig] = useState(false);
 
@@ -184,24 +183,32 @@ const ActivityDetailScreen = ({ navigation, route }) => {
     if (id_aktivitas) dispatch(fetchAktivitasDetail(id_aktivitas));
   }, [dispatch, id_aktivitas]);
   
-  // Check if activity report exists when activity is completed
+  // Check if activity report exists once the activity detail is loaded
   useEffect(() => {
     const checkActivityReport = async () => {
-      if (!activity || !isActivityCompleted()) return;
-      
-      setCheckingReport(true);
+      if (!activity || !id_aktivitas) return;
+
       try {
         await dispatch(fetchActivityReport(id_aktivitas)).unwrap();
         setReportExists(true);
       } catch (err) {
+        const statusCode = err?.status || err?.response?.status || err?.originalStatus;
+        const rawMessage = typeof err === 'string' ? err : err?.message;
+        const normalizedMessage = typeof rawMessage === 'string' ? rawMessage.toLowerCase() : '';
+        const isNotFound =
+          statusCode === 404 ||
+          normalizedMessage.includes('tidak ditemukan') ||
+          normalizedMessage.includes('not found');
+
+        if (!isNotFound) {
+          console.error('Error checking activity report:', err);
+        }
         setReportExists(false);
-      } finally {
-        setCheckingReport(false);
       }
     };
-    
+
     if (activity) checkActivityReport();
-  }, [dispatch, id_aktivitas, activity, isActivityCompleted]);
+  }, [dispatch, id_aktivitas, activity]);
   
   const handleEditActivity = () => navigation.navigate('ActivityForm', { activity });
   
@@ -303,16 +310,6 @@ const ActivityDetailScreen = ({ navigation, route }) => {
   const handleActivityReport = () => {
     if (!activity) return;
     
-    // Check if activity is completed before allowing report
-    if (!isActivityCompleted()) {
-      Alert.alert(
-        'Aktivitas Belum Selesai',
-        'Laporan kegiatan hanya dapat dibuat setelah aktivitas selesai.',
-        [{ text: 'Oke' }]
-      );
-      return;
-    }
-    
     // Navigation will handle checking if report exists and redirect accordingly
     navigation.navigate('ActivityReport', {
       id_aktivitas,
@@ -340,10 +337,6 @@ const ActivityDetailScreen = ({ navigation, route }) => {
   
   const kelompokId = activity.selectedKelompokId || kelompokDetail?.id_kelompok || null;
   
-  
-  // Always show report button, but behavior changes based on status
-  const canShowReport = true;
-
   const DetailItem = ({ label, value, color }) => (
     <View style={styles.detail}>
       <Text style={styles.detailLabel}>{label}:</Text>
@@ -351,10 +344,25 @@ const ActivityDetailScreen = ({ navigation, route }) => {
     </View>
   );
 
-  const ActionButton = ({ onPress, icon, text, style }) => (
-    <TouchableOpacity style={[styles.attendanceButton, style]} onPress={onPress}>
-      <Ionicons name={icon} size={24} color="#fff" />
-      <Text style={styles.attendanceButtonText}>{text}</Text>
+  const ActionButton = ({ onPress, icon, text, style, disabled }) => (
+    <TouchableOpacity
+      style={[
+        styles.attendanceButton,
+        style,
+        disabled && styles.attendanceButtonDisabled
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Ionicons name={icon} size={24} color={disabled ? '#ecf0f1' : '#fff'} />
+      <Text
+        style={[
+          styles.attendanceButtonText,
+          disabled && styles.attendanceButtonTextDisabled
+        ]}
+      >
+        {text}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -366,11 +374,8 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         color="#bdc3c7"
       />
       <Text style={styles.noPhotoText}>Aktivitas {activity.jenis_kegiatan}</Text>
-      {!isActivityCompleted() && (
-        <Text style={styles.reportPendingText}>Laporan tersedia setelah aktivitas selesai</Text>
-      )}
-      {isActivityCompleted() && !reportExists && activity.status !== 'reported' && (
-        <Text style={styles.reportAvailableText}>Laporan kegiatan tersedia</Text>
+      {!reportExists && activity.status !== 'reported' && (
+        <Text style={styles.reportInfoText}>Belum ada laporan kegiatan. Gunakan tombol di bawah untuk membuatnya.</Text>
       )}
       {(reportExists || activity.status === 'reported') && (
         <Text style={styles.reportExistsText}>Laporan sudah dikirim</Text>
@@ -507,18 +512,22 @@ const ActivityDetailScreen = ({ navigation, route }) => {
               icon="create"
               text="Input Manual"
               style={styles.manualButton}
+              disabled={
+                activity.jenis_kegiatan === 'Bimbel' &&
+                !kelompokId &&
+                !activity.nama_kelompok
+              }
             />
           </View>
           <ActionButton
             onPress={handleActivityReport}
             icon={(reportExists || activity.status === 'reported') ? "document-text" : "camera"}
-            text={(reportExists || activity.status === 'reported') ? "Lihat Laporan" : "Laporan Kegiatan"}
+            text={(reportExists || activity.status === 'reported') ? "Lihat Laporan" : "Buat Laporan"}
             style={[
               styles.reportButtonFullWidth,
-              (reportExists || activity.status === 'reported') ? styles.viewReportButton : 
-              (isActivityCompleted() ? styles.reportButton : styles.reportButtonDisabled)
+              (reportExists || activity.status === 'reported') ? styles.viewReportButton :
+              styles.reportButton
             ]}
-            disabled={!isActivityCompleted()}
           />
         </View>
       )
@@ -591,18 +600,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#3498db', paddingVertical: 12, paddingHorizontal: 8,
     borderRadius: 8, marginHorizontal: 4
   },
+  attendanceButtonDisabled: {
+    backgroundColor: '#bdc3c7'
+  },
   manualButton: { backgroundColor: '#9b59b6' },
   recordsButton: { backgroundColor: '#2ecc71' },
   qrButton: { backgroundColor: '#f1c40f', marginBottom: 16 },
   reportButton: { backgroundColor: '#e67e22', marginTop: 8 },
-  reportButtonDisabled: { backgroundColor: '#95a5a6', marginTop: 8 },
   viewReportButton: { backgroundColor: '#27ae60', marginTop: 8 },
   reportButtonFullWidth: { marginHorizontal: 0, marginTop: 8 },
-  reportAvailableText: { fontSize: 14, color: '#e67e22', marginTop: 8, fontWeight: '500' },
-  reportPendingText: { fontSize: 14, color: '#95a5a6', marginTop: 8, fontWeight: '500' },
+  reportInfoText: { fontSize: 14, color: '#e67e22', marginTop: 8, fontWeight: '500' },
   reportExistsText: { fontSize: 14, color: '#27ae60', marginTop: 8, fontWeight: '500' },
   fullWidthButton: { marginHorizontal: 0 },
   attendanceButtonText: { color: '#fff', marginLeft: 4, fontWeight: '500', fontSize: 12 },
+  attendanceButtonTextDisabled: { color: '#ecf0f1' },
   studentsSection: {
     backgroundColor: '#fff', borderRadius: 10, padding: 16, marginBottom: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
