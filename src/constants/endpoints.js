@@ -1,12 +1,22 @@
 export const AUTH_ENDPOINTS = {
   LOGIN: '/auth/login',
   LOGOUT: '/auth/logout',
-  USER: '/auth/user'
+  USER: '/auth/user',
+  CHANGE_PASSWORD: '/auth/change-password'
 };
 
 export const ADMIN_PUSAT_ENDPOINTS = {
   DASHBOARD: '/admin-pusat/dashboard',
   PROFILE: '/admin-pusat/profile',
+  WILBIN: '/admin-pusat/wilbin',
+  WILBIN_DETAIL: (id) => `/admin-pusat/wilbin/${id}`,
+  SHELTER: {
+    LIST: '/admin-pusat/shelter',
+    DETAIL: (id) => `/admin-pusat/shelter/${id}`,
+    DROPDOWN: {
+      BY_WILBIN: (wilbinId) => `/admin-pusat/dropdowns/wilbin/${wilbinId}/shelter`
+    }
+  },
   ANAK: {
     LIST: '/admin-pusat/anak',
     DETAIL: (id) => `/admin-pusat/anak/${id}`,
@@ -98,6 +108,12 @@ export const ADMIN_PUSAT_ENDPOINTS = {
 };
 
 export const ADMIN_CABANG_ENDPOINTS = {
+  GPS_APPROVAL: {
+    LIST: '/admin-cabang/gps-approval',
+    DETAIL: '/admin-cabang/gps-approval/:id',
+    APPROVE: '/admin-cabang/gps-approval/:id/approve',
+    REJECT: '/admin-cabang/gps-approval/:id/reject',
+  },
   DASHBOARD: '/admin-cabang/dashboard',
   PROFILE: '/admin-cabang/profile',
   SURVEY_APPROVAL: {
@@ -113,6 +129,17 @@ export const ADMIN_CABANG_ENDPOINTS = {
     ASSIGN_DONATUR: '/admin-cabang/pengajuan-donatur/assign-donatur',
     CHILD_DETAIL: (id) => `/admin-cabang/pengajuan-donatur/child-detail/${id}`
   },
+  USERS: {
+    LIST: '/admin-cabang/users',
+    CREATE: '/admin-cabang/create-user',
+    DETAIL: (id) => `/admin-cabang/users/${id}`,
+    UPDATE: (id) => `/admin-cabang/users/${id}`,
+    DROPDOWN: {
+      KACAB: '/admin-cabang/kacab',
+      WILBIN: (kacabId) => `/admin-cabang/kacab/${kacabId}/wilbin`,
+      SHELTER_BY_WILBIN: (wilbinId) => `/admin-cabang/wilbin/${wilbinId}/shelter`
+    }
+  },
   DONATUR: {
     LIST: '/admin-cabang/donatur',
     CREATE: '/admin-cabang/donatur',
@@ -122,6 +149,18 @@ export const ADMIN_CABANG_ENDPOINTS = {
     FILTER_OPTIONS: '/admin-cabang/donatur-filter-options',
     SHELTERS_BY_WILBIN: (wilbinId) => `/admin-cabang/donatur-shelters/${wilbinId}`,
     STATS: '/admin-cabang/donatur-stats'
+  },
+  REPORTS: {
+    SUMMARY: '/admin-cabang/laporan/summary',
+    ATTENDANCE: {
+      MONTHLY_SHELTER: '/admin-cabang/laporan/attendance/monthly-shelter',
+      MONTHLY_BRANCH: '/admin-cabang/laporan/attendance/monthly-branch',
+    },
+    CHILD_ATTENDANCE: {
+      LIST: '/admin-cabang/laporan/attendance/children',
+      DETAIL: (childId) => `/admin-cabang/laporan/attendance/children/${childId}`,
+    },
+    TUTORS: '/admin-cabang/reports/tutors',
   },
   KURIKULUM: {
     LIST: '/admin-cabang/kurikulum',
@@ -171,13 +210,25 @@ export const ADMIN_SHELTER_ENDPOINTS = {
     LIST: '/admin-shelter/kurikulum',
     DETAIL: (id) => `/admin-shelter/kurikulum/${id}`,
     PREVIEW: (id) => `/admin-shelter/kurikulum/${id}/preview`,
-    DROPDOWN: '/admin-shelter/kurikulum-dropdown'
+    DROPDOWN: '/admin-shelter/kurikulum-dropdown',
+    DASHBOARD: '/admin-shelter/kurikulum/dashboard',
+    SEMESTER_INFO: '/admin-shelter/kurikulum/semester-info',
+    TODAY_ACTIVITIES: '/admin-shelter/kurikulum/today-activities'
   },
   RAPORT: {
-    LIST: (childId) => `/admin-shelter/anak/${childId}/raport`,
-    CREATE: (childId) => `/admin-shelter/anak/${childId}/raport/create`,
-    DETAIL: (childId, raportId) => `/admin-shelter/anak/${childId}/raport/${raportId}`,
-    UPDATE: (childId, raportId) => `/admin-shelter/anak/${childId}/raport/${raportId}/update`
+    LIST: '/admin-shelter/raport',
+    BY_CHILD: (childId) => `/admin-shelter/raport/anak/${childId}`,
+    DETAIL: (id) => `/admin-shelter/raport/${id}`,
+    GENERATE: '/admin-shelter/raport/generate',
+    UPDATE: (id) => `/admin-shelter/raport/${id}`,
+    PUBLISH: (id) => `/admin-shelter/raport/${id}/publish`,
+    ARCHIVE: (id) => `/admin-shelter/raport/${id}/archive`,
+    DELETE: (id) => `/admin-shelter/raport/${id}`,
+    PREVIEW: (childId, semesterId) => `/admin-shelter/raport/preview/${childId}/${semesterId}`,
+    CHECK_EXISTING: (childId, semesterId) => `/admin-shelter/raport/check-existing/${childId}/${semesterId}`,
+    UPDATE_DETAIL: (raportId, detailId) => `/admin-shelter/raport/${raportId}/detail/${detailId}`,
+    EXPORT_PDF: (id) => `/admin-shelter/raport/${id}/export-pdf`,
+    RANKING: (semesterId) => `/admin-shelter/raport/ranking/${semesterId}`
   },
   PRESTASI: {
     LIST: (childId) => `/admin-shelter/anak/${childId}/prestasi`,
@@ -250,11 +301,15 @@ export const ADMIN_SHELTER_ENDPOINTS = {
     LIST: '/admin-shelter/aktivitas',
     DETAIL: (id) => `/admin-shelter/aktivitas/${id}`,
     CREATE: '/admin-shelter/aktivitas',
+    UPDATE_STATUS: (id) => `/admin-shelter/aktivitas/${id}/status`,
     // Phase 3: Enhanced Aktivitas with Kurikulum Integration
     BY_SEMESTER: (semesterId) => `/admin-shelter/aktivitas/by-semester/${semesterId}`,
     BY_MATERI: (materiId) => `/admin-shelter/aktivitas/by-materi/${materiId}`,
     DUPLICATE: (aktivitasId) => `/admin-shelter/aktivitas/${aktivitasId}/duplicate`,
     STATS: '/admin-shelter/aktivitas-stats'
+  },
+  ATTENDANCE: {
+    ACTIVITY_MEMBERS: (id) => `/admin-shelter/attendance/activity/${id}/members`
   },
   // Phase 3: SIMPLIFIED Kurikulum Consumer (Read-only data provider)
   KURIKULUM_CONSUMER: {
@@ -338,15 +393,16 @@ export const DONATUR_ENDPOINTS = {
     SPONSOR_CHILD: (childId) => `/donatur/marketplace/children/${childId}/sponsor`,
     FILTERS: '/donatur/marketplace/filters',
     FEATURED_CHILDREN: '/donatur/marketplace/featured-children'
-  }
+  },
+  IKLAN_DONASI: '/iklandonasi'
 };
 
 export const MANAGEMENT_ENDPOINTS = {
   USERS: '/users',
   USER_DETAIL: (id) => `/users/${id}`,
   
-  KACAB: '/kacab',
-  KACAB_DETAIL: (id) => `/kacab/${id}`,
+  KACAB: '/admin-pusat/kacab',
+  KACAB_DETAIL: (id) => `/admin-pusat/kacab/${id}`,
   
   WILBIN: '/wilbin',
   WILBIN_DETAIL: (id) => `/wilbin/${id}`,
@@ -354,3 +410,4 @@ export const MANAGEMENT_ENDPOINTS = {
   SHELTER: '/shelter',
   SHELTER_DETAIL: (id) => `/shelter/${id}`
 };
+

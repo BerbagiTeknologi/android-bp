@@ -20,9 +20,9 @@ import ShelterDetailScreen from '../features/adminPusat/screens/shelter/ShelterD
 import ShelterFormScreen from '../features/adminPusat/screens/shelter/ShelterFormScreen';
 
 // User Management Screens
-import UserManagementScreen from '../features/adminPusat/screens/user/UserManagementScreen';
-import UserFormScreen from '../features/adminPusat/screens/user/UserFormScreen';
-import UserDetailScreen from '../features/adminPusat/screens/user/UserDetailScreen'; // NEW
+import AdminPusatUserManagementScreen from '../features/adminPusat/screens/user/AdminPusatUserManagementScreen';
+import AdminPusatUserFormScreen from '../features/adminPusat/screens/user/AdminPusatUserFormScreen';
+import AdminPusatUserDetailScreen from '../features/adminPusat/screens/user/AdminPusatUserDetailScreen'; // NEW
 
 // Template Screens
 import TemplateHomeScreen from '../features/adminPusat/screens/template/TemplateHomeScreen';
@@ -116,17 +116,17 @@ const HomeStackNavigator = () => {
       {/* User Management */}
       <Stack.Screen
         name="UserManagement"
-        component={UserManagementScreen}
+        component={AdminPusatUserManagementScreen}
         options={{ headerTitle: 'Manajemen User' }}
       />
       <Stack.Screen
         name="UserForm"
-        component={UserFormScreen}
+        component={AdminPusatUserFormScreen}
         options={{ headerTitle: 'Form User' }}
       />
       <Stack.Screen
         name="UserDetail"
-        component={UserDetailScreen}
+        component={AdminPusatUserDetailScreen}
         options={({ route }) => ({
           headerTitle: route?.params?.title ?? 'Detail User',
         })}
