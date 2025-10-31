@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
   ActivityIndicator, SafeAreaView, FlatList, KeyboardAvoidingView, Platform
@@ -6,7 +6,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, isToday, isFuture, isPast, startOfDay } from 'date-fns';
+import { format, isFuture, isPast, startOfDay } from 'date-fns';
 import NetInfo from '@react-native-community/netinfo';
 
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
@@ -15,18 +15,27 @@ import ErrorMessage from '../../../../common/components/ErrorMessage';
 import { adminShelterAnakApi } from '../../api/adminShelterAnakApi';
 import { adminShelterKelompokApi } from '../../api/adminShelterKelompokApi';
 import { aktivitasApi } from '../../api/aktivitasApi';
-import { adminShelterTutorApi } from '../../api/adminShelterTutorApi';
 
 import {
   recordAttendanceManually, selectAttendanceLoading, selectAttendanceError,
   selectDuplicateError, resetAttendanceError
 } from '../../redux/attendanceSlice';
-import {
-  recordTutorAttendanceManually, selectTutorAttendanceLoading,
-  selectTutorAttendanceError, resetTutorAttendanceError
-} from '../../redux/tutorAttendanceSlice';
-
 import OfflineSync from '../../utils/offlineSync';
+
+const STATUS_COLOR_MAP = {
+  absent: '#e74c3c',
+  late: '#f39c12',
+  present: '#2ecc71'
+};
+
+const STATUS_ICON_MAP = {
+  absent: 'close-circle',
+  late: 'time',
+  present: 'checkmark-circle'
+};
+
+const getStatusColor = (status) => STATUS_COLOR_MAP[status] || STATUS_COLOR_MAP.present;
+const getStatusIcon = (status) => STATUS_ICON_MAP[status] || STATUS_ICON_MAP.present;
 
 const ManualAttendanceScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
@@ -38,30 +47,24 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
   const loading = useSelector(selectAttendanceLoading);
   const error = useSelector(selectAttendanceError);
   const duplicateError = useSelector(selectDuplicateError);
-  const tutorLoading = useSelector(selectTutorAttendanceLoading);
-  const tutorError = useSelector(selectTutorAttendanceError);
-  
-  const [mode, setMode] = useState('student');
+
   const [selectedStudents, setSelectedStudents] = useState([]);
-  const [selectedTutor, setSelectedTutor] = useState(null);
   const [notes, setNotes] = useState('');
   const [students, setStudents] = useState([]);
-  const [tutorList, setTutorList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [loadingTutors, setLoadingTutors] = useState(false);
   const [studentError, setStudentError] = useState(null);
-  const [tutorLoadError, setTutorError] = useState(null);
   const [isConnected, setIsConnected] = useState(true);
   const [isBimbel, setIsBimbel] = useState(activityType === 'Bimbel');
   const [showDuplicate, setShowDuplicate] = useState(false);
-  const [activityTutor, setActivityTutor] = useState(null);
   const [activityDetails, setActivityDetails] = useState(null);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [expectedStatus, setExpectedStatus] = useState('present');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [arrivalTime, setArrivalTime] = useState(new Date());
   const [dateStatus, setDateStatus] = useState('valid');
+  const flatListRef = useRef(null);
+  const footerPropsRef = useRef({});
   
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -73,21 +76,14 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
   useEffect(() => {
     setIsBimbel(activityType === 'Bimbel');
     fetchActivityDetails();
-    fetchActivityTutor();
     validateDate();
   }, [activityType, id_aktivitas, activityDate]);
-  
+
   useEffect(() => {
-    if (mode === 'student' && dateStatus === 'valid') {
+    if (dateStatus === 'valid') {
       isBimbel && kelompokId ? fetchStudentsByGroup(kelompokId) : fetchAllStudents();
     }
-  }, [mode, isBimbel, kelompokId, dateStatus]);
-  
-  useEffect(() => {
-    if (mode === 'tutor' && dateStatus === 'valid') {
-      fetchTutors();
-    }
-  }, [mode, dateStatus]);
+  }, [isBimbel, kelompokId, dateStatus]);
   
   useEffect(() => {
     if (duplicateError) setShowDuplicate(true);
@@ -117,16 +113,6 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
       console.error('Gagal mengambil detail aktivitas:', err);
     } finally {
       setLoadingActivity(false);
-    }
-  };
-  
-  const fetchActivityTutor = async () => {
-    if (!id_aktivitas) return;
-    try {
-      const response = await aktivitasApi.getAktivitasDetail(id_aktivitas);
-      if (response.data?.data?.tutor) setActivityTutor(response.data.data.tutor);
-    } catch (error) {
-      console.error('Error mengambil tutor aktivitas:', error);
     }
   };
   
@@ -224,24 +210,10 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
     }
   };
   
-  const fetchTutors = async () => {
-    setLoadingTutors(true);
-    setTutorLoadError(null);
-    try {
-      const response = await adminShelterTutorApi.getActiveTutors();
-      setTutorList(response.data?.data || []);
-    } catch (err) {
-      console.error('Gagal mengambil tutor:', err);
-      setTutorLoadError('Gagal memuat tutor...');
-    } finally {
-      setLoadingTutors(false);
-    }
-  };
-  
-  const handleTimeChange = (event, selectedTime) => {
+  const handleTimeChange = useCallback((event, selectedTime) => {
     setShowTimePicker(false);
     if (selectedTime) setArrivalTime(selectedTime);
-  };
+  }, []);
 
   const filteredStudents = students.filter(student =>
     (student.full_name || student.nick_name || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -289,81 +261,38 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
       return;
     }
     
-    if (mode === 'student') {
-      if (!selectedStudents.length) {
-        Alert.alert('Error', 'Silakan pilih minimal satu siswa');
-        return;
-      }
-
-      if (!notes) {
-        Alert.alert('Error', 'Silakan masukkan catatan verifikasi');
-        return;
-      }
-
-      const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
-      const attendancePayloads = selectedStudents.map(student => ({
-        id_anak: student.id_anak,
-        id_aktivitas,
-        status: null,
-        notes,
-        arrival_time: formattedTime
-      }));
-
-      if (dateStatus === 'past') {
-        Alert.alert(
-          'Aktivitas Lampau',
-          'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir. Lanjutkan?',
-          [
-            { text: 'Batal', style: 'cancel' },
-            { text: 'Lanjutkan', onPress: () => submitStudentAttendance(attendancePayloads) }
-          ]
-        );
-        return;
-      }
-
-      submitStudentAttendance(attendancePayloads);
-    } else {
-      if (!selectedTutor) {
-        Alert.alert('Error', 'Silakan pilih tutor');
-        return;
-      }
-      
-      if (!notes) {
-        Alert.alert('Error', 'Silakan masukkan catatan verifikasi');
-        return;
-      }
-      
-      if (!activityTutor || activityTutor.id_tutor !== selectedTutor.id_tutor) {
-        Alert.alert('Error', 'Tutor yang dipilih tidak ditugaskan untuk aktivitas ini');
-        return;
-      }
-      
-      if (dateStatus === 'past') {
-        Alert.alert(
-          'Aktivitas Lampau', 
-          'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir. Lanjutkan?',
-          [
-            { text: 'Batal', style: 'cancel' },
-            { text: 'Lanjutkan', onPress: () => {
-              const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
-              const tutorData = {
-                id_tutor: selectedTutor.id_tutor, id_aktivitas, status: null,
-                notes, arrival_time: formattedTime
-              };
-              submitTutorAttendance(tutorData);
-            }}
-          ]
-        );
-        return;
-      }
-
-      const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
-      const tutorData = {
-        id_tutor: selectedTutor.id_tutor, id_aktivitas, status: null,
-        notes, arrival_time: formattedTime
-      };
-      submitTutorAttendance(tutorData);
+    if (!selectedStudents.length) {
+      Alert.alert('Error', 'Silakan pilih minimal satu siswa');
+      return;
     }
+
+    if (!notes) {
+      Alert.alert('Error', 'Silakan masukkan catatan verifikasi');
+      return;
+    }
+
+    const formattedTime = format(arrivalTime, 'yyyy-MM-dd HH:mm:ss');
+    const attendancePayloads = selectedStudents.map(student => ({
+      id_anak: student.id_anak,
+      id_aktivitas,
+      status: null,
+      notes,
+      arrival_time: formattedTime
+    }));
+
+    if (dateStatus === 'past') {
+      Alert.alert(
+        'Aktivitas Lampau',
+        'Aktivitas ini sudah berlalu. Kehadiran akan ditandai sebagai tidak hadir. Lanjutkan?',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { text: 'Lanjutkan', onPress: () => submitStudentAttendance(attendancePayloads) }
+        ]
+      );
+      return;
+    }
+
+    submitStudentAttendance(attendancePayloads);
   };
 
   const submitStudentAttendance = async (attendanceList) => {
@@ -451,38 +380,10 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
     );
   };
   
-  const submitTutorAttendance = async (tutorData) => {
-    try {
-      if (isConnected) {
-        await dispatch(recordTutorAttendanceManually(tutorData)).unwrap();
-        Alert.alert('Berhasil', 'Kehadiran tutor berhasil dicatat', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
-      } else {
-        const result = await OfflineSync.processTutorAttendance(tutorData, 'manual');
-        Alert.alert('Mode Offline', result.message || 'Disimpan untuk sinkronisasi saat online', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
-      }
-    } catch (err) {
-      if (!err.isDuplicate) {
-        Alert.alert('Error', err.message || 'Gagal mencatat kehadiran tutor');
-      }
-    }
-  };
-  
   const closeDuplicateAlert = () => {
     setShowDuplicate(false);
     dispatch(resetAttendanceError());
   };
-
-  const getStatusColor = (status) => ({
-    absent: '#e74c3c', late: '#f39c12', present: '#2ecc71'
-  }[status] || '#2ecc71');
-
-  const getStatusIcon = (status) => ({
-    absent: 'close-circle', late: 'time', present: 'checkmark-circle'
-  }[status] || 'checkmark-circle');
 
   const getDateStatusInfo = () => {
     switch(dateStatus) {
@@ -497,165 +398,72 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
 
   const isFormDisabled = dateStatus === 'future';
   const statusInfo = getDateStatusInfo();
-  
-  const Header = () => (
-    <>
-      {mode === 'student' ? (
-        <>
-          <Text style={styles.label}>
-            {`Siswa${isBimbel ? ` dari ${kelompokName || 'kelompok ini'}` : ''}`}
-          </Text>
-          
-          {!isFormDisabled && (
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#7f8c8d" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Cari siswa..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                clearButtonMode="while-editing"
-                editable={!isFormDisabled}
-              />
-            </View>
-          )}
-        </>
-      ) : (
-        <>
-          <Text style={styles.label}>Tutor</Text>
-          
-          {loadingTutors ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#3498db" />
-              <Text style={styles.loadingText}>Memuat tutor...</Text>
-            </View>
-          ) : tutorLoadError ? (
-            <ErrorMessage message={tutorLoadError} onRetry={fetchTutors} style={styles.errorContainer} />
-          ) : !isFormDisabled ? (
-            <View style={styles.tutorContainer}>
-              {tutorList.map(tutor => (
-                <TouchableOpacity
-                  key={tutor.id_tutor}
-                  style={[
-                    styles.tutorItem,
-                    selectedTutor?.id_tutor === tutor.id_tutor && styles.selectedTutorItem,
-                    activityTutor?.id_tutor === tutor.id_tutor && styles.assignedTutorItem,
-                    isFormDisabled && styles.disabledItem
-                  ]}
-                  onPress={() => !isFormDisabled && setSelectedTutor(tutor)}
-                  disabled={isFormDisabled}
-                >
-                  <View style={styles.tutorAvatar}>
-                    <Ionicons name="person" size={24} color="#95a5a6" />
-                  </View>
-                  <View style={styles.tutorInfo}>
-                    <Text style={styles.tutorName}>{tutor.nama}</Text>
-                    <Text style={styles.tutorId}>ID: {tutor.id_tutor}</Text>
-                    {activityTutor?.id_tutor === tutor.id_tutor && (
-                      <Text style={styles.assignedLabel}>Ditugaskan untuk Aktivitas</Text>
-                    )}
-                  </View>
-                  {selectedTutor?.id_tutor === tutor.id_tutor && (
-                    <Ionicons name="checkmark-circle" size={24} color="#3498db" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
-        </>
-      )}
-    </>
-  );
-  
-  const Footer = () => (
-    <>
-      {!isFormDisabled && (
-        <>
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Waktu Kedatangan</Text>
-            <TouchableOpacity 
-              style={[styles.timeButton, isFormDisabled && styles.disabledButton]}
-              onPress={() => !isFormDisabled && setShowTimePicker(true)}
-              disabled={isFormDisabled}
-            >
-              <Ionicons name="time-outline" size={20} color="#3498db" />
-              <Text style={styles.timeText}>{format(arrivalTime, 'HH:mm')}</Text>
-            </TouchableOpacity>
-            
-            {showTimePicker && (
-              <DateTimePicker
-                value={arrivalTime}
-                mode="time"
-                is24Hour={true}
-                display="default"
-                onChange={handleTimeChange}
-              />
-            )}
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Status yang Diharapkan</Text>
-            <View style={[styles.expectedStatus, { backgroundColor: getStatusColor(expectedStatus) }]}>
-              <Ionicons name={getStatusIcon(expectedStatus)} size={20} color="#fff" />
-              <Text style={styles.expectedText}>
-                {expectedStatus === 'present' ? 'Hadir' : expectedStatus === 'late' ? 'Terlambat' : 'Tidak Hadir'}
-              </Text>
-            </View>
-            <Text style={styles.helperText}>
-              Status ditentukan otomatis berdasarkan jadwal aktivitas dan waktu kedatangan
-            </Text>
-          </View>
-          
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Catatan Verifikasi (Wajib)</Text>
-            <TextInput
-              style={[styles.notesInput, isFormDisabled && styles.disabledInput]}
-              placeholder="Masukkan catatan verifikasi..."
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              editable={!isFormDisabled}
-            />
-          </View>
-        </>
-      )}
-      
-      <View style={styles.buttonSection}>
-        <TouchableOpacity 
-          style={[styles.submitButton, isFormDisabled && styles.disabledSubmit]}
-          onPress={handleSubmit}
-          disabled={loading || tutorLoading || isFormDisabled}
-        >
-          {(loading || tutorLoading) ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={[styles.submitText, isFormDisabled && styles.disabledSubmitText]}>
-              {isFormDisabled ? 'Form Dinonaktifkan' : `Catat Kehadiran ${mode === 'student' ? 'Siswa' : 'Tutor'}`}
-            </Text>
-          )}
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-          disabled={loading || tutorLoading}
-        >
-          <Text style={styles.cancelText}>Batal</Text>
-        </TouchableOpacity>
-      </View>
-    </>
+  const handleOpenTimePicker = useCallback(() => {
+    if (!isFormDisabled) {
+      setShowTimePicker(true);
+    }
+  }, [isFormDisabled, setShowTimePicker]);
+
+  const handleNotesFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  footerPropsRef.current = {
+    isFormDisabled,
+    arrivalTime,
+    onOpenTimePicker: handleOpenTimePicker,
+    showTimePicker,
+    onTimeChange: handleTimeChange,
+    expectedStatus,
+    notes,
+    onChangeNotes: setNotes,
+    onNotesFocus: handleNotesFocus,
+    loading,
+    onSubmit: handleSubmit,
+    onCancel: handleCancel
+  };
+
+  const renderFooter = useCallback(
+    () => <AttendanceFooter {...footerPropsRef.current} />,
+    []
   );
 
-  const isAnyLoading = loading || tutorLoading || loadingStudents || loadingTutors || loadingActivity;
+  const Header = () => (
+    <>
+      <Text style={styles.label}>
+        {`Siswa${isBimbel ? ` dari ${kelompokName || 'kelompok ini'}` : ''}`}
+      </Text>
+
+      {!isFormDisabled && (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#7f8c8d" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari siswa..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+            editable={!isFormDisabled}
+          />
+        </View>
+      )}
+    </>
+  );
+  
+  const isAnyLoading = loading || loadingStudents || loadingActivity;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         style={styles.container}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 30}
       >
         <View style={styles.activityInfo}>
           <Text style={styles.activityName}>{activityName || 'Aktivitas'}</Text>
@@ -666,45 +474,6 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
               <Text style={styles.kelompokInfo}>Kelompok: {kelompokName}</Text>
             </View>
           )}
-        </View>
-        
-        <View style={styles.modeContainer}>
-          <Text style={styles.modeLabel}>Mode Kehadiran</Text>
-          <View style={styles.modeButtons}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                mode === 'student' && styles.modeButtonActive,
-                isFormDisabled && styles.disabledButton
-              ]}
-              onPress={() => !isFormDisabled && setMode('student')}
-              disabled={isFormDisabled}
-            >
-              <Text style={[
-                styles.modeButtonText,
-                mode === 'student' && styles.modeButtonTextActive
-              ]}>
-                Siswa
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                mode === 'tutor' && styles.modeButtonActive,
-                isFormDisabled && styles.disabledButton
-              ]}
-              onPress={() => !isFormDisabled && setMode('tutor')}
-              disabled={isFormDisabled}
-            >
-              <Text style={[
-                styles.modeButtonText,
-                mode === 'tutor' && styles.modeButtonTextActive
-              ]}>
-                Tutor
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
         
         {statusInfo.show && (
@@ -733,39 +502,39 @@ const ManualAttendanceScreen = ({ navigation, route }) => {
           </View>
         )}
         
-        {(error || tutorError) && <ErrorMessage message={error || tutorError} />}
+        {error && <ErrorMessage message={error} />}
         {studentError && <ErrorMessage message={studentError} onRetry={fetchAllStudents} />}
         
         <View style={styles.formContainer}>
           {isAnyLoading ? (
             <ActivityIndicator size="large" color="#3498db" style={styles.loadingIndicator} />
           ) : (
-            mode === 'student' ? (
-              <FlatList
-                data={isFormDisabled ? [] : filteredStudents}
-                renderItem={renderStudentItem}
-                keyExtractor={(item) => item.id_anak.toString()}
-                ListHeaderComponent={Header}
-                ListFooterComponent={Footer}
-                ListEmptyComponent={!isFormDisabled ? <Text style={styles.emptyText}>Tidak ada siswa ditemukan</Text> : null}
-                contentContainerStyle={styles.listContent}
-              />
-            ) : (
-              <FlatList
-                data={[]}
-                renderItem={() => null}
-                ListHeaderComponent={Header}
-                ListFooterComponent={Footer}
-                contentContainerStyle={styles.listContent}
-              />
-            )
+            <FlatList
+              ref={flatListRef}
+              data={isFormDisabled ? [] : filteredStudents}
+              renderItem={renderStudentItem}
+              keyExtractor={(item) => item.id_anak.toString()}
+              ListHeaderComponent={Header}
+              ListFooterComponent={renderFooter}
+              ListEmptyComponent={!isFormDisabled ? <Text style={styles.emptyText}>Tidak ada siswa ditemukan</Text> : null}
+              contentContainerStyle={[styles.listContent, { paddingBottom: isFormDisabled ? 24 : 160 }]}
+              keyboardShouldPersistTaps="handled"
+              extraData={{
+                notes,
+                selectedStudents,
+                showTimePicker,
+                expectedStatus,
+                isFormDisabled,
+                loading
+              }}
+            />
           )}
         </View>
         
         {isAnyLoading && (
           <LoadingSpinner
             fullScreen
-            message={`Mencatat kehadiran ${mode === 'student' ? 'siswa' : 'tutor'}...`}
+            message="Mencatat kehadiran siswa..."
           />
         )}
       </KeyboardAvoidingView>
@@ -783,36 +552,8 @@ const styles = StyleSheet.create({
   },
   disabledButton: { opacity: 0.5 },
   disabledInput: { backgroundColor: '#f5f5f5', color: '#999' },
-  disabledItem: { opacity: 0.5 },
   disabledSubmit: { backgroundColor: '#bdc3c7' },
   disabledSubmitText: { color: '#7f8c8d' },
-  modeContainer: { backgroundColor: '#f8f9fa', padding: 16, marginBottom: 16 },
-  modeLabel: { fontSize: 16, fontWeight: '500', color: '#2c3e50', marginBottom: 12 },
-  modeButtons: {
-    flexDirection: 'row', backgroundColor: '#e9ecef', borderRadius: 8, padding: 4
-  },
-  modeButton: {
-    flex: 1, paddingVertical: 10, paddingHorizontal: 16,
-    borderRadius: 6, alignItems: 'center'
-  },
-  modeButtonActive: { backgroundColor: '#3498db' },
-  modeButtonText: { fontSize: 14, fontWeight: '500', color: '#6c757d' },
-  modeButtonTextActive: { color: '#fff' },
-  tutorContainer: { backgroundColor: '#fff', borderRadius: 8, marginHorizontal: 16 },
-  tutorItem: {
-    flexDirection: 'row', alignItems: 'center', padding: 12,
-    borderBottomWidth: 1, borderBottomColor: '#f0f0f0'
-  },
-  selectedTutorItem: { backgroundColor: '#e1f5fe' },
-  assignedTutorItem: { backgroundColor: '#e8f5e8' },
-  tutorAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12
-  },
-  tutorInfo: { flex: 1 },
-  tutorName: { fontSize: 16, fontWeight: '500', color: '#333' },
-  tutorId: { fontSize: 12, color: '#777', marginTop: 2 },
-  assignedLabel: { fontSize: 11, color: '#28a745', fontWeight: '500', marginTop: 2 },
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff' },
   activityInfo: { backgroundColor: '#3498db', padding: 16, alignItems: 'center' },
@@ -887,11 +628,101 @@ const styles = StyleSheet.create({
     borderRadius: 8, alignItems: 'center'
   },
   cancelText: { color: '#7f8c8d', fontSize: 16 },
-  loadingContainer: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20
-  },
-  loadingText: { marginLeft: 10, color: '#7f8c8d' },
-  errorContainer: { margin: 16 }
 });
+
+const AttendanceFooter = React.memo(({
+  isFormDisabled,
+  arrivalTime,
+  onOpenTimePicker,
+  showTimePicker,
+  onTimeChange,
+  expectedStatus,
+  notes,
+  onChangeNotes,
+  onNotesFocus,
+  loading,
+  onSubmit,
+  onCancel
+}) => (
+  <>
+    {!isFormDisabled && (
+      <>
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Waktu Kedatangan</Text>
+          <TouchableOpacity 
+            style={[styles.timeButton, isFormDisabled && styles.disabledButton]}
+            onPress={onOpenTimePicker}
+            disabled={isFormDisabled}
+          >
+            <Ionicons name="time-outline" size={20} color="#3498db" />
+            <Text style={styles.timeText}>{format(arrivalTime, 'HH:mm')}</Text>
+          </TouchableOpacity>
+          
+          {showTimePicker && (
+            <DateTimePicker
+              value={arrivalTime}
+              mode="time"
+              is24Hour={true}
+              display="default"
+              onChange={onTimeChange}
+            />
+          )}
+        </View>
+        
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Status yang Diharapkan</Text>
+          <View style={[styles.expectedStatus, { backgroundColor: getStatusColor(expectedStatus) }]}>
+            <Ionicons name={getStatusIcon(expectedStatus)} size={20} color="#fff" />
+            <Text style={styles.expectedText}>
+              {expectedStatus === 'present' ? 'Hadir' : expectedStatus === 'late' ? 'Terlambat' : 'Tidak Hadir'}
+            </Text>
+          </View>
+          <Text style={styles.helperText}>
+            Status ditentukan otomatis berdasarkan jadwal aktivitas dan waktu kedatangan
+          </Text>
+        </View>
+        
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Catatan Verifikasi (Wajib)</Text>
+          <TextInput
+            style={[styles.notesInput, isFormDisabled && styles.disabledInput]}
+            placeholder="Masukkan catatan verifikasi..."
+            value={notes}
+            onChangeText={onChangeNotes}
+            onFocus={onNotesFocus}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            editable={!isFormDisabled}
+          />
+        </View>
+      </>
+    )}
+    
+    <View style={styles.buttonSection}>
+      <TouchableOpacity 
+        style={[styles.submitButton, isFormDisabled && styles.disabledSubmit]}
+        onPress={onSubmit}
+        disabled={loading || isFormDisabled}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={[styles.submitText, isFormDisabled && styles.disabledSubmitText]}>
+            {isFormDisabled ? 'Form Dinonaktifkan' : 'Catat Kehadiran Siswa'}
+          </Text>
+        )}
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.cancelButton}
+        onPress={onCancel}
+        disabled={loading}
+      >
+        <Text style={styles.cancelText}>Batal</Text>
+      </TouchableOpacity>
+    </View>
+  </>
+));
 
 export default ManualAttendanceScreen;

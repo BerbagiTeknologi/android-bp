@@ -6,6 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { useFocusEffect } from '@react-navigation/native';
 
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
@@ -14,21 +15,31 @@ import { useGpsNavigation } from '../../../../common/hooks/useGpsNavigation';
 import { qrTokenApi } from '../../api/qrTokenApi';
 
 import {
-  fetchAktivitasDetail, deleteAktivitas, selectAktivitasDetail,
-  selectAktivitasLoading, selectAktivitasError, selectKelompokDetail,
-  fetchActivityReport
+  fetchAktivitasDetail,
+  deleteAktivitas,
+  selectAktivitasDetail,
+  selectAktivitasLoading,
+  selectAktivitasError,
+  selectKelompokDetail,
+  fetchActivityReport,
+  selectAktivitasAttendanceSummary,
+  selectActivityReportCache,
+  ACTIVITY_REPORT_CACHE_TTL,
+  ACTIVITY_REPORT_ERROR_RETRY_DELAY
 } from '../../redux/aktivitasSlice';
 
 const ActivityDetailScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
-  const { id_aktivitas } = route.params || {};
+  const { id_aktivitas, attendanceSummary: routeAttendanceSummary } = route.params || {};
   
   const activity = useSelector(selectAktivitasDetail);
   const loading = useSelector(selectAktivitasLoading);
   const error = useSelector(selectAktivitasError);
   const kelompokDetail = useSelector(selectKelompokDetail);
-  const { activityReport } = useSelector(state => state.aktivitas);
   const { profile } = useSelector(state => state.auth);
+  const cachedAttendanceSummary = useSelector(selectAktivitasAttendanceSummary);
+  const reportCache = useSelector(selectActivityReportCache);
+  const reportCacheEntry = id_aktivitas ? reportCache?.[id_aktivitas] : null;
   
   const [activePhoto, setActivePhoto] = useState(0);
   
@@ -179,19 +190,60 @@ const ActivityDetailScreen = ({ navigation, route }) => {
     return now > endDateTime;
   }, [activity?.end_time, activity?.tanggal]);
   
+  useFocusEffect(
+    useCallback(() => {
+      if (id_aktivitas) {
+        dispatch(fetchAktivitasDetail(id_aktivitas));
+      }
+    }, [dispatch, id_aktivitas])
+  );
+
   useEffect(() => {
-    if (id_aktivitas) dispatch(fetchAktivitasDetail(id_aktivitas));
-  }, [dispatch, id_aktivitas]);
+    if (!activity) {
+      return;
+    }
+
+    navigation.setParams({
+      activityStatus: activity.status,
+      attendanceSummary: cachedAttendanceSummary || routeAttendanceSummary || null
+    });
+  }, [activity, cachedAttendanceSummary, navigation, routeAttendanceSummary]);
   
   // Check if activity report exists once the activity detail is loaded
   useEffect(() => {
-    const checkActivityReport = async () => {
-      if (!activity || !id_aktivitas) return;
+    if (!activity || !id_aktivitas) return;
 
+    const cacheEntry = reportCacheEntry;
+    const now = Date.now();
+
+    if (cacheEntry) {
+      if (cacheEntry.status === 'exists') {
+        setReportExists(true);
+      } else if (cacheEntry.status === 'missing') {
+        setReportExists(false);
+      }
+
+      const cacheAge = cacheEntry.fetchedAt ? now - cacheEntry.fetchedAt : Number.POSITIVE_INFINITY;
+      const cacheTtl = cacheEntry.status === 'error'
+        ? ACTIVITY_REPORT_ERROR_RETRY_DELAY
+        : ACTIVITY_REPORT_CACHE_TTL;
+
+      if (cacheAge < cacheTtl) {
+        return;
+      }
+    }
+
+    let isActive = true;
+
+    const checkActivityReport = async () => {
       try {
         await dispatch(fetchActivityReport(id_aktivitas)).unwrap();
-        setReportExists(true);
+        if (isActive) {
+          setReportExists(true);
+        }
       } catch (err) {
+        if (!isActive) return;
+
         const statusCode = err?.status || err?.response?.status || err?.originalStatus;
         const rawMessage = typeof err === 'string' ? err : err?.message;
         const normalizedMessage = typeof rawMessage === 'string' ? rawMessage.toLowerCase() : '';
@@ -200,15 +252,21 @@ const ActivityDetailScreen = ({ navigation, route }) => {
           normalizedMessage.includes('tidak ditemukan') ||
           normalizedMessage.includes('not found');
 
-        if (!isNotFound) {
+        if (!isNotFound && statusCode !== 429) {
           console.error('Error checking activity report:', err);
         }
-        setReportExists(false);
+
+        const hadExistingReport = cacheEntry?.status === 'exists';
+        setReportExists(hadExistingReport && !isNotFound);
       }
     };
 
-    if (activity) checkActivityReport();
-  }, [dispatch, id_aktivitas, activity]);
+    checkActivityReport();
+
+    return () => {
+      isActive = false;
+    };
+  }, [dispatch, id_aktivitas, activity, reportCacheEntry]);
   
   const handleEditActivity = () => navigation.navigate('ActivityForm', { activity });
   
@@ -245,7 +303,9 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null,
         activityType: activity.jenis_kegiatan,
         kelompokId: activity.selectedKelompokId || kelompokDetail?.id_kelompok || null,
-        kelompokName: activity.nama_kelompok || null
+        kelompokName: activity.nama_kelompok || null,
+        activityStatus: activity.status,
+        attendanceSummary: cachedAttendanceSummary || routeAttendanceSummary || null
       });
     };
     
@@ -262,7 +322,8 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         activityDate: activity.tanggal ? format(new Date(activity.tanggal), 'EEEE, dd MMMM yyyy', { locale: id }) : null,
         activityType: activity.jenis_kegiatan,
         kelompokId: activity.selectedKelompokId || kelompokDetail?.id_kelompok || null,
-        kelompokName: activity.nama_kelompok || null
+        kelompokName: activity.nama_kelompok || null,
+        activityStatus: activity.status
       });
     };
     
@@ -280,7 +341,9 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         activityType: activity.jenis_kegiatan,
         kelompokId: activity.selectedKelompokId || kelompokDetail?.id_kelompok || null,
         kelompokName: activity.nama_kelompok || null,
-        initialTab: 'AttendanceList'
+        initialTab: 'AttendanceList',
+        activityStatus: activity.status,
+        attendanceSummary: cachedAttendanceSummary || routeAttendanceSummary || null
       });
     };
     
@@ -300,7 +363,9 @@ const ActivityDetailScreen = ({ navigation, route }) => {
         kelompokName: activity.nama_kelompok || null,
         level: activity.level || null,
         completeActivity: activity,
-        initialTab: 'QrTokenGeneration'
+        initialTab: 'QrTokenGeneration',
+        activityStatus: activity.status,
+        attendanceSummary: cachedAttendanceSummary || routeAttendanceSummary || null
       });
     };
     
@@ -504,13 +569,13 @@ const ActivityDetailScreen = ({ navigation, route }) => {
             <ActionButton
               onPress={handleRecordAttendance}
               icon="calendar"
-              text="Kelola Kehadiran"
+              text="Absen QR"
               style={styles.fullWidthButton}
             />
             <ActionButton
               onPress={handleManualAttendance}
               icon="create"
-              text="Input Manual"
+              text="Absen Manual"
               style={styles.manualButton}
               disabled={
                 activity.jenis_kegiatan === 'Bimbel' &&
@@ -528,6 +593,12 @@ const ActivityDetailScreen = ({ navigation, route }) => {
               (reportExists || activity.status === 'reported') ? styles.viewReportButton :
               styles.reportButton
             ]}
+          />
+          <ActionButton
+            onPress={handleViewAttendanceRecords}
+            icon="list"
+            text="Daftar Kehadiran"
+            style={[styles.reportButtonFullWidth, styles.recordsButton]}
           />
         </View>
       )
