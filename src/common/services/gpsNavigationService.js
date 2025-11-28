@@ -126,12 +126,19 @@ export class GPSNavigationService {
     return 'GPS tidak tersedia.';
   }
 
-  static showGPSRequiredModal(reason, gpsStatus, onRetry, onCancel, locationValidation = null) {
+  static showGPSRequiredModal(
+    reason,
+    gpsStatus,
+    onRetry,
+    onCancel,
+    locationValidation = null,
+    onContinue = null
+  ) {
     const title = 'GPS Diperlukan';
     
-    let message = `${reason}\n\nUntuk melanjutkan, pastikan:\n- GPS aktif di pengaturan perangkat\n- Izin lokasi diberikan untuk aplikasi\n- Akurasi GPS dalam kondisi baik`;
+    let message = `${reason}\n\nAnda dapat mencoba ulang atau melanjutkan tanpa validasi. Jika tetap lanjut, data akan ditandai untuk review.`;
+    message += '\n\nTips:\n- Pastikan GPS aktif\n- Beri izin lokasi untuk aplikasi\n- Tunggu beberapa detik jika akurasi rendah';
     
-    // Add location distance info if available
     if (locationValidation && locationValidation.distance && locationValidation.maxDistance) {
       message += `\n\nInfo Lokasi:\n- Jarak saat ini: ${Math.round(locationValidation.distance)}m\n- Jarak maksimal: ${locationValidation.maxDistance}m\n- Status: ${locationValidation.distance <= locationValidation.maxDistance ? 'Dalam radius' : 'Di luar radius'}`;
     }
@@ -145,6 +152,12 @@ export class GPSNavigationService {
           style: 'cancel',
           onPress: () => {
             if (onCancel) onCancel();
+          }
+        },
+        {
+          text: 'Lanjutkan',
+          onPress: () => {
+            if (onContinue) onContinue();
           }
         },
         {

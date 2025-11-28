@@ -66,7 +66,13 @@ export const useGpsNavigation = () => {
       gpsCheck.gpsStatus,
       onRetry,
       onCancel,
-      gpsCheck.locationValidation // Pass location validation data
+      gpsCheck.locationValidation,
+      () => {
+        setGpsError(null);
+        if (navigationCallback) {
+          navigationCallback();
+        }
+      }
     );
   }, [checkGpsAndNavigate]);
 

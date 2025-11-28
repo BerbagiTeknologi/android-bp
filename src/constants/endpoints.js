@@ -1,8 +1,7 @@
 export const AUTH_ENDPOINTS = {
-  LOGIN: "/auth/login",
-  LOGOUT: "/auth/logout",
-  USER: "/auth/user",
-  CHANGE_PASSWORD: "/auth/change-password",
+  LOGIN: "/api/auth/login", // Management IdP
+  LOGOUT: "/api/auth/logout", // Management IdP (revoke)
+  USERINFO: "/api/userinfo",
 };
 
 export const ADMIN_PUSAT_ENDPOINTS = {
@@ -126,6 +125,7 @@ export const ADMIN_CABANG_ENDPOINTS = {
     DETAIL: "/admin-cabang/gps-approval/:id",
     APPROVE: "/admin-cabang/gps-approval/:id/approve",
     REJECT: "/admin-cabang/gps-approval/:id/reject",
+    NEEDS_REVIEW: "/admin-cabang/gps-approval/needs-review",
   },
   DASHBOARD: "/admin-cabang/dashboard",
   PROFILE: "/admin-cabang/profile",
