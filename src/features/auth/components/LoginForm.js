@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../common/hooks/useAuth';
@@ -21,7 +21,40 @@ const LoginForm = ({ onLoginSuccess }) => {
   const [validationErrors, setValidationErrors] = useState({});
 
   // Get auth related functions and state from useAuth hook
-  const { login, loading, error, clearError } = useAuth();
+  const { login, loading, error, fieldErrors, clearError } = useAuth();
+
+  useEffect(() => {
+    if (!fieldErrors) {
+      setValidationErrors(prev => {
+        const updatedErrors = { ...prev };
+        ['email', 'password'].forEach((field) => {
+          if (field in updatedErrors) {
+            delete updatedErrors[field];
+          }
+        });
+        return updatedErrors;
+      });
+      return;
+    }
+
+    setValidationErrors(prev => {
+      const updatedErrors = { ...prev };
+
+      Object.entries(fieldErrors).forEach(([field, value]) => {
+        if (['email', 'password'].includes(field)) {
+          updatedErrors[field] = Array.isArray(value) ? value.join(' ') : value;
+        }
+      });
+
+      ['email', 'password'].forEach((field) => {
+        if (!Object.prototype.hasOwnProperty.call(fieldErrors, field) && field in updatedErrors) {
+          delete updatedErrors[field];
+        }
+      });
+
+      return updatedErrors;
+    });
+  }, [fieldErrors]);
 
   // Validate form inputs
   const validateForm = () => {
@@ -30,19 +63,19 @@ const LoginForm = ({ onLoginSuccess }) => {
 
     // Email validation (allow single @, no spaces; no dot required)
     if (!email) {
-      errors.email = 'Email is required';
+      errors.email = 'Email wajib diisi';
       isValid = false;
     } else if (!/^[^\s@]+@[^\s@]+$/.test(email)) {
-      errors.email = 'Email is invalid';
+      errors.email = 'Format email tidak valid';
       isValid = false;
     }
 
     // Password validation
     if (!password) {
-      errors.password = 'Password is required';
+      errors.password = 'Password wajib diisi';
       isValid = false;
     } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+      errors.password = 'Password minimal 6 karakter';
       isValid = false;
     }
 
@@ -83,7 +116,7 @@ const LoginForm = ({ onLoginSuccess }) => {
 
     try {
       // Attempt login
-      const result = await login({ email, password });
+    const result = await login({ email, password });
       
       // Call success callback if provided
       if (onLoginSuccess) {
@@ -103,7 +136,7 @@ const LoginForm = ({ onLoginSuccess }) => {
           label="Email"
           value={email}
           onChangeText={handleEmailChange}
-          placeholder="Massukan Email"
+          placeholder="Masukkan email"
           leftIcon={<Ionicons name="mail-outline" size={20} color="#757575" />}
           error={validationErrors.email}
           inputProps={{
@@ -118,7 +151,7 @@ const LoginForm = ({ onLoginSuccess }) => {
           label="Password"
           value={password}
           onChangeText={handlePasswordChange}
-          placeholder="Masukkan Password"
+          placeholder="Masukkan password"
           secureTextEntry
           leftIcon={<Ionicons name="lock-closed-outline" size={20} color="#757575" />}
           error={validationErrors.password}
@@ -130,11 +163,11 @@ const LoginForm = ({ onLoginSuccess }) => {
 
         {/* Error Message */}
         {error && (
-          <ErrorMessage 
-            message={error} 
+          <ErrorMessage
+            message={error}
             visible={!!error}
             onRetry={clearError}
-            retryText="Clear"
+            retryText="Tutup"
           />
         )}
 

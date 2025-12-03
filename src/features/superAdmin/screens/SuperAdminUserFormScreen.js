@@ -6,15 +6,23 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import PickerInput from '../../../common/components/PickerInput';
 import TextInput from '../../../common/components/TextInput';
 import Button from '../../../common/components/Button';
 import ErrorMessage from '../../../common/components/ErrorMessage';
-import { superAdminUserApi } from '../api/superAdminUserApi';
 import { USER_ROLES } from '../../../constants/config';
 import { selectUser } from '../../auth/redux/authSlice';
+import { useSuperAdminUserDetail } from '../hooks/useSuperAdminUserDetail';
+import { useUpdateSuperAdminUser } from '../hooks/useUpdateSuperAdminUser';
+import {
+  useKacabOptions,
+  useShelterOptions,
+  useWilbinOptions,
+} from '../hooks/useSuperAdminDropdowns';
+import { parsePayload } from '../utils/responseHelpers';
 
 const ROLE_OPTIONS = [
   { label: 'Super Admin', value: USER_ROLES.SUPER_ADMIN },
@@ -28,6 +36,13 @@ const STATUS_OPTIONS = [
   { label: 'Aktif', value: 'Aktif' },
   { label: 'Tidak Aktif', value: 'Tidak Aktif' },
 ];
+
+const ROLE_LABELS = ROLE_OPTIONS.reduce((acc, item) => {
+  acc[item.value] = item.label;
+  return acc;
+}, {});
+
+const VALID_ROLE_SLUGS = ROLE_OPTIONS.map((item) => item.value);
 
 const formatDate = (value) => {
   if (!value) {
@@ -44,12 +59,8 @@ const formatDate = (value) => {
 const SuperAdminUserFormScreen = ({ route, navigation }) => {
   const { userId } = route.params ?? {};
   const authUser = useSelector(selectUser);
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState('');
+  const [roles, setRoles] = useState([]);
   const [status, setStatus] = useState('Aktif');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [profileForm, setProfileForm] = useState({
@@ -60,14 +71,6 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
   const [selectedKacab, setSelectedKacab] = useState('');
   const [selectedWilbin, setSelectedWilbin] = useState('');
   const [selectedShelter, setSelectedShelter] = useState('');
-  const [kacabOptions, setKacabOptions] = useState([]);
-  const [wilbinOptions, setWilbinOptions] = useState([]);
-  const [shelterOptions, setShelterOptions] = useState([]);
-  const [dropdownLoading, setDropdownLoading] = useState({
-    kacabs: false,
-    wilbins: false,
-    shelters: false,
-  });
   const prefillingRef = useRef(false);
 
   const resolvedAuthId =
@@ -78,43 +81,53 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     resolvedTargetId !== null &&
     String(resolvedAuthId) === String(resolvedTargetId);
 
-  const parsePayload = (payload) => payload?.data ?? payload;
+  const userQuery = useSuperAdminUserDetail(userId);
+  const updateMutation = useUpdateSuperAdminUser();
+
+  const filterValidRoles = useCallback((roleItems = []) => {
+    return roleItems
+      .map((item) => {
+        if (!item) return null;
+        if (typeof item === 'string') {
+          return { slug: item, scope_type: null, scope_id: null };
+        }
+        return {
+          slug: item.slug,
+          scope_type: item.scope_type ?? null,
+          scope_id: item.scope_id ?? null,
+        };
+      })
+      .filter((item) => item?.slug && VALID_ROLE_SLUGS.includes(item.slug));
+  }, []);
 
   const requiresProfileFields = useMemo(
     () =>
-      [
-        USER_ROLES.ADMIN_PUSAT,
-        USER_ROLES.ADMIN_CABANG,
-        USER_ROLES.ADMIN_SHELTER,
-      ].includes(role),
-    [role]
+      roles.some((r) =>
+        [
+          USER_ROLES.ADMIN_PUSAT,
+          USER_ROLES.ADMIN_CABANG,
+          USER_ROLES.ADMIN_SHELTER,
+        ].includes(r.slug)
+      ),
+    [roles]
   );
 
   const requiresCabang = useMemo(
-    () => [USER_ROLES.ADMIN_CABANG, USER_ROLES.ADMIN_SHELTER].includes(role),
-    [role]
+    () =>
+      roles.some((r) =>
+        [USER_ROLES.ADMIN_CABANG, USER_ROLES.ADMIN_SHELTER].includes(r.slug)
+      ),
+    [roles]
   );
 
   const requiresWilbin = useMemo(
-    () => role === USER_ROLES.ADMIN_SHELTER,
-    [role]
+    () => roles.some((r) => r.slug === USER_ROLES.ADMIN_SHELTER),
+    [roles]
   );
 
   const requiresShelter = requiresWilbin;
 
   const shouldSendProfile = requiresProfileFields || requiresCabang || requiresWilbin;
-
-  const extractList = (payload) => {
-    if (Array.isArray(payload?.data)) {
-      return payload.data;
-    }
-
-    if (Array.isArray(payload)) {
-      return payload;
-    }
-
-    return [];
-  };
 
   const clearFieldError = useCallback((key) => {
     setFieldErrors((prev) => {
@@ -170,23 +183,25 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     [clearFieldError]
   );
 
-  const handleRoleChange = useCallback(
-    (value) => {
-      setRole(value);
-      setFormError(null);
-      setFieldErrors({});
-
-      if (![USER_ROLES.ADMIN_CABANG, USER_ROLES.ADMIN_SHELTER].includes(value)) {
-        setSelectedKacab('');
+  const toggleRole = useCallback((slug) => {
+    setRoles((prev) => {
+      const exists = prev.find((r) => r.slug === slug);
+      if (exists) {
+        const next = prev.filter((r) => r.slug !== slug);
+        if (!next.some((r) => r.slug === USER_ROLES.ADMIN_CABANG)) {
+          setSelectedKacab('');
+        }
+        if (!next.some((r) => r.slug === USER_ROLES.ADMIN_SHELTER)) {
+          setSelectedWilbin('');
+          setSelectedShelter('');
+        }
+        return next;
       }
-
-      if (value !== USER_ROLES.ADMIN_SHELTER) {
-        setSelectedWilbin('');
-        setSelectedShelter('');
-      }
-    },
-    []
-  );
+      return [...prev, { slug }];
+    });
+    setFormError(null);
+    setFieldErrors({});
+  }, []);
 
   const handleKacabChange = useCallback(
     (value) => {
@@ -215,96 +230,17 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     [clearFieldError]
   );
 
-  const updateDropdownLoading = useCallback((key, nextValue) => {
-    setDropdownLoading((prev) => ({
-      ...prev,
-      [key]: nextValue,
-    }));
-  }, []);
+  const { data: kacabOptions = [], isLoading: kacabLoading } = useKacabOptions();
 
-  const fetchKacabs = useCallback(async () => {
-    updateDropdownLoading('kacabs', true);
-    try {
-      const response = await superAdminUserApi.listKacabs();
-      const list = extractList(response.data);
-      setKacabOptions(
-        list.map((item) => ({
-          label: item.nama_kacab || item.nama_cabang || `Cabang ${item.id_kacab}`,
-          value: String(item.id_kacab),
-        }))
-      );
-    } catch (err) {
-      console.error('Gagal memuat daftar cabang:', err);
-    } finally {
-      updateDropdownLoading('kacabs', false);
-    }
-  }, [updateDropdownLoading]);
+  const {
+    data: wilbinOptions = [],
+    isLoading: wilbinLoading,
+  } = useWilbinOptions(selectedKacab, { enabled: !!selectedKacab });
 
-  const fetchWilbins = useCallback(
-    async (kacabId, { resetSelection = true } = {}) => {
-      if (!kacabId) {
-        setWilbinOptions([]);
-        if (resetSelection) {
-          setSelectedWilbin('');
-          setSelectedShelter('');
-        }
-        return;
-      }
-
-      updateDropdownLoading('wilbins', true);
-      try {
-        const response = await superAdminUserApi.listWilbins(kacabId);
-        const list = extractList(response.data);
-        setWilbinOptions(
-          list.map((item) => ({
-            label: item.nama_wilbin || `Wilbin ${item.id_wilbin}`,
-            value: String(item.id_wilbin),
-          }))
-        );
-        if (resetSelection) {
-          setSelectedWilbin('');
-          setSelectedShelter('');
-        }
-      } catch (err) {
-        console.error('Gagal memuat daftar wilbin:', err);
-      } finally {
-        updateDropdownLoading('wilbins', false);
-      }
-    },
-    [updateDropdownLoading]
-  );
-
-  const fetchShelters = useCallback(
-    async (wilbinId, { resetSelection = true } = {}) => {
-      if (!wilbinId) {
-        setShelterOptions([]);
-        if (resetSelection) {
-          setSelectedShelter('');
-        }
-        return;
-      }
-
-      updateDropdownLoading('shelters', true);
-      try {
-        const response = await superAdminUserApi.listShelters(wilbinId);
-        const list = extractList(response.data);
-        setShelterOptions(
-          list.map((item) => ({
-            label: item.nama_shelter || `Shelter ${item.id_shelter}`,
-            value: String(item.id_shelter),
-          }))
-        );
-        if (resetSelection) {
-          setSelectedShelter('');
-        }
-      } catch (err) {
-        console.error('Gagal memuat daftar shelter:', err);
-      } finally {
-        updateDropdownLoading('shelters', false);
-      }
-    },
-    [updateDropdownLoading]
-  );
+  const {
+    data: shelterOptions = [],
+    isLoading: shelterLoading,
+  } = useShelterOptions(selectedWilbin, { enabled: !!selectedWilbin });
 
   const validateProfile = useCallback(() => {
     const errors = {};
@@ -362,63 +298,69 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     return Number.isNaN(parsed) ? null : parsed;
   };
 
-  const loadUser = useCallback(async () => {
-    if (!userId) {
+  const userData = userQuery.data;
+  const detailErrorMessage = userQuery.error
+    ? userQuery.error?.response?.data?.message ||
+      userQuery.error?.message ||
+      'Tidak bisa memuat detail pengguna.'
+    : null;
+  const isSaving = updateMutation.isPending;
+
+  useEffect(() => {
+    if (!userData) {
       return;
     }
 
-    try {
-      setLoading(true);
-      const response = await superAdminUserApi.show(userId);
-      const payload = parsePayload(response.data);
-      setUser(payload);
-      setRole(payload?.level || '');
-      setStatus(payload?.status || 'Aktif');
-      applyProfileFromPayload(payload?.profile);
-      setFieldErrors({});
-      setError(null);
-    } catch (err) {
-      console.error('Gagal memuat detail user:', err);
-      const message =
-        err.response?.data?.message || 'Tidak bisa memuat detail pengguna.';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, applyProfileFromPayload]);
+    const payloadRoles = Array.isArray(userData?.roles) ? userData.roles : [];
+    const normalizedPayloadRoles = filterValidRoles(payloadRoles);
 
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
-  useEffect(() => {
-    fetchKacabs();
-  }, [fetchKacabs]);
-
-  useEffect(() => {
-    if (!selectedKacab) {
-      setWilbinOptions([]);
-      if (!prefillingRef.current) {
-        setSelectedWilbin('');
-        setSelectedShelter('');
+    if (normalizedPayloadRoles.length > 0) {
+      setRoles(normalizedPayloadRoles);
+      const cabangRole = normalizedPayloadRoles.find(
+        (r) => r.slug === USER_ROLES.ADMIN_CABANG
+      );
+      const shelterRole = normalizedPayloadRoles.find(
+        (r) => r.slug === USER_ROLES.ADMIN_SHELTER
+      );
+      if (cabangRole?.scope_id) {
+        prefillingRef.current = true;
+        setSelectedKacab(String(cabangRole.scope_id));
       }
-      return;
+      if (shelterRole?.scope_id) {
+        prefillingRef.current = true;
+        setSelectedShelter(String(shelterRole.scope_id));
+      }
+    } else if (userData?.level && VALID_ROLE_SLUGS.includes(userData.level)) {
+      setRoles([{ slug: userData.level }]);
+    } else {
+      setRoles([]);
     }
 
-    fetchWilbins(selectedKacab, { resetSelection: !prefillingRef.current });
-  }, [selectedKacab, fetchWilbins]);
+    setStatus(userData?.status || 'Aktif');
+    const profileCandidate =
+      userData?.role_profiles?.[USER_ROLES.ADMIN_SHELTER] ??
+      userData?.role_profiles?.[USER_ROLES.ADMIN_CABANG] ??
+      userData?.role_profiles?.[USER_ROLES.ADMIN_PUSAT] ??
+      userData?.profile;
+    applyProfileFromPayload(profileCandidate);
+    setFieldErrors({});
+    setFormError(null);
+  }, [applyProfileFromPayload, filterValidRoles, userData]);
 
   useEffect(() => {
-    if (!selectedWilbin) {
-      setShelterOptions([]);
-      if (!prefillingRef.current) {
-        setSelectedShelter('');
-      }
+    if (prefillingRef.current) {
       return;
     }
+    setSelectedWilbin('');
+    setSelectedShelter('');
+  }, [selectedKacab]);
 
-    fetchShelters(selectedWilbin, { resetSelection: !prefillingRef.current });
-  }, [selectedWilbin, fetchShelters]);
+  useEffect(() => {
+    if (prefillingRef.current) {
+      return;
+    }
+    setSelectedShelter('');
+  }, [selectedWilbin]);
 
   const handleSubmit = async () => {
     if (isSelfModification) {
@@ -429,8 +371,12 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
       return;
     }
 
-    if (!role) {
-      setFormError('Role wajib dipilih.');
+    setFormError(null);
+    setFieldErrors({});
+
+    if (!roles || roles.length === 0) {
+      setFieldErrors({ roles: 'Pilih minimal satu role.' });
+      setFormError('Pilih minimal satu role.');
       return;
     }
 
@@ -451,8 +397,32 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
       id_shelter: toNumberOrNull(selectedShelter),
     };
 
+    const normalizedRoles = roles.map((item) => {
+      const slug = item.slug;
+      if (slug === USER_ROLES.ADMIN_CABANG) {
+        return {
+          slug,
+          scope_type: 'cabang',
+          scope_id: toNumberOrNull(selectedKacab),
+        };
+      }
+      if (slug === USER_ROLES.ADMIN_SHELTER) {
+        return {
+          slug,
+          scope_type: 'shelter',
+          scope_id: toNumberOrNull(selectedShelter),
+        };
+      }
+      return { slug, scope_type: null, scope_id: null };
+    });
+
+    const primaryRole =
+      normalizedRoles.find((item) => VALID_ROLE_SLUGS.includes(item.slug))
+        ?.slug ?? null;
+
     const requestBody = {
-      level: role,
+      level: primaryRole,
+      roles: normalizedRoles,
       status,
     };
 
@@ -461,11 +431,22 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     }
 
     try {
-      setSaving(true);
-      const response = await superAdminUserApi.update(userId, requestBody);
+      const response = await updateMutation.mutateAsync({
+        userId,
+        payload: requestBody,
+      });
       const payload = parsePayload(response.data);
-      setUser(payload);
       applyProfileFromPayload(payload?.profile);
+      const payloadRoles = Array.isArray(payload?.roles) ? payload.roles : [];
+      const normalizedPayloadRoles = filterValidRoles(payloadRoles);
+      if (normalizedPayloadRoles.length > 0) {
+        setRoles(normalizedPayloadRoles);
+      } else if (payload?.level && VALID_ROLE_SLUGS.includes(payload.level)) {
+        setRoles([{ slug: payload.level }]);
+      } else {
+        setRoles([]);
+      }
+      setStatus(payload?.status || status);
       setFieldErrors({});
       setFormError(null);
       Alert.alert('Berhasil', 'Perubahan role tersimpan.');
@@ -474,15 +455,32 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
       }
     } catch (err) {
       console.error('Gagal menyimpan role:', err);
+      const responseErrors =
+        err?.response?.data?.errors || err?.response?.data?.data?.errors;
       const message =
-        err.response?.data?.message || 'Perubahan role gagal disimpan.';
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        'Perubahan role gagal disimpan.';
+
+      if (err?.response?.status === 422 && responseErrors && typeof responseErrors === 'object') {
+        const normalizedErrors = Object.entries(responseErrors).reduce((acc, [key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            acc[key] = value[0];
+          } else if (typeof value === 'string') {
+            acc[key] = value;
+          }
+          return acc;
+        }, {});
+        setFieldErrors(normalizedErrors);
+      } else {
+        setFieldErrors({});
+      }
+
       setFormError(message);
-    } finally {
-      setSaving(false);
     }
   };
 
-  if (loading) {
+  if (userQuery.isLoading) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color="#9b59b6" />
@@ -490,31 +488,35 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
     );
   }
 
-  if (error) {
+  if (detailErrorMessage) {
     return (
       <View style={styles.loader}>
-        <ErrorMessage message={error} visible onRetry={loadUser} />
+        <ErrorMessage message={detailErrorMessage} visible onRetry={userQuery.refetch} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.section}>
         <Text style={styles.label}>Nama</Text>
-        <Text style={styles.value}>{user?.username || '-'}</Text>
+        <Text style={styles.value}>{userData?.username || '-'}</Text>
       </View>
       <View style={styles.section}>
         <Text style={styles.label}>Email</Text>
-        <Text style={styles.value}>{user?.email || '-'}</Text>
+        <Text style={styles.value}>{userData?.email || '-'}</Text>
       </View>
       <View style={styles.section}>
         <Text style={styles.label}>SSO SUB</Text>
-        <Text style={styles.value}>{user?.token_api || '-'}</Text>
+        <Text style={styles.value}>{userData?.token_api || '-'}</Text>
       </View>
       <View style={styles.section}>
         <Text style={styles.label}>Terakhir diperbarui</Text>
-        <Text style={styles.value}>{formatDate(user?.updated_at)}</Text>
+        <Text style={styles.value}>{formatDate(userData?.updated_at)}</Text>
       </View>
 
       {isSelfModification && (
@@ -526,14 +528,28 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
       )}
 
       <View style={styles.section}>
-        <PickerInput
-          label="Role Lokal"
-          value={role}
-          onValueChange={handleRoleChange}
-          items={ROLE_OPTIONS}
-          placeholder="Pilih role"
-          pickerProps={{ enabled: !isSelfModification }}
-        />
+        <Text style={styles.sectionTitle}>Role Lokal (bisa lebih dari 1)</Text>
+        <View style={styles.roleChips}>
+          {ROLE_OPTIONS.map((option) => {
+            const active = roles.some((r) => r.slug === option.value);
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.roleChip, active && styles.roleChipActive]}
+                onPress={() => !isSelfModification && toggleRole(option.value)}
+                disabled={isSelfModification}
+              >
+                <Text style={[styles.roleChipLabel, active && styles.roleChipLabelActive]}>
+                  {option.label}
+                </Text>
+                <Text style={[styles.roleChipSlug, active && styles.roleChipSlugActive]}>
+                  {option.value}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {fieldErrors.roles && <Text style={styles.errorText}>{fieldErrors.roles}</Text>}
       </View>
 
       <View style={styles.section}>
@@ -589,17 +605,17 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
             onValueChange={handleKacabChange}
             items={kacabOptions}
             placeholder={
-              dropdownLoading.kacabs ? 'Memuat cabang...' : 'Pilih cabang'
+              kacabLoading ? 'Memuat cabang...' : 'Pilih cabang'
             }
             error={fieldErrors.id_kacab}
             pickerProps={{
               enabled:
                 !isSelfModification &&
-                !dropdownLoading.kacabs &&
+                !kacabLoading &&
                 kacabOptions.length > 0,
             }}
           />
-          {dropdownLoading.kacabs && (
+          {kacabLoading && (
             <Text style={styles.helperText}>Memuat daftar cabang...</Text>
           )}
         </View>
@@ -614,20 +630,18 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
             onValueChange={handleWilbinChange}
             items={wilbinOptions}
             placeholder={
-              dropdownLoading.wilbins
-                ? 'Memuat wilayah binaan...'
-                : 'Pilih wilayah binaan'
+              wilbinLoading ? 'Memuat wilayah binaan...' : 'Pilih wilayah binaan'
             }
             error={fieldErrors.id_wilbin}
             pickerProps={{
               enabled:
                 !isSelfModification &&
                 !!selectedKacab &&
-                !dropdownLoading.wilbins &&
+                !wilbinLoading &&
                 wilbinOptions.length > 0,
             }}
           />
-          {dropdownLoading.wilbins && (
+          {wilbinLoading && (
             <Text style={styles.helperText}>Memuat daftar wilayah binaan...</Text>
           )}
           <PickerInput
@@ -636,20 +650,18 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
             onValueChange={handleShelterChange}
             items={shelterOptions}
             placeholder={
-              dropdownLoading.shelters
-                ? 'Memuat shelter...'
-                : 'Pilih shelter'
+              shelterLoading ? 'Memuat shelter...' : 'Pilih shelter'
             }
             error={fieldErrors.id_shelter}
             pickerProps={{
               enabled:
                 !isSelfModification &&
                 !!selectedWilbin &&
-                !dropdownLoading.shelters &&
+                !shelterLoading &&
                 shelterOptions.length > 0,
             }}
           />
-          {dropdownLoading.shelters && (
+          {shelterLoading && (
             <Text style={styles.helperText}>Memuat daftar shelter...</Text>
           )}
         </View>
@@ -667,7 +679,7 @@ const SuperAdminUserFormScreen = ({ route, navigation }) => {
       <Button
         title="Simpan Perubahan"
         onPress={handleSubmit}
-        loading={saving}
+        loading={isSaving}
         disabled={isSelfModification}
         fullWidth
       />
@@ -682,6 +694,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: 32,
+    flexGrow: 1,
   },
   section: {
     marginBottom: 16,
@@ -726,6 +740,42 @@ const styles = StyleSheet.create({
     color: '#a67c00',
     lineHeight: 18,
   },
+  roleChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  roleChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+    minWidth: '45%',
+    marginHorizontal: 4,
+    marginBottom: 8,
+  },
+  roleChipActive: {
+    borderColor: '#7c3aed',
+    backgroundColor: '#f3e8ff',
+  },
+  roleChipLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  roleChipLabelActive: {
+    color: '#5b21b6',
+  },
+  roleChipSlug: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  roleChipSlugActive: {
+    color: '#4c1d95',
+  },
   loader: {
     flex: 1,
     alignItems: 'center',
@@ -736,6 +786,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 4,
+  },
+  errorText: {
+    marginTop: 8,
+    color: '#b91c1c',
+    fontSize: 13,
   },
 });
 

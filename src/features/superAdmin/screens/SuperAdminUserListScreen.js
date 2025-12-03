@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { superAdminUserApi } from '../api/superAdminUserApi';
 import Button from '../../../common/components/Button';
 import ErrorMessage from '../../../common/components/ErrorMessage';
 import { useAuth } from '../../../common/hooks/useAuth';
+import { useSuperAdminUsers } from '../hooks/useSuperAdminUsers';
+import { useImportSsoUser, useSsoDirectory } from '../hooks/useSsoDirectory';
 
 const ROLE_LABELS = {
   super_admin: 'Super Admin',
@@ -28,87 +29,52 @@ const ROLE_LABELS = {
 
 const SuperAdminUserListScreen = ({ navigation }) => {
   const { logout } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [error, setError] = useState(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [showDirectory, setShowDirectory] = useState(false);
-  const [ssoUsers, setSsoUsers] = useState([]);
-  const [ssoSearch, setSsoSearch] = useState('');
-  const [ssoLoading, setSsoLoading] = useState(false);
-  const [ssoError, setSsoError] = useState(null);
-  const [importingSub, setImportingSub] = useState(null);
+  const [ssoSearchInput, setSsoSearchInput] = useState('');
+  const [appliedSsoSearch, setAppliedSsoSearch] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
-  const isMountedRef = useRef(true);
+  const usersQuery = useSuperAdminUsers(appliedSearch);
+  const ssoDirectoryQuery = useSsoDirectory(appliedSsoSearch, {
+    enabled: showDirectory,
+  });
+  const importMutation = useImportSsoUser();
 
-  useEffect(() => {
-    isMountedRef.current = true;
+  const getErrorMessage = (err, fallback) =>
+    err?.response?.data?.message || err?.message || fallback;
 
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const usersErrorMessage = usersQuery.error
+    ? getErrorMessage(usersQuery.error, 'Gagal memuat daftar pengguna.')
+    : null;
 
-  const extractList = (payload) => {
-    if (Array.isArray(payload?.data)) {
-      return payload.data;
-    }
+  const ssoDirectoryErrorMessage =
+    showDirectory && ssoDirectoryQuery.error
+      ? getErrorMessage(
+          ssoDirectoryQuery.error,
+          'Gagal memuat daftar pengguna dari IdP.'
+        )
+      : null;
 
-    if (Array.isArray(payload)) {
-      return payload;
-    }
+  const importErrorMessage =
+    importMutation.isError && importMutation.error
+      ? getErrorMessage(
+          importMutation.error,
+          'Gagal mengimpor pengguna dari IdP.'
+        )
+      : null;
 
-    return [];
-  };
+  const ssoErrorMessage = ssoDirectoryErrorMessage || importErrorMessage;
 
-  const fetchUsers = useCallback(
-    async (override = {}) => {
-      const query = {
-        search: (override.search ?? search) || undefined,
-        per_page: 25,
-      };
-
-      try {
-        if (!override.silent) {
-          setLoading(true);
-        }
-        const response = await superAdminUserApi.list(query);
-        const items = extractList(response.data);
-        setUsers(items);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-        const message =
-          err.response?.data?.message || 'Gagal memuat daftar pengguna.';
-        setError(message);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [search]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchUsers({ search: '' });
-    }, [fetchUsers])
-  );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchUsers({ silent: true });
-  };
-
-  const handleSearch = () => {
-    fetchUsers({ search });
-  };
-
-  const handleClearSearch = () => {
-    setSearch('');
-    fetchUsers({ search: '' });
-  };
+  const users = usersQuery.data ?? [];
+  const ssoUsers = ssoDirectoryQuery.data ?? [];
+  const importingSub = importMutation.variables;
+  const isImporting = importMutation.isPending;
+  const usersLoading = usersQuery.isLoading;
+  const usersRefreshing = usersQuery.isRefetching && !usersQuery.isLoading;
+  const ssoLoading = ssoDirectoryQuery.isLoading || ssoDirectoryQuery.isFetching;
+  const refetchUsers = usersQuery.refetch;
+  const refetchDirectory = ssoDirectoryQuery.refetch;
 
   const handleLogout = useCallback(async () => {
     if (loggingOut) {
@@ -128,9 +94,7 @@ const SuperAdminUserListScreen = ({ navigation }) => {
         );
       }
     } finally {
-      if (isMountedRef.current) {
-        setLoggingOut(false);
-      }
+      setLoggingOut(false);
     }
   }, [loggingOut, logout]);
 
@@ -149,55 +113,60 @@ const SuperAdminUserListScreen = ({ navigation }) => {
     );
   }, [handleLogout, loggingOut]);
 
-  const fetchSsoUsers = useCallback(
-    async (override = {}) => {
-      const query = {
-        search: (override.search ?? ssoSearch) || undefined,
-      };
-
-      try {
-        setSsoLoading(true);
-        const response = await superAdminUserApi.listSsoDirectory(query);
-        const items = extractList(response.data);
-        setSsoUsers(items);
-        setSsoError(null);
-      } catch (err) {
-        console.error('Failed to fetch SSO directory:', err);
-        const message =
-          err.response?.data?.message ||
-          'Gagal memuat daftar pengguna dari IdP.';
-        setSsoError(message);
-      } finally {
-        setSsoLoading(false);
+  useFocusEffect(
+    useCallback(() => {
+      refetchUsers();
+      if (showDirectory) {
+        refetchDirectory();
       }
-    },
-    [ssoSearch]
+    }, [refetchDirectory, refetchUsers, showDirectory])
   );
+
+  const handleRefresh = () => {
+    usersQuery.refetch();
+  };
+
+  const handleSearch = () => {
+    const next = searchInput.trim();
+    if (next === appliedSearch) {
+      usersQuery.refetch();
+    }
+    setAppliedSearch(next);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setAppliedSearch('');
+  };
 
   const handleToggleDirectory = () => {
     const next = !showDirectory;
     setShowDirectory(next);
-
-    if (next && ssoUsers.length === 0 && !ssoLoading) {
-      fetchSsoUsers();
+    if (!showDirectory) {
+      ssoDirectoryQuery.refetch();
     }
+  };
+
+  const handleSsoSearch = () => {
+    const next = ssoSearchInput.trim();
+    if (next === appliedSsoSearch) {
+      ssoDirectoryQuery.refetch();
+    }
+    setAppliedSsoSearch(next);
+  };
+
+  const handleSsoReset = () => {
+    setSsoSearchInput('');
+    setAppliedSsoSearch('');
   };
 
   const handleImport = async (sub) => {
     try {
-      setImportingSub(sub);
-      await superAdminUserApi.importFromSso(sub);
-      await fetchUsers({ silent: true });
-      await fetchSsoUsers({ search: ssoSearch });
-      setSsoError(null);
+      await importMutation.mutateAsync(sub);
+      await ssoDirectoryQuery.refetch();
+      await usersQuery.refetch();
     } catch (err) {
-      console.error('Failed to import user:', err);
-      const message =
-        err.response?.data?.message ||
-        'Gagal mengimpor pengguna dari IdP.';
-      setSsoError(message);
-    } finally {
-      setImportingSub(null);
+      // Error state ditangani oleh mutation (importMutation)
     }
   };
 
@@ -246,7 +215,7 @@ const SuperAdminUserListScreen = ({ navigation }) => {
             title="Import"
             size="small"
             onPress={() => handleImport(item.sub)}
-            loading={importingSub === item.sub}
+            loading={isImporting && importingSub === item.sub}
           />
         )}
       </View>
@@ -271,10 +240,20 @@ const SuperAdminUserListScreen = ({ navigation }) => {
       </View>
       <Text style={styles.cardEmail}>{item.email || '-'}</Text>
       <View style={styles.cardMeta}>
-        <View style={[styles.badge, styles.roleBadge]}>
-          <Text style={styles.badgeText}>
-            {ROLE_LABELS[item.level] || item.level || 'Tidak diketahui'}
-          </Text>
+        <View style={styles.rolesWrap}>
+          {(item.roles && item.roles.length > 0
+            ? item.roles
+            : [{ slug: item.level, scope_type: null, scope_id: null }]
+          ).map((role, index) => (
+            <View key={`${role.slug}-${role.scope_id ?? index}`} style={[styles.badge, styles.roleBadge]}>
+              <Text style={styles.badgeText}>
+                {ROLE_LABELS[role.slug] || role.slug || 'Tidak diketahui'}
+                {role.scope_type && role.scope_id
+                  ? ` • ${role.scope_type} #${role.scope_id}`
+                  : ''}
+              </Text>
+            </View>
+          ))}
         </View>
         <View
           style={[
@@ -349,37 +328,34 @@ const SuperAdminUserListScreen = ({ navigation }) => {
         <View style={styles.ssoSection}>
           <Text style={styles.sectionTitle}>Direktori IdP</Text>
           <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cari nama/email IdP"
-              value={ssoSearch}
-              onChangeText={setSsoSearch}
-              returnKeyType="search"
-              onSubmitEditing={() => fetchSsoUsers({ search: ssoSearch })}
-            />
-            <Button
-              title="Cari"
-              size="small"
-              onPress={() => fetchSsoUsers({ search: ssoSearch })}
-              style={styles.searchButton}
-            />
-            <Button
-              title="Reset"
-              type="secondary"
-              size="small"
-              onPress={() => {
-                setSsoSearch('');
-                fetchSsoUsers({ search: '' });
-              }}
-            />
-          </View>
-          {ssoError && (
-            <ErrorMessage
-              message={ssoError}
-              visible
-              onRetry={() => fetchSsoUsers({ search: ssoSearch })}
-            />
-          )}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari nama/email IdP"
+          value={ssoSearchInput}
+          onChangeText={setSsoSearchInput}
+          returnKeyType="search"
+          onSubmitEditing={handleSsoSearch}
+        />
+        <Button
+          title="Cari"
+          size="small"
+          onPress={handleSsoSearch}
+          style={styles.searchButton}
+        />
+        <Button
+          title="Reset"
+          type="secondary"
+          size="small"
+          onPress={handleSsoReset}
+        />
+      </View>
+      {ssoErrorMessage && (
+        <ErrorMessage
+          message={ssoErrorMessage}
+          visible
+          onRetry={handleSsoSearch}
+        />
+      )}
           {ssoLoading ? (
             <View style={styles.loader}>
               <ActivityIndicator size="small" color="#2563eb" />
@@ -397,8 +373,8 @@ const SuperAdminUserListScreen = ({ navigation }) => {
         <TextInput
           style={styles.searchInput}
           placeholder="Cari nama, email, atau SUB"
-          value={search}
-          onChangeText={setSearch}
+          value={searchInput}
+          onChangeText={setSearchInput}
           onSubmitEditing={handleSearch}
           returnKeyType="search"
         />
@@ -417,11 +393,11 @@ const SuperAdminUserListScreen = ({ navigation }) => {
         />
       </View>
 
-      {error && (
-        <ErrorMessage message={error} visible onRetry={fetchUsers} />
+      {usersErrorMessage && (
+        <ErrorMessage message={usersErrorMessage} visible onRetry={usersQuery.refetch} />
       )}
 
-      {loading && !refreshing ? (
+      {usersLoading && !usersRefreshing ? (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color="#9b59b6" />
         </View>
@@ -433,7 +409,7 @@ const SuperAdminUserListScreen = ({ navigation }) => {
           }
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={usersRefreshing} onRefresh={handleRefresh} />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -578,6 +554,12 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  rolesWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
   },
   activeText: {
     color: '#27ae60',
