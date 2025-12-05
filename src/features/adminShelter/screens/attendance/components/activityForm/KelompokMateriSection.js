@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Switch,
   Text,
@@ -23,15 +23,24 @@ const KelompokMateriSection = ({
   materiCacheLoading,
   selectedMateri,
   onMateriSelect,
-}) => (
-  <>
+}) => {
+  const pickerOptions = useMemo(() => {
+    if (!Array.isArray(kelompokList)) {
+      return [];
+    }
+
+    return kelompokList.filter(item => item && item.id_kelompok);
+  }, [kelompokList]);
+
+  return (
+    <>
     <View style={styles.inputGroup}>
       <Text style={styles.label}>
         Kelompok
         <Text style={styles.required}>*</Text>
       </Text>
       <PickerSection
-        data={kelompokList}
+        data={pickerOptions}
         loading={loadingStates.kelompok}
         error={errors.kelompok}
         onRetry={onRetryKelompok}
@@ -109,6 +118,7 @@ const KelompokMateriSection = ({
       )}
     </View>
   </>
-);
+  );
+};
 
 export default KelompokMateriSection;

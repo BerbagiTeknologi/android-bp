@@ -14,15 +14,42 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { MediaTypeOptions } from 'expo-image-picker';
+import { format, isValid } from 'date-fns';
+import parse from 'date-fns/parse';
+import { id } from 'date-fns/locale';
 
 import Button from '../../../common/components/Button';
 import LoadingSpinner from '../../../common/components/LoadingSpinner';
+import DatePicker from '../../../common/components/DatePicker';
+import PickerInput from '../../../common/components/PickerInput';
 import { adminShelterAnakApi } from '../api/adminShelterAnakApi';
+
+const parseDateValue = (dateString) => {
+  if (!dateString) return null;
+
+  const parsed = parse(dateString, 'dd/MM/yyyy', new Date());
+  if (isValid(parsed)) {
+    return parsed;
+  }
+
+  const fallback = new Date(dateString);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+};
 
 const AnakFormScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { anakData } = route.params || {};
+
+  const mapStatusToJenisAnakBinaan = (statusCpb) => {
+    const mapping = {
+      BCPB: 'BCPB',
+      NPB: 'NPB',
+      CPB: 'CPB',
+      PB: 'PB',
+    };
+    return mapping[statusCpb] || '';
+  };
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -31,6 +58,7 @@ const AnakFormScreen = () => {
     nik_anak: '',
     tempat_lahir: '',
     tanggal_lahir: '',
+    alamat: '',
     jenis_kelamin: 'Laki-laki',
     agama: 'Islam',
     anak_ke: '',
@@ -38,6 +66,14 @@ const AnakFormScreen = () => {
     tinggal_bersama: 'Ayah',
     jenis_anak_binaan: 'BCPB',
     hafalan: 'Tahfidz',
+    jenjang: '',
+    kelas: '',
+    nama_sekolah: '',
+    alamat_sekolah: '',
+    jurusan: '',
+    semester: '',
+    nama_pt: '',
+    alamat_pt: '',
     pelajaran_favorit: '',
     hobi: '',
     prestasi: '',
@@ -50,22 +86,105 @@ const AnakFormScreen = () => {
   });
 
   const [imageUri, setImageUri] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedBirthDate, setSelectedBirthDate] = useState(
+    () => parseDateValue(anakData?.tanggal_lahir) || null
+  );
+
+  const genderOptions = [
+    { label: 'Laki-laki', value: 'Laki-laki' },
+    { label: 'Perempuan', value: 'Perempuan' },
+  ];
+
+  const religionOptions = [
+    { label: 'Islam', value: 'Islam' },
+    { label: 'Kristen', value: 'Kristen' },
+    { label: 'Budha', value: 'Budha' },
+    { label: 'Hindu', value: 'Hindu' },
+    { label: 'Konghucu', value: 'Konghucu' },
+  ];
+
+  const livingWithOptions = [
+    { label: 'Ayah dan Ibu', value: 'Ayah dan Ibu' },
+    { label: 'Ayah', value: 'Ayah' },
+    { label: 'Ibu', value: 'Ibu' },
+    { label: 'Wali', value: 'Wali' },
+  ];
+
+  const childTypeOptions = [
+    { label: 'BCPB', value: 'BCPB' },
+    { label: 'NPB', value: 'NPB' },
+    { label: 'CPB', value: 'CPB' },
+    { label: 'PB', value: 'PB' },
+  ];
+
+  const hafalanOptions = [
+    { label: 'Tahfidz', value: 'Tahfidz' },
+    { label: 'Non-Tahfidz', value: 'Non-Tahfidz' },
+  ];
+
+  const educationLevelOptions = [
+    { label: 'Belum Sekolah', value: 'belum_sd' },
+    { label: 'SD / Sederajat', value: 'sd' },
+    { label: 'SMP / Sederajat', value: 'smp' },
+    { label: 'SMA / Sederajat', value: 'sma' },
+    { label: 'Perguruan Tinggi', value: 'perguruan_tinggi' },
+  ];
+
+  const getGradeOptions = () => {
+    const grades = {
+      sd: ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'],
+      smp: ['Kelas 7', 'Kelas 8', 'Kelas 9'],
+      sma: ['Kelas 10', 'Kelas 11', 'Kelas 12'],
+    };
+
+    return (grades[formData.jenjang] || []).map(grade => ({
+      label: grade,
+      value: grade,
+    }));
+  };
+
+  const smaMajorOptions = [
+    { label: 'IPA', value: 'IPA' },
+    { label: 'IPS', value: 'IPS' },
+    { label: 'Bahasa', value: 'Bahasa' },
+    { label: 'Agama', value: 'Agama' },
+    { label: 'Kejuruan', value: 'Kejuruan' },
+  ];
+
+  const semesterOptions = Array.from({ length: 9 }, (_, index) => ({
+    label: index === 8 ? '> Semester 8' : `Semester ${index + 1}`,
+    value: (index + 1).toString(),
+  }));
 
   useEffect(() => {
     if (anakData) {
+      const pendidikan = anakData.anakPendidikan || {};
       setFormData({
         full_name: anakData.full_name || '',
         nick_name: anakData.nick_name || '',
         nik_anak: anakData.nik_anak || '',
         tempat_lahir: anakData.tempat_lahir || '',
-        tanggal_lahir: anakData.tanggal_lahir || '',
+        tanggal_lahir: (() => {
+          const parsed = parseDateValue(anakData.tanggal_lahir);
+          return parsed ? format(parsed, 'yyyy-MM-dd') : '';
+        })(),
+        alamat: anakData.alamat || '',
         jenis_kelamin: anakData.jenis_kelamin || 'Laki-laki',
         agama: anakData.agama || 'Islam',
         anak_ke: anakData.anak_ke?.toString() || '',
         dari_bersaudara: anakData.dari_bersaudara?.toString() || '',
         tinggal_bersama: anakData.tinggal_bersama || 'Ayah',
-        jenis_anak_binaan: anakData.jenis_anak_binaan || 'BCPB',
+        jenis_anak_binaan: anakData.jenis_anak_binaan || mapStatusToJenisAnakBinaan(anakData.status_cpb) || 'BCPB',
         hafalan: anakData.hafalan || 'Tahfidz',
+        jenjang: pendidikan.jenjang || '',
+        kelas: pendidikan.kelas || '',
+        nama_sekolah: pendidikan.nama_sekolah || '',
+        alamat_sekolah: pendidikan.alamat_sekolah || '',
+        jurusan: pendidikan.jurusan || '',
+        semester: pendidikan.semester?.toString() || '',
+        nama_pt: pendidikan.nama_pt || '',
+        alamat_pt: pendidikan.alamat_pt || '',
         pelajaran_favorit: anakData.pelajaran_favorit || '',
         hobi: anakData.hobi || '',
         prestasi: anakData.prestasi || '',
@@ -75,15 +194,35 @@ const AnakFormScreen = () => {
           ? anakData.personality_traits.join(', ') 
           : anakData.personality_traits || '',
         special_needs: anakData.special_needs || '',
-        marketplace_featured: anakData.marketplace_featured || false,
+        marketplace_featured:
+          anakData.marketplace_featured === true ||
+          anakData.marketplace_featured === 1 ||
+          anakData.marketplace_featured === '1',
         foto: null
       });
       setImageUri(anakData.foto_url);
+      setSelectedBirthDate(parseDateValue(anakData.tanggal_lahir) || null);
     }
   }, [anakData]);
 
   const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      if (field === 'jenjang') {
+        return {
+          ...prev,
+          jenjang: value,
+          kelas: '',
+          nama_sekolah: '',
+          alamat_sekolah: '',
+          jurusan: '',
+          semester: '',
+          nama_pt: '',
+          alamat_pt: '',
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const pickImage = async () => {
@@ -100,47 +239,71 @@ const AnakFormScreen = () => {
     }
   };
 
-  const validateForm = () => {
-    if (!formData.full_name.trim()) {
-      Alert.alert('Error', 'Nama lengkap harus diisi');
-      return false;
-    }
-    if (!formData.nick_name.trim()) {
-      Alert.alert('Error', 'Nama panggilan harus diisi');
-      return false;
-    }
-    if (!formData.tempat_lahir.trim()) {
-      Alert.alert('Error', 'Tempat lahir harus diisi');
-      return false;
-    }
-    if (!formData.tanggal_lahir) {
-      Alert.alert('Error', 'Tanggal lahir harus diisi');
-      return false;
-    }
-    return true;
-  };
-
   const handleSubmit = async () => {
-    if (!validateForm()) return;
-
     try {
       setLoading(true);
 
       const submitData = new FormData();
-      
-      Object.keys(formData).forEach(key => {
-        if (key === 'foto' && formData[key]) {
-          submitData.append('foto', {
-            uri: formData[key].uri,
-            type: 'image/jpeg',
-            name: 'photo.jpg',
-          });
-        } else if (key === 'personality_traits') {
-          submitData.append(key, formData[key]);
-        } else if (key === 'marketplace_featured') {
-          submitData.append(key, formData[key] ? '1' : '0');
-        } else if (formData[key] !== null && formData[key] !== '') {
-          submitData.append(key, formData[key].toString());
+      const parseIntegerField = (value) => {
+        if (value === null || value === undefined || value === '') return '';
+        const normalizedValue = String(value).trim();
+        if (!/^\d+$/.test(normalizedValue)) {
+          return '';
+        }
+        return Number(normalizedValue);
+      };
+
+      const sanitizedData = {
+        ...formData,
+        anak_ke: parseIntegerField(formData.anak_ke),
+        dari_bersaudara: parseIntegerField(formData.dari_bersaudara),
+        semester:
+          formData.jenjang === 'perguruan_tinggi'
+            ? parseIntegerField(formData.semester)
+            : '',
+      };
+
+      const parsedBirthDate = selectedBirthDate || parseDateValue(formData.tanggal_lahir);
+      sanitizedData.tanggal_lahir = parsedBirthDate ? format(parsedBirthDate, 'yyyy-MM-dd') : '';
+
+      Object.entries(sanitizedData).forEach(([key, value]) => {
+        if (key === 'foto') {
+          if (value) {
+            submitData.append('foto', {
+              uri: value.uri,
+              type: 'image/jpeg',
+              name: 'photo.jpg',
+            });
+          }
+          return;
+        }
+
+        if (key === 'marketplace_featured') {
+          submitData.append(key, value ? '1' : '0');
+          return;
+        }
+
+        if (key === 'personality_traits') {
+          const formattedTraits = value
+            ? value
+                .split(',')
+                .map(trait => trait.trim())
+                .filter(Boolean)
+                .join(',')
+            : '';
+          submitData.append(key, formattedTraits);
+          return;
+        }
+
+        if (value === null || value === undefined) {
+          submitData.append(key, '');
+          return;
+        }
+
+        if (typeof value === 'string') {
+          submitData.append(key, value);
+        } else {
+          submitData.append(key, value.toString());
         }
       });
 
@@ -156,8 +319,19 @@ const AnakFormScreen = () => {
         Alert.alert('Error', response.data.message || 'Gagal memperbarui data');
       }
     } catch (error) {
-      console.error('Error updating anak:', error);
-      Alert.alert('Error', 'Gagal memperbarui data anak');
+      const resp = error.response?.data;
+      const errors = resp?.errors;
+      const firstError =
+        errors && typeof errors === 'object'
+          ? Object.values(errors).flat().find(Boolean)
+          : null;
+      const message =
+        firstError ||
+        resp?.message ||
+        'Gagal memperbarui data anak. Mohon periksa kembali input Anda.';
+
+      console.error('Error updating anak:', resp || error);
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
@@ -187,7 +361,7 @@ const AnakFormScreen = () => {
         <Text style={styles.sectionTitle}>Informasi Dasar</Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nama Lengkap *</Text>
+          <Text style={styles.label}>Nama Lengkap</Text>
           <TextInput
             style={styles.input}
             value={formData.full_name}
@@ -197,7 +371,7 @@ const AnakFormScreen = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nama Panggilan *</Text>
+          <Text style={styles.label}>Nama Panggilan</Text>
           <TextInput
             style={styles.input}
             value={formData.nick_name}
@@ -219,7 +393,7 @@ const AnakFormScreen = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tempat Lahir *</Text>
+          <Text style={styles.label}>Tempat Lahir</Text>
           <TextInput
             style={styles.input}
             value={formData.tempat_lahir}
@@ -229,54 +403,67 @@ const AnakFormScreen = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tanggal Lahir * (YYYY-MM-DD)</Text>
+          <Text style={styles.label}>Alamat</Text>
           <TextInput
-            style={styles.input}
-            value={formData.tanggal_lahir}
-            onChangeText={(text) => updateField('tanggal_lahir', text)}
-            placeholder="2010-01-01"
+            style={styles.textArea}
+            value={formData.alamat}
+            onChangeText={(text) => updateField('alamat', text)}
+            placeholder="Masukkan alamat lengkap"
+            multiline
+            numberOfLines={3}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Jenis Kelamin</Text>
-          <View style={styles.radioGroup}>
-            {['Laki-laki', 'Perempuan'].map(option => (
-              <TouchableOpacity
-                key={option}
-                style={styles.radioOption}
-                onPress={() => updateField('jenis_kelamin', option)}
-              >
-                <View style={[
-                  styles.radio,
-                  formData.jenis_kelamin === option && styles.radioSelected
-                ]} />
-                <Text style={styles.radioText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.label}>Tanggal Lahir</Text>
+          <TouchableOpacity
+            style={styles.dateInput}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text
+              style={[
+                styles.dateText,
+                !selectedBirthDate && styles.placeholderText,
+              ]}
+            >
+              {selectedBirthDate
+                ? format(selectedBirthDate, 'dd MMMM yyyy', { locale: id })
+                : 'Pilih tanggal lahir'}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DatePicker
+              value={selectedBirthDate || new Date()}
+              onChange={(date) => {
+                if (date) {
+                  setSelectedBirthDate(date);
+                  updateField('tanggal_lahir', format(date, 'yyyy-MM-dd'));
+                }
+                setShowDatePicker(false);
+              }}
+              onCancel={() => setShowDatePicker(false)}
+              title="Pilih Tanggal Lahir"
+            />
+          )}
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Agama</Text>
-          <View style={styles.selectGroup}>
-            {['Islam', 'Kristen', 'Budha', 'Hindu', 'Konghucu'].map(option => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.selectOption,
-                  formData.agama === option && styles.selectOptionSelected
-                ]}
-                onPress={() => updateField('agama', option)}
-              >
-                <Text style={[
-                  styles.selectOptionText,
-                  formData.agama === option && styles.selectOptionTextSelected
-                ]}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <PickerInput
+          label="Jenis Kelamin"
+          value={formData.jenis_kelamin}
+          onValueChange={(value) => updateField('jenis_kelamin', value)}
+          items={genderOptions}
+          placeholder="Pilih Jenis Kelamin"
+          style={styles.pickerGroup}
+        />
+
+        <PickerInput
+          label="Agama"
+          value={formData.agama}
+          onValueChange={(value) => updateField('agama', value)}
+          items={religionOptions}
+          placeholder="Pilih Agama"
+          style={styles.pickerGroup}
+        />
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
@@ -301,69 +488,143 @@ const AnakFormScreen = () => {
           </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tinggal Bersama</Text>
-          <View style={styles.selectGroup}>
-            {['Ayah', 'Ibu', 'Wali'].map(option => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.selectOption,
-                  formData.tinggal_bersama === option && styles.selectOptionSelected
-                ]}
-                onPress={() => updateField('tinggal_bersama', option)}
-              >
-                <Text style={[
-                  styles.selectOptionText,
-                  formData.tinggal_bersama === option && styles.selectOptionTextSelected
-                ]}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <PickerInput
+          label="Tinggal Bersama"
+          value={formData.tinggal_bersama}
+          onValueChange={(value) => updateField('tinggal_bersama', value)}
+          items={livingWithOptions}
+          placeholder="Pilih Tinggal Bersama"
+          style={styles.pickerGroup}
+        />
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Jenis Anak Binaan</Text>
-          <View style={styles.radioGroup}>
-            {['BCPB', 'NPB'].map(option => (
-              <TouchableOpacity
-                key={option}
-                style={styles.radioOption}
-                onPress={() => updateField('jenis_anak_binaan', option)}
-              >
-                <View style={[
-                  styles.radio,
-                  formData.jenis_anak_binaan === option && styles.radioSelected
-                ]} />
-                <Text style={styles.radioText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <PickerInput
+          label="Jenis Anak Binaan"
+          value={formData.jenis_anak_binaan}
+          onValueChange={(value) => updateField('jenis_anak_binaan', value)}
+          items={childTypeOptions}
+          placeholder="Pilih Jenis Anak Binaan"
+          style={styles.pickerGroup}
+        />
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Hafalan</Text>
-          <View style={styles.radioGroup}>
-            {['Tahfidz', 'Non-Tahfidz'].map(option => (
-              <TouchableOpacity
-                key={option}
-                style={styles.radioOption}
-                onPress={() => updateField('hafalan', option)}
-              >
-                <View style={[
-                  styles.radio,
-                  formData.hafalan === option && styles.radioSelected
-                ]} />
-                <Text style={styles.radioText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <PickerInput
+          label="Hafalan"
+          value={formData.hafalan}
+          onValueChange={(value) => updateField('hafalan', value)}
+          items={hafalanOptions}
+          placeholder="Pilih Hafalan"
+          style={styles.pickerGroup}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Informasi Pendidikan</Text>
+
+        <PickerInput
+          label="Jenjang Pendidikan"
+          value={formData.jenjang}
+          onValueChange={(value) => updateField('jenjang', value)}
+          items={educationLevelOptions}
+          placeholder="Pilih Jenjang Pendidikan"
+          style={styles.pickerGroup}
+        />
+
+        {formData.jenjang &&
+          formData.jenjang !== 'belum_sd' &&
+          formData.jenjang !== 'perguruan_tinggi' && (
+            <>
+              <PickerInput
+                label="Kelas"
+                value={formData.kelas}
+                onValueChange={(value) => updateField('kelas', value)}
+                items={getGradeOptions()}
+                placeholder="Pilih Kelas"
+                style={styles.pickerGroup}
+              />
+
+              {formData.jenjang === 'sma' && (
+                <PickerInput
+                  label="Jurusan"
+                  value={formData.jurusan}
+                  onValueChange={(value) => updateField('jurusan', value)}
+                  items={smaMajorOptions}
+                  placeholder="Pilih Jurusan"
+                  style={styles.pickerGroup}
+                />
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nama Sekolah</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.nama_sekolah}
+                  onChangeText={(text) => updateField('nama_sekolah', text)}
+                  placeholder="Masukkan nama sekolah"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Alamat Sekolah</Text>
+                <TextInput
+                  style={styles.textArea}
+                  value={formData.alamat_sekolah}
+                  onChangeText={(text) => updateField('alamat_sekolah', text)}
+                  placeholder="Masukkan alamat sekolah"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </>
+          )}
+
+        {formData.jenjang === 'perguruan_tinggi' && (
+          <>
+            <PickerInput
+              label="Semester"
+              value={formData.semester}
+              onValueChange={(value) => updateField('semester', value)}
+              items={semesterOptions}
+              placeholder="Pilih Semester"
+              style={styles.pickerGroup}
+            />
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Jurusan</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.jurusan}
+                onChangeText={(text) => updateField('jurusan', text)}
+                placeholder="Masukkan jurusan"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Perguruan Tinggi</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.nama_pt}
+                onChangeText={(text) => updateField('nama_pt', text)}
+                placeholder="Masukkan nama perguruan tinggi"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Alamat Perguruan Tinggi</Text>
+              <TextInput
+                style={styles.textArea}
+                value={formData.alamat_pt}
+                onChangeText={(text) => updateField('alamat_pt', text)}
+                placeholder="Masukkan alamat perguruan tinggi"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </>
+        )}
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informasi Tambahan</Text>
-        
+
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Pelajaran Favorit</Text>
           <TextInput
@@ -569,53 +830,22 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
   },
-  radioGroup: {
-    flexDirection: 'row',
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 24,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+  dateInput: {
+    borderWidth: 1,
     borderColor: '#ddd',
-    marginRight: 8,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#fff',
   },
-  radioSelected: {
-    borderColor: '#e74c3c',
-    backgroundColor: '#e74c3c',
-  },
-  radioText: {
+  dateText: {
     fontSize: 16,
     color: '#333',
   },
-  selectGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  placeholderText: {
+    color: '#999',
   },
-  selectOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  selectOptionSelected: {
-    backgroundColor: '#e74c3c',
-    borderColor: '#e74c3c',
-  },
-  selectOptionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  selectOptionTextSelected: {
-    color: '#fff',
+  pickerGroup: {
+    marginBottom: 16,
   },
   switchGroup: {
     flexDirection: 'row',

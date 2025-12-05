@@ -1,16 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
   Alert, ActivityIndicator
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { MediaTypeOptions } from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import Button from '../../../../common/components/Button';
 import LoadingSpinner from '../../../../common/components/LoadingSpinner';
 import ErrorMessage from '../../../../common/components/ErrorMessage';
+import LocationCaptureCard from '../../../../common/components/LocationCaptureCard';
+import MapPreview from '../../../../common/components/MapPreview';
+import { useLocationCapture } from '../../../../common/hooks/useLocationCapture';
 
 import {
   createActivityReport,
@@ -20,16 +26,31 @@ import {
   ACTIVITY_REPORT_ERROR_RETRY_DELAY
 } from '../../redux/aktivitasSlice';
 import CampaignShareModal from '../../components/CampaignShareModal';
+import { isActivityCompleted, blockIfCompleted } from '../../utils/activityStatusHelper';
+import {
+  completeQuickFlow,
+  selectIsQuickFlowActive,
+  selectQuickFlowActivityId,
+  setQuickFlowActivity,
+  updateQuickFlowStep,
+  selectQuickFlowStatus,
+  resetQuickFlow,
+} from '../../redux/quickFlowSlice';
 
 const ActivityReportScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
-  const { id_aktivitas, activityName, activityDate } = route.params || {};
+  const { id_aktivitas, activityName, activityDate, activityStatus } = route.params || {};
   
   const { reportLoading, reportError } = useSelector(state => state.aktivitas);
   const reportCache = useSelector(selectActivityReportCache);
   const cachedReportEntry = id_aktivitas ? reportCache?.[id_aktivitas] : null;
+  const quickFlowActive = useSelector(selectIsQuickFlowActive);
+  const quickFlowActivityId = useSelector(selectQuickFlowActivityId);
+  const quickFlowStatus = useSelector(selectQuickFlowStatus);
+  const isQuickFlow = (route?.params?.quickFlow || quickFlowActive) && (!quickFlowActivityId || quickFlowActivityId === id_aktivitas);
   
   const [photos, setPhotos] = useState({ foto_1: null, foto_2: null, foto_3: null });
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
@@ -40,90 +61,222 @@ const ActivityReportScreen = ({ navigation, route }) => {
   const [sharedCampaign, setSharedCampaign] = useState(null);
   
   // Debug logging
-  console.log('ActivityReportScreen state:', { 
-    showCampaignModal, 
-    hasSharedCampaign, 
-    sharedCampaign: !!sharedCampaign 
+  console.log('ActivityReportScreen state:', {
+    showCampaignModal,
+    hasSharedCampaign,
+    sharedCampaign: !!sharedCampaign
   });
-  
-  // Check if report already exists when component mounts
+
+  const {
+    data: locationPayload,
+    capturing: capturingLocation,
+    error: locationError,
+    isStale: isLocationStale,
+    lastCapturedAt: locationCapturedAt,
+    captureLocation,
+    ensureFreshLocation,
+  } = useLocationCapture({ ttl: 60 * 1000 });
+
+  useEffect(() => {
+    captureLocation();
+  }, [captureLocation]);
+
+  const navigateToActivityDetail = useCallback(() => {
+    if (!id_aktivitas) {
+      navigation.goBack();
+      return;
+    }
+
+    if (isQuickFlow) {
+      dispatch(setQuickFlowActivity({ activityId: id_aktivitas, status: 'reported' }));
+      dispatch(updateQuickFlowStep('activityDetail'));
+    }
+
+    navigation.replace('ActivityDetail', {
+      id_aktivitas,
+      activityName,
+      activityDate,
+      activityStatus: 'reported',
+      quickFlow: isQuickFlow,
+    });
+  }, [activityDate, activityName, dispatch, id_aktivitas, isQuickFlow, navigation]);
+
+  const resolveReportPayload = useCallback((payload) => (
+    payload?.data && typeof payload.data === 'object' ? payload.data : payload
+  ), []);
+
+  const cacheMeta = useMemo(() => {
+    if (!cachedReportEntry) {
+      return null;
+    }
+
+    const fetchedAt = cachedReportEntry.fetchedAt ?? 0;
+    const cacheAge = Date.now() - fetchedAt;
+    const ttl = cachedReportEntry.status === 'error'
+      ? ACTIVITY_REPORT_ERROR_RETRY_DELAY
+      : ACTIVITY_REPORT_CACHE_TTL;
+
+    return {
+      cacheAge,
+      ttl,
+      isFresh: cacheAge < ttl,
+    };
+  }, [cachedReportEntry]);
+
+  const shouldSkipFetch = cacheMeta?.isFresh ?? false;
+
+  const initialReportData = useMemo(() => {
+    if (!cachedReportEntry) {
+      return undefined;
+    }
+
+    return {
+      status: cachedReportEntry.status || null,
+      data: cachedReportEntry.data || null,
+    };
+  }, [cachedReportEntry]);
+
+  const reportStatusQuery = useQuery({
+    queryKey: ['adminShelterActivityReportStatus', id_aktivitas],
+    enabled: !!id_aktivitas && !shouldSkipFetch,
+    initialData: initialReportData,
+    initialDataUpdatedAt: cachedReportEntry?.fetchedAt,
+    staleTime: ACTIVITY_REPORT_CACHE_TTL,
+    gcTime: ACTIVITY_REPORT_CACHE_TTL,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    queryFn: async () => {
+      if (!id_aktivitas) {
+        return { status: 'missing', data: null };
+      }
+
+      try {
+        const reportPayload = await dispatch(fetchActivityReport(id_aktivitas)).unwrap();
+        const reportData = resolveReportPayload(reportPayload);
+        return {
+          status: reportData ? 'exists' : 'missing',
+          data: reportData,
+        };
+      } catch (err) {
+        const statusCode = err?.status || err?.response?.status || err?.originalStatus;
+        const rawMessage = typeof err === 'string' ? err : err?.message;
+        const normalizedMessage = typeof rawMessage === 'string' ? rawMessage.toLowerCase() : '';
+        const isNotFound =
+          statusCode === 404 ||
+          normalizedMessage.includes('tidak ditemukan') ||
+          normalizedMessage.includes('not found');
+
+        if (isNotFound) {
+          return {
+            status: 'missing',
+            data: null,
+          };
+        }
+
+        console.error('Error fetching activity report:', err);
+        return {
+          status: 'error',
+          data: null,
+          error: err,
+        };
+      }
+    },
+  });
+
+  const reportStatusData = reportStatusQuery.data;
+  const hasNavigatedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isQuickFlow || !id_aktivitas) {
+      return;
+    }
+
+    const status = activityStatus || quickFlowStatus || '';
+    if (typeof status === 'string') {
+      const normalized = status.toLowerCase();
+      if (normalized === 'reported' || normalized === 'selesai' || normalized === 'complete' || normalized === 'done') {
+        dispatch(resetQuickFlow());
+        return;
+      }
+    }
+
+    dispatch(setQuickFlowActivity({ activityId: id_aktivitas, status }));
+    dispatch(updateQuickFlowStep('activityReport'));
+  }, [activityStatus, dispatch, id_aktivitas, isQuickFlow, quickFlowStatus]);
+
   useEffect(() => {
     if (!id_aktivitas) {
       setCheckingExisting(false);
       return;
     }
 
-    const now = Date.now();
-    const cacheEntry = cachedReportEntry;
+    const status = reportStatusData?.status;
 
-    if (cacheEntry) {
-      const cacheAge = cacheEntry.fetchedAt ? now - cacheEntry.fetchedAt : Number.POSITIVE_INFINITY;
-      const cacheTtl = cacheEntry.status === 'error'
-        ? ACTIVITY_REPORT_ERROR_RETRY_DELAY
-        : ACTIVITY_REPORT_CACHE_TTL;
-
-      if (cacheEntry.status === 'exists' && cacheEntry.data && cacheAge < cacheTtl) {
-        navigation.replace('ViewReportScreen', {
-          report: cacheEntry.data,
-          activityName,
-          activityDate
-        });
-        return;
+    if (status === 'exists' && reportStatusData?.data && !hasNavigatedRef.current) {
+      if (isQuickFlow) {
+        dispatch(completeQuickFlow());
       }
-
-      if ((cacheEntry.status === 'missing' || cacheEntry.status === 'error') && cacheAge < cacheTtl) {
-        setCheckingExisting(false);
-        return;
-      }
+      hasNavigatedRef.current = true;
+      navigation.replace('ViewReportScreen', {
+        report: reportStatusData.data,
+        activityName,
+        activityDate
+      });
+      return;
     }
 
-    let isActive = true;
+    if (
+      status === 'missing' ||
+      status === 'error' ||
+      (!reportStatusQuery.isFetching && status)
+    ) {
+      setCheckingExisting(false);
+    }
 
-    const resolveReportPayload = (payload) => (
-      payload?.data && typeof payload.data === 'object' ? payload.data : payload
-    );
+    if (reportStatusQuery.isError) {
+      setCheckingExisting(false);
+    }
 
-    const checkExistingReport = async () => {
-      try {
-        const reportPayload = await dispatch(fetchActivityReport(id_aktivitas)).unwrap();
-        if (!isActive) return;
-
-        const reportData = resolveReportPayload(reportPayload);
-        navigation.replace('ViewReportScreen', {
-          report: reportData,
-          activityName,
-          activityDate
-        });
-      } catch (err) {
-        if (!isActive) return;
-        setCheckingExisting(false);
-      }
-    };
-    
-    checkExistingReport();
-
-    return () => {
-      isActive = false;
-    };
+    if (shouldSkipFetch && !status) {
+      setCheckingExisting(false);
+    }
   }, [
     id_aktivitas,
-    cachedReportEntry,
-    dispatch,
-    navigation,
     activityName,
-    activityDate
+    activityDate,
+    navigation,
+    reportStatusData,
+    reportStatusQuery.isFetching,
+    reportStatusQuery.isError,
+    shouldSkipFetch
   ]);
+
+  // Check if activity is completed and block access
+  useEffect(() => {
+    if (blockIfCompleted(activityStatus, navigation, 'laporan kegiatan')) {
+      return;
+    }
+  }, [activityStatus, navigation]);
   
-  // Show loading while checking existing report
-  if (checkingExisting) {
-    return (
-      <View style={styles.checkingContainer}>
-        <LoadingSpinner message="Memeriksa laporan kegiatan..." />
-      </View>
+  const confirmProceedWithoutLocation = useCallback((reason) => new Promise((resolve) => {
+    Alert.alert(
+      'Lokasi belum tersedia',
+      `${reason || 'Tidak dapat mengambil lokasi saat ini.'}\nAnda dapat melanjutkan tanpa koordinat, tetapi laporan akan ditandai untuk review.`,
+      [
+        { text: 'Ambil Ulang', style: 'default', onPress: () => resolve(false) },
+        { text: 'Lanjutkan', onPress: () => resolve(true) },
+      ]
     );
-  }
+  }), []);
   
   const handleTakePhoto = async (photoKey) => {
+    if (isCapturingPhoto) {
+      return;
+    }
+
+    setIsCapturingPhoto(true);
+
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
@@ -133,18 +286,31 @@ const ActivityReportScreen = ({ navigation, route }) => {
       
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: false,
         aspect: [4, 3],
-        quality: 0.8
+        quality: 0.65,
+        skipProcessing: true,
       });
       
       if (!result.canceled && result.assets?.[0]) {
         const image = result.assets[0];
-        setPhotos(prev => ({ ...prev, [photoKey]: image.uri }));
+        try {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            image.uri,
+            [{ resize: { width: 1400 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          setPhotos(prev => ({ ...prev, [photoKey]: manipulated.uri }));
+        } catch (manipErr) {
+          console.warn('Compress failed, using original:', manipErr);
+          setPhotos(prev => ({ ...prev, [photoKey]: image.uri }));
+        }
       }
     } catch (error) {
       console.error('Error mengambil foto:', error);
       Alert.alert('Error', 'Gagal mengambil foto');
+    } finally {
+      setIsCapturingPhoto(false);
     }
   };
   
@@ -160,11 +326,51 @@ const ActivityReportScreen = ({ navigation, route }) => {
     }
     return true;
   };
-  
+
+  const compressPhotosForSubmission = useCallback(async (photoMap) => {
+    const entries = Object.entries(photoMap || {});
+    const compressed = {};
+
+    for (const [key, uri] of entries) {
+      if (!uri) {
+        compressed[key] = null;
+        continue;
+      }
+      try {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: 1400 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        compressed[key] = manipulated.uri;
+      } catch (err) {
+        console.warn('Compress submit failed, using original:', err);
+        compressed[key] = uri;
+      }
+    }
+
+    return compressed;
+  }, []);
+
+  // Show loading while checking existing report
+  if (checkingExisting) {
+    return (
+      <View style={styles.checkingContainer}>
+        <LoadingSpinner message="Memeriksa laporan kegiatan..." />
+      </View>
+    );
+  }
+
+  const handleCancel = () => {
+    if (isQuickFlow) {
+      dispatch(completeQuickFlow());
+    }
+    navigation.goBack();
+  };
+
   const handleSubmit = async () => {
     console.log('handleSubmit called, hasSharedCampaign:', hasSharedCampaign);
     
-    // Check campaign share validation first
     if (!hasSharedCampaign) {
       console.log('Opening campaign modal...');
       setShowCampaignModal(true);
@@ -172,15 +378,56 @@ const ActivityReportScreen = ({ navigation, route }) => {
     }
     
     if (!validateForm()) return;
+
+    let gpsDataForSubmission = locationPayload && !isLocationStale ? locationPayload : null;
+    if (!gpsDataForSubmission) {
+      const captureResult = await ensureFreshLocation();
+      if (captureResult.success) {
+        gpsDataForSubmission = captureResult.gpsData;
+      } else {
+        const proceed = await confirmProceedWithoutLocation(captureResult.error);
+        if (!proceed) {
+          return;
+        }
+      }
+    }
     
+    // Debug: capture file info before submission
+    const photoDebug = await Promise.all(
+      Object.entries(photos).map(async ([key, uri]) => {
+        if (!uri) {
+          return { key, present: false };
+        }
+        try {
+          const info = await FileSystem.getInfoAsync(uri);
+          return {
+            key,
+            present: true,
+            uri,
+            size: info?.size,
+            mime: 'image/jpeg',
+          };
+        } catch (fileErr) {
+          console.warn('Failed to read file info for', key, fileErr);
+          return { key, present: true, uri, size: null, mime: 'image/jpeg' };
+        }
+      })
+    );
+    console.log('ActivityReport submit debug', {
+      id_aktivitas,
+      photoDebug,
+      gpsData: gpsDataForSubmission,
+    });
+
     setLoading(true);
     setError(null);
     
     try {
+      const compressedPhotos = await compressPhotosForSubmission(photos);
       const formData = new FormData();
       formData.append('id_aktivitas', id_aktivitas);
       
-      Object.entries(photos).forEach(([key, uri]) => {
+      Object.entries(compressedPhotos).forEach(([key, uri]) => {
         if (uri) {
           formData.append(key, {
             uri,
@@ -189,15 +436,79 @@ const ActivityReportScreen = ({ navigation, route }) => {
           });
         }
       });
+
+      if (gpsDataForSubmission) {
+        const locationFields = {
+          latitude: gpsDataForSubmission.latitude,
+          longitude: gpsDataForSubmission.longitude,
+          location_accuracy: gpsDataForSubmission.gps_accuracy,
+          location_recorded_at: gpsDataForSubmission.gps_recorded_at,
+        };
+
+        Object.entries(locationFields).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, value);
+          }
+        });
+      }
       
-      await dispatch(createActivityReport(formData)).unwrap();
+      const formKeys = formData?._parts?.map?.(([k]) => k) || [];
+      console.log('ActivityReport FormData keys:', formKeys);
+
+      const result = await dispatch(createActivityReport(formData)).unwrap();
+
+      const flagLines = result?.flags?.length
+        ? result.flags
+            .map((flag) => `• ${flag.message || flag.code || 'Perlu peninjauan'}`)
+            .join('\n')
+        : '';
       
-      Alert.alert('Berhasil', 'Laporan kegiatan berhasil dikirim', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      const successMessage = flagLines
+        ? `Laporan kegiatan berhasil dikirim.\n\nCatatan lokasi:\n${flagLines}`
+        : 'Laporan kegiatan berhasil dikirim';
+
+      Alert.alert(
+        'Berhasil',
+        successMessage,
+        [
+          {
+            text: 'Lihat Detail',
+            onPress: navigateToActivityDetail
+          }
+        ],
+        { cancelable: false }
+      );
     } catch (err) {
       console.error('Error mengirim laporan:', err);
-      setError(err || 'Gagal mengirim laporan');
+      const backendErrors =
+        err?.errors ||
+        err?.response?.data?.errors ||
+        err?.data?.errors ||
+        null;
+      if (backendErrors) {
+        console.warn('Backend validation errors:', backendErrors);
+      }
+      // Cek apakah laporan sebenarnya sudah tersimpan meski ada error jaringan
+      try {
+        const reportPayload = await dispatch(fetchActivityReport(id_aktivitas)).unwrap();
+        const reportData = resolveReportPayload(reportPayload);
+        if (reportData) {
+          const fallbackMessage = 'Laporan kemungkinan sudah tersimpan meski ada gangguan jaringan.';
+
+          Alert.alert(
+            'Berhasil (dikonfirmasi ulang)',
+            fallbackMessage,
+            [
+              { text: 'Lihat Detail', onPress: navigateToActivityDetail },
+            ],
+          );
+          return;
+        }
+      } catch (verifyErr) {
+        console.warn('Verification after failure failed:', verifyErr);
+      }
+
+      setError(err?.message || err || 'Gagal mengirim laporan');
     } finally {
       setLoading(false);
     }
@@ -225,6 +536,29 @@ const ActivityReportScreen = ({ navigation, route }) => {
     );
   };
 
+  // Handle campaign skip completion (when API error occurs)
+  const handleCampaignSkipComplete = () => {
+    console.log('Campaign skipped due to API error - allowing report submission');
+    setHasSharedCampaign(true);
+    setSharedCampaign({ title: 'Dilewati (API Error)' });
+    setShowCampaignModal(false);
+    
+    // Show information message to user
+    Alert.alert(
+      'Informasi',
+      'Anda telah melewati berbagi kampanye karena API tidak dapat diakses. Sekarang Anda dapat melanjutkan dengan mengirim laporan aktivitas.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Just close the alert, user can now submit the form manually
+            console.log('Campaign skipped due to API error');
+          }
+        }
+      ]
+    );
+  };
+
   const PhotoBox = ({ photoKey, uri, onTakePhoto, onRemove }) => (
     <View style={styles.photoBox}>
       {uri ? (
@@ -235,7 +569,11 @@ const ActivityReportScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity style={styles.addPhotoButton} onPress={() => onTakePhoto(photoKey)}>
+        <TouchableOpacity
+          style={styles.addPhotoButton}
+          onPress={() => onTakePhoto(photoKey)}
+          disabled={isCapturingPhoto}
+        >
           <Ionicons name="camera" size={32} color="#bdc3c7" />
           <Text style={styles.addPhotoText}>{photoKey.replace('foto_', 'Foto ')}</Text>
         </TouchableOpacity>
@@ -245,7 +583,11 @@ const ActivityReportScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.content}
+        nestedScrollEnabled
+      >
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
       
       <View style={styles.header}>
@@ -259,6 +601,28 @@ const ActivityReportScreen = ({ navigation, route }) => {
         <Text style={styles.instructionText}>
           Ambil foto dokumentasi kegiatan menggunakan kamera. Minimal 1 foto, maksimal 3 foto.
         </Text>
+      </View>
+
+      <View style={styles.locationCardContainer}>
+        <LocationCaptureCard
+          title="Lokasi Dokumentasi"
+          description="Koordinat disertakan agar pusat dapat melihat konteks lokasi. Data disimpan 60 detik."
+          location={locationPayload}
+          isStale={isLocationStale}
+          capturing={capturingLocation}
+          error={locationError}
+          lastCapturedAt={locationCapturedAt}
+          onCapturePress={captureLocation}
+        />
+      </View>
+
+      <View style={styles.mapPreviewContainer}>
+        <MapPreview
+          location={locationPayload}
+          isStale={isLocationStale}
+          label="Lokasi Dokumentasi"
+          height={200}
+        />
       </View>
 
       {/* Campaign Share Status */}
@@ -310,7 +674,7 @@ const ActivityReportScreen = ({ navigation, route }) => {
         
         <Button
           title="Batal"
-          onPress={() => navigation.goBack()}
+          onPress={handleCancel}
           type="outline"
           disabled={loading}
           fullWidth
@@ -331,6 +695,7 @@ const ActivityReportScreen = ({ navigation, route }) => {
         visible={showCampaignModal}
         onClose={() => setShowCampaignModal(false)}
         onShareComplete={handleCampaignShareComplete}
+        onSkipCampaign={handleCampaignSkipComplete}
       />
     </View>
   );
@@ -339,7 +704,7 @@ const ActivityReportScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   scrollContainer: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: 120 },
   checkingContainer: { 
     flex: 1, 
     backgroundColor: '#fff',
@@ -353,6 +718,13 @@ const styles = StyleSheet.create({
   instructionContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f4f8',
     padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#bce0f4'
+  },
+  locationCardContainer: {
+    marginBottom: 20,
+  },
+  mapPreviewContainer: {
+    marginBottom: 20,
+    height: 200,
   },
   instructionText: { flex: 1, marginLeft: 8, color: '#2c88a6', fontSize: 14 },
   inputGroup: { marginBottom: 20 },

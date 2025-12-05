@@ -35,6 +35,7 @@ import {
   selectAktivitasStatusUpdating,
   selectAktivitasAttendanceSummary as selectAktivitasDetailSummary
 } from '../../../redux/aktivitasSlice';
+import { isActivityCompleted } from '../../../utils/activityStatusHelper';
 
 const AttendanceListTab = ({
   navigation,
@@ -43,6 +44,7 @@ const AttendanceListTab = ({
   activityDate,
   activityType,
   kelompokId,
+  kelompokIds = [],
   kelompokName,
   activityStatus: routeActivityStatus,
   attendanceSummary: routeAttendanceSummary,
@@ -63,6 +65,37 @@ const AttendanceListTab = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCardId, setExpandedCardId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
+
+  const combinedKelompokIds = useMemo(() => {
+    const idSet = new Set();
+
+    if (Array.isArray(kelompokIds)) {
+      kelompokIds.forEach(id => {
+        if (id !== null && id !== undefined) {
+          const normalized = Number(id);
+          if (!Number.isNaN(normalized)) {
+            idSet.add(normalized);
+          }
+        }
+      });
+    }
+
+    if (kelompokId !== null && kelompokId !== undefined) {
+      const normalized = Number(kelompokId);
+      if (!Number.isNaN(normalized)) {
+        idSet.add(normalized);
+      }
+    }
+
+    return Array.from(idSet);
+  }, [kelompokId, kelompokIds]);
+
+  const effectiveKelompokId = useMemo(
+    () => (combinedKelompokIds.length > 0 ? combinedKelompokIds[0] : null),
+    [combinedKelompokIds],
+  );
+
+  const hasKelompokContext = combinedKelompokIds.length > 0;
 
   const detailMatches = aktivitasDetail?.id_aktivitas === id_aktivitas;
   const derivedActivityStatus = detailMatches ? aktivitasDetail?.status : null;
@@ -274,6 +307,14 @@ const AttendanceListTab = ({
       dispatch(resetAttendanceError());
     };
   }, [id_aktivitas, refreshData, dispatch]);
+
+  // Auto-trigger refresh and UI update when activity status changes to completed
+  useEffect(() => {
+    if (isActivityCompleted(effectiveActivityStatus)) {
+      // Refresh data to ensure UI is up to date with completed status
+      refreshData({ force: true });
+    }
+  }, [effectiveActivityStatus, refreshData]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -569,12 +610,15 @@ const AttendanceListTab = ({
   };
   
   const navigateToManualEntry = () => {
+    if (!hasKelompokContext) return;
+
     navigation.navigate('ManualAttendance', {
       id_aktivitas,
       activityName,
       activityDate,
       activityType,
-      kelompokId,
+      kelompokId: effectiveKelompokId,
+      kelompokIds: combinedKelompokIds,
       kelompokName,
       activityStatus: effectiveActivityStatus,
     });
@@ -867,7 +911,11 @@ const AttendanceListTab = ({
       />
       
       <View style={styles.fabContainer}>
-        <TouchableOpacity style={styles.fab} onPress={navigateToManualEntry}>
+        <TouchableOpacity
+          style={[styles.fab, !hasKelompokContext && styles.fabDisabled]}
+          onPress={navigateToManualEntry}
+          disabled={!hasKelompokContext}
+        >
           <Ionicons name="create" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -979,6 +1027,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25, shadowRadius: 3.84
   },
+  fabDisabled: { backgroundColor: '#bdc3c7', opacity: 0.8 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center', alignItems: 'center'

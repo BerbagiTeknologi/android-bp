@@ -1,55 +1,153 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const LaporanKegiatanMainScreen = () => {
   const navigation = useNavigation();
 
-  const menuItems = [
-    { title: 'Laporan Anak Binaan', icon: 'people', color: '#e74c3c', screen: 'LaporanAnakBinaan' },
-    { title: 'Laporan Tutor', icon: 'school', color: '#2ecc71', screen: 'LaporanTutor' },
-    { title: 'Shelter Report', icon: 'home', color: '#3498db', screen: 'ShelterReport' },
-    { title: 'CPB Report', icon: 'document-text', color: '#9b59b6', screen: 'CPBReport' }
-  ];
+  const handleActivityReportPress = () => {
+    navigation.navigate('ActivityReportList');
+  };
 
-  const navigateTo = (screen) => navigation.navigate(screen);
+  const handleAchievementReportPress = () => {
+    navigation.navigate('ChildAchievementReport');
+  };
+
+  const handleTutorAttendancePress = () => {
+    navigation.navigate('TutorAttendanceReport');
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.menuContainer}>
-        {menuItems.map(({ title, icon, color, screen }, index) => (
-          <TouchableOpacity key={index} style={styles.menuItem} onPress={() => navigateTo(screen)}>
-            <View style={[styles.menuIcon, { backgroundColor: color }]}>
-              <Ionicons name={icon} size={32} color="#ffffff" />
-            </View>
-            <Text style={styles.menuText}>{title}</Text>
-          </TouchableOpacity>
-        ))}
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <Text style={styles.heading}>Laporan & Analitik</Text>
+      <Text style={styles.subheading}>
+        Pilih alur laporan yang ingin Anda buat untuk aktivitas dan tutor shelter.
+      </Text>
+
+      <View style={styles.cardsContainer}>
+        <TouchableOpacity style={styles.card} onPress={handleActivityReportPress} activeOpacity={0.85}>
+          <View style={styles.iconWrapperPrimary}>
+            <Ionicons name="document-text-outline" size={28} color="#e74c3c" />
+          </View>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Laporan Kegiatan</Text>
+            <Text style={styles.cardDescription}>
+              Buka daftar aktivitas shelter dan pilih kegiatan yang ingin dilaporkan.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9aa5b1" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.card} onPress={handleAchievementReportPress} activeOpacity={0.85}>
+          <View style={styles.iconWrapperAchievement}>
+            <Ionicons name="school-outline" size={28} color="#27ae60" />
+          </View>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Laporan Pencapaian Anak</Text>
+            <Text style={styles.cardDescription}>
+              Tinjau nilai anak berdasarkan aktivitas shelter lengkap dengan catatan tutor.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9aa5b1" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.card} onPress={handleTutorAttendancePress} activeOpacity={0.85}>
+          <View style={styles.iconWrapperSecondary}>
+            <Ionicons name="people-outline" size={28} color="#3f51b5" />
+          </View>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>Laporan Kehadiran Tutor</Text>
+            <Text style={styles.cardDescription}>
+              Rekap dan tindak lanjuti kehadiran tutor dari aktivitas yang telah berlangsung.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9aa5b1" />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  content: { padding: 16, paddingBottom: 32 },
-  menuContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  menuItem: {
-    width: '48%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3
+  container: {
+    flex: 1,
+    backgroundColor: '#f7f9fc'
   },
-  menuIcon: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  menuText: { fontSize: 14, fontWeight: '600', color: '#333', textAlign: 'center' }
+  scrollContent: {
+    paddingVertical: 24,
+    paddingHorizontal: 20
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1f2933',
+    marginBottom: 8
+  },
+  subheading: {
+    fontSize: 14,
+    color: '#52606d',
+    lineHeight: 20,
+    marginBottom: 24
+  },
+  cardsContainer: {
+    marginBottom: 8
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: '#1f2933',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4
+  },
+  iconWrapperPrimary: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(231, 76, 60, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16
+  },
+  iconWrapperAchievement: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(39, 174, 96, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16
+  },
+  iconWrapperSecondary: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(63, 81, 181, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16
+  },
+  cardContent: {
+    flex: 1
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2933',
+    marginBottom: 6
+  },
+  cardDescription: {
+    fontSize: 13,
+    color: '#7b8794',
+    lineHeight: 19
+  }
 });
 
 export default LaporanKegiatanMainScreen;

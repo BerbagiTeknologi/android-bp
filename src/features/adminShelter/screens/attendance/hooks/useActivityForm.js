@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -42,6 +43,7 @@ const initialFormState = {
   id_materi: null,
   tanggal: new Date(),
   selectedKelompokId: null,
+  selectedKelompokIds: [],
   selectedKelompokObject: null,
   start_time: null,
   end_time: null,
@@ -63,6 +65,7 @@ const initialUiState = {
 
 const useActivityForm = ({ activity, onSuccess }) => {
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const isEditing = Boolean(activity);
 
   const loading = useSelector(selectAktivitasLoading);
@@ -108,13 +111,28 @@ const useActivityForm = ({ activity, onSuccess }) => {
 
     const isManualMaterial = Boolean(activity.pakai_materi_manual) ||
       (!activity.id_materi && (!!activity.mata_pelajaran_manual || !!activity.materi_manual));
+    const rawKelompokIds = Array.isArray(activity.kelompok_ids)
+      ? activity.kelompok_ids.filter(Boolean)
+      : [];
+    const fallbackSelectedIds = Array.isArray(activity.selectedKelompokIds)
+      ? activity.selectedKelompokIds.filter(Boolean)
+      : [];
+    const derivedSelectedId = activity.selectedKelompokId ||
+      rawKelompokIds[0] ||
+      fallbackSelectedIds[0] ||
+      null;
+    const initialKelompokIds = derivedSelectedId ? [derivedSelectedId] : [];
+    const isAllKelompok = (activity.nama_kelompok || '').toLowerCase() === 'semua kelompok';
+    const safeNamaKelompok = isAllKelompok ? '' : (activity.nama_kelompok || '');
 
     setFormData(prev => ({
       ...prev,
       jenis_kegiatan: activity.jenis_kegiatan || '',
       id_kegiatan: activity.id_kegiatan || activity.kegiatan?.id_kegiatan || null,
       level: activity.level || '',
-      nama_kelompok: activity.nama_kelompok || '',
+      nama_kelompok: safeNamaKelompok,
+      selectedKelompokId: derivedSelectedId,
+      selectedKelompokIds: initialKelompokIds,
       materi: isManualMaterial
         ? (activity.materi_manual || activity.materi || '')
         : (activity.materi || ''),
@@ -200,6 +218,7 @@ const useActivityForm = ({ activity, onSuccess }) => {
       level: '',
       nama_kelompok: '',
       selectedKelompokId: null,
+      selectedKelompokIds: [],
       selectedKelompokObject: null,
       id_materi: null,
       materi: '',
@@ -212,12 +231,18 @@ const useActivityForm = ({ activity, onSuccess }) => {
     setConflictWarning(null);
   }, [dispatch, kegiatanOptions]);
 
-  const handleKelompokChange = useCallback((kelompokId) => {
-    const selected = kelompokList.find(k => k.id_kelompok === kelompokId);
+  const handleKelompokChange = useCallback((kelompokValue) => {
+    const normalizedId = typeof kelompokValue === 'number'
+      ? kelompokValue
+      : (kelompokValue ? Number(kelompokValue) : null);
+    const selected = normalizedId
+      ? kelompokList.find(k => k.id_kelompok === normalizedId)
+      : null;
 
     setFormData(prev => ({
       ...prev,
-      selectedKelompokId: kelompokId,
+      selectedKelompokId: normalizedId,
+      selectedKelompokIds: normalizedId ? [normalizedId] : [],
       selectedKelompokObject: selected || null,
       nama_kelompok: selected?.nama_kelompok || '',
       level: deriveKelompokDisplayLevel(selected),
@@ -413,6 +438,31 @@ const useActivityForm = ({ activity, onSuccess }) => {
   ]);
 
   const prepareFormData = useCallback(() => {
+    const effectiveKelompokId = formData.selectedKelompokId ||
+      (
+        Array.isArray(formData.selectedKelompokIds) &&
+        formData.selectedKelompokIds.find(id => !!id)
+      ) ||
+      null;
+
+    const resolvedKelompokObject = formData.selectedKelompokObject ||
+      (effectiveKelompokId
+        ? kelompokList.find(item => item.id_kelompok === effectiveKelompokId)
+        : null);
+
+    const resolvedKelompokName = resolvedKelompokObject?.nama_kelompok ||
+      (
+        formData.nama_kelompok &&
+        formData.nama_kelompok.toLowerCase() !== 'semua kelompok'
+          ? formData.nama_kelompok
+          : ''
+      ) ||
+      '';
+
+    const resolvedLevel = resolvedKelompokObject
+      ? deriveKelompokDisplayLevel(resolvedKelompokObject)
+      : (formData.level || '');
+
     if (isEditing) {
       const data = {
         jenis_kegiatan: jenisKegiatan,
@@ -422,8 +472,13 @@ const useActivityForm = ({ activity, onSuccess }) => {
 
       if (formData.id_tutor) data.id_tutor = formData.id_tutor;
 
-      data.level = formData.level || '';
-      data.nama_kelompok = formData.nama_kelompok || '';
+      data.level = resolvedLevel;
+      data.nama_kelompok = resolvedKelompokName;
+
+      if (effectiveKelompokId) {
+        data.kelompok_id = effectiveKelompokId;
+        data.kelompok_ids = [effectiveKelompokId];
+      }
 
       const materiPayload = formData.pakai_materi_manual
         ? formData.materi_manual || ''
@@ -458,8 +513,13 @@ const useActivityForm = ({ activity, onSuccess }) => {
 
     if (formData.id_tutor) data.append('id_tutor', formData.id_tutor);
 
-    data.append('level', formData.level || '');
-    data.append('nama_kelompok', formData.nama_kelompok || '');
+    data.append('level', resolvedLevel);
+    data.append('nama_kelompok', resolvedKelompokName);
+
+    if (effectiveKelompokId) {
+      data.append('kelompok_id', String(effectiveKelompokId));
+      data.append('kelompok_ids', JSON.stringify([effectiveKelompokId]));
+    }
 
     const materiPayload = formData.pakai_materi_manual
       ? formData.materi_manual || ''
@@ -497,9 +557,13 @@ const useActivityForm = ({ activity, onSuccess }) => {
     formData.materi_manual,
     formData.mata_pelajaran_manual,
     formData.nama_kelompok,
+    formData.selectedKelompokIds,
+    formData.selectedKelompokId,
+    formData.selectedKelompokObject,
     formData.pakai_materi_manual,
     formData.start_time,
     formData.tanggal,
+    kelompokList,
     isEditing,
     jenisKegiatan,
     uiState.useCustomLateThreshold,
@@ -512,14 +576,21 @@ const useActivityForm = ({ activity, onSuccess }) => {
 
     try {
       if (isEditing) {
-        await dispatch(updateAktivitas({ id: activity.id_aktivitas, aktivitasData: data })).unwrap();
+        const result = await dispatch(updateAktivitas({ 
+          id: activity.id_aktivitas, 
+          aktivitasData: data, 
+          queryClient 
+        })).unwrap();
         Alert.alert('Berhasil', 'Aktivitas berhasil diperbarui', [
-          { text: 'Oke', onPress: onSuccess },
+          { text: 'Oke', onPress: () => onSuccess?.(result?.data || result) },
         ]);
       } else {
-        await dispatch(createAktivitas(data)).unwrap();
+        const result = await dispatch(createAktivitas({ 
+          aktivitasData: data, 
+          queryClient 
+        })).unwrap();
         Alert.alert('Berhasil', 'Aktivitas berhasil dibuat', [
-          { text: 'Oke', onPress: onSuccess },
+          { text: 'Oke', onPress: () => onSuccess?.(result?.data || result) },
         ]);
       }
     } catch (err) {
@@ -540,7 +611,7 @@ const useActivityForm = ({ activity, onSuccess }) => {
         Alert.alert('Gagal Menyimpan', errorMessage, [{ text: 'Oke' }]);
       }
     }
-  }, [activity, conflicts, dispatch, error, isEditing, onSuccess, prepareFormData, validateForm]);
+  }, [activity, conflicts, dispatch, error, isEditing, onSuccess, prepareFormData, queryClient, validateForm]);
 
   return {
     isEditing,
